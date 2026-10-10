@@ -2,6 +2,7 @@
 # attribute strings stay borrowed from the page's owned HTML document.
 import libs.extras.html.html
 import win.style
+import win.layout
 import win.images
 import graphics.ui.text
 import lib.utf8
@@ -360,15 +361,7 @@ win_box* win_box_add(win_page* page, html_node* node, win_style style, float32 x
 	page.boxes.push(box)
 	return box
 
-void win_layout_node(win_page* page, html_node* node, win_style inherited, char* href):
-	if (node == 0 || page.truncated): return
-	if (node.kind == HTML_TEXT):
-		page.layout_node = node.parent
-		win_text(page, node.text, node.text_length, inherited, href)
-		return
-	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return
-	if (win_tag(node, c"head") || win_tag(node, c"script") || win_tag(node, c"style") || win_tag(node, c"template")): return
-	if (html_attribute_find(node.attributes, c"hidden") != 0): return
+win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	win_style style = win_default_style()
 	style.size = inherited.size
 	style.root_size = inherited.root_size
@@ -391,15 +384,97 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 	if (win_tag(node, c"i") || win_tag(node, c"em")): style.flags = style.flags | UI_TEXT_ITALIC
 	if (win_tag(node, c"pre")): style.pre = 1
 	if (win_tag(node, c"a") && win_attr(node, c"href")[0] != 0):
-		href = win_attr(node, c"href")
 		style.color = ui_color_new(0.08, 0.35, 0.72, 1.0)
 		style.flags = style.flags | UI_TEXT_UNDERLINE
 	style.display = 2
 	if (block): style.display = 1
-	style = win_computed_style(page, node, style, inherited)
-	if (style.display == 0): return
-	if (style.display == 1 || style.display == 3 || style.display == 4): block = 1
-	if (style.display == 2): block = 0
+	return win_computed_style(page, node, style, inherited)
+
+void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href);
+
+int win_layout_skipped(html_node* node):
+	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return 1
+	if (win_tag(node, c"head") || win_tag(node, c"script") || win_tag(node, c"style") || win_tag(node, c"template")): return 1
+	if (win_tag(node, c"input") && css_ascii_equal(win_attr(node, c"type"), c"hidden")): return 1
+	return html_attribute_find(node.attributes, c"hidden") != 0
+
+void win_layout_node(win_page* page, html_node* node, win_style inherited, char* href):
+	if (node == 0 || page.truncated): return
+	if (node.kind == HTML_TEXT):
+		page.layout_node = node.parent
+		win_text(page, node.text, node.text_length, inherited, href)
+		return
+	if (win_layout_skipped(node)): return
+	win_layout_node_style(page, node, win_node_style(page, node, inherited), href)
+
+win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style style):
+	win_intrinsic_size result
+	result.min_content = 0.0
+	result.max_content = 0.0
+	if (node.kind == HTML_TEXT): return win_intrinsic_text(node.text, node.text_length, style)
+	html_node* child = node.first_child
+	float32 inline_max = 0.0
+	while (child != 0):
+		win_style child_style = style
+		int visible = child.kind == HTML_TEXT
+		if (child.kind == HTML_START && win_layout_skipped(child) == 0):
+			child_style = win_node_style(page, child, style)
+			visible = child_style.display != 0
+		if (visible):
+			win_intrinsic_size size = win_intrinsic_node(page, child, child_style)
+			if (child.kind == HTML_START):
+				float32 extras = win_box_horizontal_extras(child_style)
+				size.min_content = size.min_content + extras
+				size.max_content = size.max_content + extras
+			if (size.min_content > result.min_content): result.min_content = size.min_content
+			if (child.kind == HTML_START && child_style.display != 2):
+				if (inline_max > result.max_content): result.max_content = inline_max
+				inline_max = 0.0
+				if (size.max_content > result.max_content): result.max_content = size.max_content
+			else: inline_max = inline_max + size.max_content
+		child = child.next_sibling
+	if (inline_max > result.max_content): result.max_content = inline_max
+	return result
+
+list[win_layout_item*] win_layout_items(win_page* page, html_node* container, win_style style):
+	list[win_layout_item*] items = new list[win_layout_item*]
+	html_node* child = container.first_child
+	while (child != 0):
+		if (child.kind == HTML_START):
+			if (win_layout_skipped(child) == 0):
+				win_style computed = win_node_style(page, child, style)
+				if (computed.display != 0):
+					win_layout_item* item = new win_layout_item()
+					item.first = child
+					item.end = child.next_sibling
+					item.style = computed
+					item.intrinsic = win_intrinsic_node(page, child, computed)
+					items.push(item)
+			child = child.next_sibling
+		else:
+			html_node* first = child
+			string_builder* text = string_new()
+			while (child != 0 && child.kind != HTML_START):
+				if (child.kind == HTML_TEXT): string_append_bytes(text, child.text, child.text_length)
+				child = child.next_sibling
+			int visible = 0
+			for i in range(text.length):
+				if (html_space(text.data[i]) == 0): visible = 1
+			if (visible):
+				win_layout_item* item = new win_layout_item()
+				item.first = first
+				item.end = child
+				item.anonymous = 1
+				item.style = style
+				item.intrinsic = win_intrinsic_text(text.data, text.length, style)
+				items.push(item)
+			string_free(text)
+	return items
+
+void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href):
+	if (page.truncated || style.display == 0): return
+	int block = style.display == 1 || style.display == 3 || style.display == 4
+	if (win_tag(node, c"a") && html_attribute_find(node.attributes, c"href") != 0): href = win_attr(node, c"href")
 	page.layout_node = node
 	float32 left = page.left
 	float32 right = page.right
@@ -412,19 +487,7 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 		page.y = page.y + cast(float32, style.margin_top)
 		float32 ml = cast(float32, style.margin_left)
 		float32 mr = cast(float32, style.margin_right)
-		if (ml < 0.0): ml = 0.0
-		if (mr < 0.0): mr = 0.0
-		float32 extras = cast(float32, style.padding_left + style.padding_right + style.border * 2)
-		float32 width = right - left - ml - mr
-		if (style.width >= 0):
-			width = cast(float32, style.width)
-			if (style.width_percent): width = (right - left) * width / 100.0
-			if (style.box_sizing == 0): width = width + extras
-		float32 maximum = cast(float32, style.max_width)
-		if (style.max_width_percent): maximum = (right - left) * maximum / 100.0
-		if (style.box_sizing == 0): maximum = maximum + extras
-		if (style.max_width >= 0 && width > maximum): width = maximum
-		if (width < extras + 1.0): width = extras + 1.0
+		float32 width = win_box_border_width(style, right - left)
 		float32 available = right - left - width - ml - mr
 		if (available > 0.0 && style.margin_left_auto):
 			ml = available
@@ -510,36 +573,57 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 			win_word(page, c"•", style, c"")
 			page.space = 1
 		html_node* child = node.first_child
-		if (style.display == 4 || style.display == 3 && style.flex_column == 0):
+		if (style.display == 4 || style.display == 3):
+			list[win_layout_item*] items = win_layout_items(page, node, style)
 			int columns = style.columns
-			if (style.display == 3):
-				columns = 0
-				while (child != 0):
-					if (child.kind == HTML_START): columns = columns + 1
-					child = child.next_sibling
-				child = node.first_child
+			if (style.display == 3): columns = items.length
+			if (style.display == 3 && style.flex_column): columns = 1
 			if (columns < 1): columns = 1
 			float32 row_left = page.left
 			float32 row_right = page.right
 			float32 row_top = page.y
 			float32 row_bottom = row_top
-			float32 cell_width = (row_right - row_left - cast(float32, style.gap * (columns - 1))) / cast(float32, columns)
-			if (cell_width < 1.0): cell_width = 1.0
+			float32 cell_width = (row_right - row_left - style.gap * cast(float32, columns - 1)) / cast(float32, columns)
+			if (cell_width < 0.0): cell_width = 0.0
+			int flex_row = style.display == 3 && style.flex_column == 0
+			if (flex_row): win_flex_sizes(items, row_right - row_left, style.gap)
 			int column = 0
-			while (child != 0 && page.truncated == 0):
-				if (child.kind == HTML_START):
-					page.left = row_left + cast(float32, column) * (cell_width + cast(float32, style.gap))
-					page.right = page.left + cell_width
-					page.x = page.left
-					page.y = row_top
-					win_layout_node(page, child, style, href)
-					win_line_end(page, 0)
-					if (page.y > row_bottom): row_bottom = page.y
-					column = column + 1
-					if (column == columns):
-						column = 0
-						row_top = row_bottom + cast(float32, style.gap)
-				child = child.next_sibling
+			float32 cursor = row_left
+			for i in range(items.length):
+				win_layout_item* item = items[i]
+				float32 width = cell_width
+				if (flex_row):
+					width = item.main_size
+					if (item.anonymous == 0): width = width + win_box_horizontal_extras(item.style) + item.style.margin_left + item.style.margin_right
+				page.left = cursor
+				page.right = page.left + width
+				page.x = page.left
+				page.y = row_top
+				if (item.anonymous):
+					html_node* text = item.first
+					while (text != item.end):
+						if (text.kind == HTML_TEXT): win_layout_node(page, text, style, href)
+						text = text.next_sibling
+				else:
+					win_style item_style = item.style
+					# Flex/grid items are blockified and their allocation supplies
+					# used width. Percentages were resolved against the container.
+					if (item_style.display == 2): item_style.display = 1
+					if (flex_row):
+						item_style.width = item.main_size
+						item_style.width_percent = 0
+						item_style.box_sizing = 0
+					win_layout_node_style(page, item.first, item_style, href)
+				win_line_end(page, 0)
+				if (page.y > row_bottom): row_bottom = page.y
+				cursor = cursor + width + style.gap
+				column = column + 1
+				if (column == columns):
+					column = 0
+					cursor = row_left
+					row_top = row_bottom + style.gap
+			for i in range(items.length): free(items[i])
+			__w_list_free(cast(__w_list*, items))
 			page.left = row_left
 			page.right = row_right
 			page.x = row_left
@@ -548,9 +632,10 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 			while (child != 0 && page.truncated == 0):
 				win_layout_node(page, child, style, href)
 				child = child.next_sibling
+
 	if (block):
 		win_line_end(page, 0)
-		if (style.height >= 0 && page.y < content_top + cast(float32, style.height)): page.y = content_top + cast(float32, style.height)
+		if (style.height >= 0.0): page.y = content_top + win_box_content_height(style)
 		page.y = page.y + cast(float32, style.padding_bottom + style.border)
 		box.height = page.y - box.y
 		page.y = page.y + cast(float32, style.margin_bottom)
@@ -577,7 +662,12 @@ void win_page_layout(win_page* page, int width):
 	page.truncated = 0
 	win_layout_node(page, page.html.root, win_default_style(), c"")
 	win_line_end(page, 0)
-	page.height = page.y + 28.0
+	float32 bottom = page.y
+	for i in range(page.boxes.length):
+		if (page.boxes[i].y + page.boxes[i].height > bottom): bottom = page.boxes[i].y + page.boxes[i].height
+	for i in range(page.runs.length):
+		if (page.runs[i].y + page.runs[i].height > bottom): bottom = page.runs[i].y + page.runs[i].height
+	page.height = bottom + 28.0
 
 char* win_page_hit(win_page* page, float32 x, float32 y):
 	for i in range(page.runs.length):

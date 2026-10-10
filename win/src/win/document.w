@@ -36,6 +36,7 @@ struct win_box:
 	int border
 
 struct win_stylesheet:
+	char* reference
 	html_node* node
 	css_document* css
 
@@ -78,6 +79,7 @@ void win_page_free(win_page* page):
 	win_images_free(page.images)
 	for i in range(page.stylesheets.length):
 		if (page.stylesheets[i].css != 0): css_document_free(page.stylesheets[i].css)
+		free(page.stylesheets[i].reference)
 		free(page.stylesheets[i])
 	__w_list_free(cast(__w_list*, page.stylesheets))
 	__w_list_free(cast(__w_list*, page.boxes))
@@ -101,6 +103,7 @@ void win_page_add_stylesheet_for_node(win_page* page, html_node* node, char* sou
 			return
 	win_stylesheet* sheet = new win_stylesheet()
 	sheet.node = node
+	if (node != 0): sheet.reference = strclone(win_attr(node, c"href"))
 	sheet.css = css
 	page.stylesheets.push(sheet)
 	page.width = 0
@@ -120,12 +123,60 @@ void win_page_collect_styles(win_page* page, html_node* node):
 	else if (win_tag(node, c"link") && win_class_has(win_attr(node, c"rel"), c"stylesheet")):
 		win_stylesheet* sheet = new win_stylesheet()
 		sheet.node = node
+		sheet.reference = strclone(win_attr(node, c"href"))
 		sheet.css = 0
 		page.stylesheets.push(sheet)
 	html_node* child = node.first_child
 	while (child != 0):
 		win_page_collect_styles(page, child)
 		child = child.next_sibling
+
+# Reconcile DOM stylesheet order after tree/text mutations. Preserve completed
+# external sheets by node and URL; detached or replaced rules release ownership.
+void win_page_refresh_styles_walk(win_page* page, html_node* node, list[win_stylesheet*] previous):
+	if (node == 0 || win_tag(node, c"template")): return
+	int embedded = win_tag(node, c"style")
+	int linked = win_tag(node, c"link") && win_class_has(win_attr(node, c"rel"), c"stylesheet")
+	if ((embedded || linked) && html_attribute_find(node.attributes, c"disabled") == 0):
+		win_stylesheet* retained = 0
+		for i in range(previous.length):
+			if (previous[i].node == node): retained = previous[i]
+		if (embedded):
+			string_builder* source = string_new()
+			html_node* child = node.first_child
+			while (child != 0):
+				if (child.kind == HTML_TEXT): string_append_bytes(source, child.text, child.text_length)
+				child = child.next_sibling
+			if (retained != 0 && retained.css != 0 && retained.css.length == source.length && strcmp(retained.css.source, source.data) == 0): page.stylesheets.push(retained)
+			else: win_page_add_stylesheet_for_node(page, node, source.data, source.length)
+			string_free(source)
+		else if (retained != 0 && retained.reference != 0 && strcmp(retained.reference, win_attr(node, c"href")) == 0): page.stylesheets.push(retained)
+		else:
+			win_stylesheet* sheet = new win_stylesheet()
+			sheet.node = node
+			sheet.reference = strclone(win_attr(node, c"href"))
+			page.stylesheets.push(sheet)
+	html_node* child = node.first_child
+	while (child != 0):
+		win_page_refresh_styles_walk(page, child, previous)
+		child = child.next_sibling
+
+void win_page_refresh_styles(win_page* page):
+	list[win_stylesheet*] previous = page.stylesheets
+	page.stylesheets = new list[win_stylesheet*]
+	win_page_refresh_styles_walk(page, page.html.root, previous)
+	for i in range(previous.length):
+		win_stylesheet* sheet = previous[i]
+		if (sheet.node == 0): page.stylesheets.push(sheet)
+		int kept = 0
+		for j in range(page.stylesheets.length):
+			if (page.stylesheets[j] == sheet): kept = 1
+		if (kept == 0):
+			css_document_free(sheet.css)
+			free(sheet.reference)
+			free(sheet)
+	__w_list_free(cast(__w_list*, previous))
+	page.width = 0
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
 	win_css_specified[29] winners

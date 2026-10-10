@@ -128,20 +128,24 @@ void win_page_collect_styles(win_page* page, html_node* node):
 		child = child.next_sibling
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
-	int[29] winners
-	for i in range(29): winners[i] = -1
+	win_css_specified[29] winners
+	for i in range(29): winners[i].present = 0
+	int order = 0
 	for i in range(page.stylesheets.length):
 		css_document* css = page.stylesheets[i].css
-		if (css != 0): win_css_rules(css, css.nodes, node, page.width, &winners[0], &style, inherited)
+		if (css != 0): win_css_rules(css, css.nodes, node, page.width, &winners[0], &order)
 	char* text = win_attr(node, c"style")
+	css_document* inline_css = 0
 	if (text[0] != 0):
-		css_document* css = css_parse_declarations_n(text, strlen(text), 0)
-		if (css.failed == 0):
-			for i in range(css.nodes.length):
-				css_node* d = css.nodes[i]
-				win_css_declaration(css, d, 1000000 + d.important * 10000000, &winners[0], &style, inherited)
-		css_document_free(css)
-	win_css_resolve_border(&style)
+		inline_css = css_parse_declarations_n(text, strlen(text), 0)
+		if (inline_css.failed == 0):
+			for i in range(inline_css.nodes.length):
+				css_node* d = inline_css.nodes[i]
+				order = order + 1
+				win_css_collect(inline_css, d, win_cascade_author(d.important, 1, win_specificity_zero(), order), &winners[0])
+	int root = node.kind == HTML_START && (node.parent == 0 || node.parent.kind == HTML_DOCUMENT)
+	win_css_compute(&winners[0], &style, inherited, root)
+	css_document_free(inline_css)
 	return style
 
 win_page* win_page_parse(char* source, int length):
@@ -204,7 +208,10 @@ void win_word(win_page* page, char* word, win_style style, char* href):
 		return
 	int face = UI_FACE_REGULAR
 	if (style.bold): face = UI_FACE_BOLD
-	int strike = ui_font_strike(face, style.size)
+	int ppem = cast(int, style.size)
+	if (ppem < 4): ppem = 4
+	if (ppem > 200): ppem = 200
+	int strike = ui_font_strike(face, ppem)
 	int base_strike = strike
 	float32 skew = 0.0
 	strike = ui_text_style_strike(strike, style.flags, &skew)
@@ -313,6 +320,7 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 	if (html_attribute_find(node.attributes, c"hidden") != 0): return
 	win_style style = win_default_style()
 	style.size = inherited.size
+	style.root_size = inherited.root_size
 	style.line_height = inherited.line_height
 	style.line_height_factor = inherited.line_height_factor
 	style.bold = inherited.bold
@@ -335,6 +343,8 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 		href = win_attr(node, c"href")
 		style.color = ui_color_new(0.08, 0.35, 0.72, 1.0)
 		style.flags = style.flags | UI_TEXT_UNDERLINE
+	style.display = 2
+	if (block): style.display = 1
 	style = win_computed_style(page, node, style, inherited)
 	if (style.display == 0): return
 	if (style.display == 1 || style.display == 3 || style.display == 4): block = 1
@@ -365,9 +375,9 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 		if (style.max_width >= 0 && width > maximum): width = maximum
 		if (width < extras + 1.0): width = extras + 1.0
 		float32 available = right - left - width - ml - mr
-		if (available > 0.0 && style.margin_left == -2):
+		if (available > 0.0 && style.margin_left_auto):
 			ml = available
-			if (style.margin_right == -2): ml = available / 2.0
+			if (style.margin_right_auto): ml = available / 2.0
 		box = win_box_add(page, node, style, left + ml, page.y, width, 0.0)
 		page.left = box.x + cast(float32, style.padding_left + style.border)
 		page.right = box.x + width - cast(float32, style.padding_right + style.border)

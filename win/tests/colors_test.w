@@ -6,12 +6,12 @@ win_style colors_style(char* declarations):
 	win_style style = win_default_style()
 	style.color = ui_color_new(0.0, 0.0, 1.0, 1.0)
 	win_style inherited = style
-	int[29] winners
-	for i in range(29): winners[i] = 0
+	win_css_specified[29] winners
+	for i in range(29): winners[i].present = 0
 	for i in range(css.nodes.length):
-		win_css_declaration(css, css.nodes[i], i + 1 + css.nodes[i].important * 10000000, &winners[0], &style, inherited)
+		win_css_collect(css, css.nodes[i], win_cascade_author(css.nodes[i].important, 0, win_specificity_zero(), i), &winners[0])
+	win_css_compute(&winners[0], &style, inherited, 0)
 	css_document_free(css)
-	win_css_resolve_border(&style)
 	return style
 
 void colors_expect(char* declarations, float32 r, float32 g, float32 b, float32 a):
@@ -73,7 +73,7 @@ void test_invalid_colors():
 	colors_invalid(c"color:rgb (255,0,0)")
 	colors_invalid(c"color:'rgb'(255,0,0)")
 	colors_invalid(c"color:rgb(255 0 0px)")
-	colors_invalid(c"color:rgb(255 0 0")
+	colors_expect(c"color:rgb(255 0 0", 1.0, 0.0, 0.0, 1.0)
 	colors_invalid(c"color:hsl(0%,100%,50%)")
 	colors_invalid(c"color:hsl(0,100,50)")
 	colors_invalid(c"color:hsl(0px 100% 50%)")
@@ -162,7 +162,7 @@ void test_border_shorthand():
 	border_invalid(c"border-width:.5")
 	border_invalid(c"border-width:5quuxpx")
 	style = colors_style(c"border:thick solid blue;border-width:2.5PX")
-	asserts(c"border widths validate units and round to pixels", style.border == 2)
+	asserts(c"border widths preserve fractions through computed values", style.border == 2.5)
 	style = colors_style(c"border:thin solid blue")
 	asserts(c"thin border width", style.border == 1)
 	border_invalid(c"border:5px solid rgb (255 0 0)")

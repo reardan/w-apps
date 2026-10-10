@@ -25,7 +25,9 @@ Work paused at the user's shutdown request. This is an incomplete draft of the
 The W dependency is published on `standards/integration`, commit `2673375a`, in
 [draft W PR #647](https://github.com/reardan/w/pull/647). The application gitlink
 references that published commit. All agent work was committed and integrated;
-the proposed layout follow-up had not been implemented at this checkpoint.
+the last layout checkpoint is included explicitly as unvalidated WIP. It adds
+generated items, intrinsic sizing helpers, initial row-flex shrinking, fixed-height
+flow extent and visible-overflow page height. Inline-block remains deferred.
 
 ## Validation at shutdown
 
@@ -39,6 +41,8 @@ the proposed layout follow-up had not been implemented at this checkpoint.
   13 PASS and 9 XFAIL, plus seven runner-contract tests passing.
 - Root: the new Win CSSOM/DOM mutation/lifecycle suite passed against the first
   runtime foundation and CSS integration. Structured checking passed.
+- The layout WIP passed a structured x64 check only. Its execution and regression
+  tests remain outstanding.
 - Combined full W and Win suites have **not** been run on the final checkpoint.
   Do not treat the individual results as validation of the final combined tree.
 
@@ -53,7 +57,8 @@ the proposed layout follow-up had not been implemented at this checkpoint.
    interactions and document the current limited serialization surface.
 3. Review DOM hook ownership/budgets, dynamic stylesheet handling, Window event
    behavior, and separate lifecycle readiness before extending resource scheduling.
-4. Follow W's structured checks and manifest-based test selection, then run its
+4. Add and run layout regressions for anonymous text, hidden items, intrinsic
+   sizing, flex shrinking and fixed-height overflow. Follow W's structured checks and manifest-based test selection, then run its
    required `./wbuild tests`. Run `./win/build test` and relevant rendering checks.
 5. Update the existing compatibility documents, which still describe parts of the
    old snapshot/property and integer-length behavior. Resolve integration failures

@@ -2,6 +2,8 @@
 import libs.extras.html.html
 import libs.extras.css.css
 import graphics.ui.text
+import lib.format
+import lib.fmath
 
 struct win_style:
 	int size
@@ -154,7 +156,236 @@ html_node* win_previous_element(html_node* node):
 		child = child.next_sibling
 	return prev
 
+# Attribute comparison is ASCII case-insensitive only when explicitly requested.
+int win_selector_equal(char* left, char* right, int count, int insensitive):
+	for i in range(count):
+		int a = left[i] & 255
+		int b = right[i] & 255
+		if (insensitive):
+			if (a >= 'A' && a <= 'Z'): a = a + 32
+			if (b >= 'A' && b <= 'Z'): b = b + 32
+		if (a != b): return 0
+	return 1
+
+int win_attribute_matches(char* actual, char* expected, int op, int insensitive):
+	int length = strlen(actual)
+	int count = strlen(expected)
+	if (op == '='): return length == count && win_selector_equal(actual, expected, count, insensitive)
+	if (op == '|'):
+		return length >= count && win_selector_equal(actual, expected, count, insensitive) && (length == count || actual[count] == '-')
+	# Empty substring and word operands never match.
+	if (count == 0 || count > length): return 0
+	if (op == '^'): return win_selector_equal(actual, expected, count, insensitive)
+	if (op == '$'): return win_selector_equal(actual + length - count, expected, count, insensitive)
+	if (op == '*'):
+		for i in range(length - count + 1):
+			if (win_selector_equal(actual + i, expected, count, insensitive)): return 1
+		return 0
+	if (op == '~'):
+		for i in range(count):
+			if (css_space(expected[i])): return 0
+		int pos = 0
+		while (pos < length):
+			while (pos < length && css_space(actual[pos])): pos = pos + 1
+			int start = pos
+			while (pos < length && css_space(actual[pos]) == 0): pos = pos + 1
+			if (pos - start == count && win_selector_equal(actual + start, expected, count, insensitive)): return 1
+	return 0
+
+# Count element siblings, optionally restricting the count to this element's type.
+int win_sibling_index(html_node* node, int reverse, int of_type):
+	int index = 1
+	html_node* sibling = node.next_sibling
+	if (reverse == 0):
+		if (node.parent == 0): return 1
+		sibling = node.parent.first_child
+	while (sibling != 0):
+		if (reverse == 0 && sibling == node): break
+		if (sibling.kind == HTML_START && (of_type == 0 || css_ascii_equal(sibling.name, node.name))): index = index + 1
+		sibling = sibling.next_sibling
+	return index
+
+# Parse the integer An+B grammar without atoi's partial-number acceptance.
+# Coefficients are bounded to one billion to keep index arithmetic safe.
+int win_nth_expression(char* expression, int index):
+	int pos = 0
+	while (css_space(expression[pos])): pos = pos + 1
+	int end = strlen(expression)
+	while (end > pos && css_space(expression[end - 1])): end = end - 1
+	if (end - pos == 3 && win_selector_equal(expression + pos, c"odd", 3, 1)): return index % 2 == 1
+	if (end - pos == 4 && win_selector_equal(expression + pos, c"even", 4, 1)): return index % 2 == 0
+	int sign = 1
+	if (expression[pos] == '+' || expression[pos] == '-'):
+		if (expression[pos] == '-'): sign = -1
+		pos = pos + 1
+	int number = 0
+	int digits = 0
+	while (pos < end && css_digit(expression[pos])):
+		int digit = expression[pos] - '0'
+		if (number > (1000000000 - digit) / 10): return -1
+		number = number * 10 + digit
+		digits = digits + 1
+		pos = pos + 1
+	if (pos == end):
+		if (digits == 0): return -1
+		return index == sign * number
+	if (expression[pos] != 'n' && expression[pos] != 'N'): return -1
+	if (digits == 0): number = 1
+	int coefficient = sign * number
+	pos = pos + 1
+	while (pos < end && css_space(expression[pos])): pos = pos + 1
+	int offset = 0
+	if (pos < end):
+		sign = 1
+		if (expression[pos] != '+' && expression[pos] != '-'): return -1
+		if (expression[pos] == '-'): sign = -1
+		pos = pos + 1
+		while (pos < end && css_space(expression[pos])): pos = pos + 1
+		digits = 0
+		while (pos < end && css_digit(expression[pos])):
+			int digit = expression[pos] - '0'
+			if (offset > (1000000000 - digit) / 10): return -1
+			offset = offset * 10 + digit
+			digits = digits + 1
+			pos = pos + 1
+		if (digits == 0 || pos != end): return -1
+		offset = sign * offset
+	if (coefficient == 0): return index == offset
+	int difference = index - offset
+	return difference % coefficient == 0 && difference / coefficient >= 0
+
+# Escapes decode inside identifiers; they must not manufacture signs or an
+# integer coefficient that the token grammar does not permit.
+int win_nth_token(css_token* token):
+	char* value = token.value
+	if (css_kind(token, c"ident") && (css_ascii_equal(value, c"odd") || css_ascii_equal(value, c"even"))): return 1
+	int pos = 0
+	if (css_kind(token, c"number") || css_kind(token, c"dimension")):
+		if (value[pos] == '+' || value[pos] == '-'): pos = pos + 1
+		int start = pos
+		while (css_digit(value[pos])): pos = pos + 1
+		if (pos == start): return 0
+		if (css_kind(token, c"number")): return value[pos] == 0
+	else if (css_kind(token, c"ident")):
+		if (value[pos] == '-'): pos = pos + 1
+	else: return 0
+	if (value[pos] != 'n' && value[pos] != 'N'): return 0
+	pos = pos + 1
+	if (value[pos] == '-'):
+		pos = pos + 1
+		while (css_digit(value[pos])): pos = pos + 1
+	return value[pos] == 0
+
+int win_nth_matches(css_document* css, int first, int last, int index):
+	string_builder* expression = string_new()
+	int valid = 1
+	for i in range(first, last):
+		css_token* t = css.tokens[i]
+		if (css_kind(t, c"space") || css_kind(t, c"comment")): string_append_char(expression, ' ')
+		else if (win_nth_token(t) || css_delim(t, '+') || css_delim(t, '-')): string_append(expression, t.value)
+		else: valid = 0
+	int matched = -1
+	if (valid): matched = win_nth_expression(expression.data, index)
+	string_free(expression)
+	return matched
+
+# Return -2 for malformed syntax, -1 for a mismatch, and 1 for a match.
+# A null node requests syntax validation only.
+int win_attribute_selector(css_document* css, int pos, int last, html_node* node):
+	int close = css.tokens[pos].match
+	if (close < pos || close >= last): return -2
+	int key = css_skip(css, pos + 1, close)
+	if (key >= close || css_kind(css.tokens[key], c"ident") == 0): return -2
+	html_attribute* attr = 0
+	if (node != 0):
+		attr = node.attributes
+		while (attr != 0 && css_ascii_equal(css.tokens[key].value, attr.name) == 0): attr = attr.next
+	int op = css_skip(css, key + 1, close)
+	if (op < close):
+		int operator = css.tokens[op].value[0]
+		if (css_delim(css.tokens[op], '=') == 0):
+			if (css_delim(css.tokens[op], '~') == 0 && css_delim(css.tokens[op], '|') == 0 && css_delim(css.tokens[op], '^') == 0 && css_delim(css.tokens[op], '$') == 0 && css_delim(css.tokens[op], '*') == 0): return -2
+			op = op + 1
+			if (op >= close || css_delim(css.tokens[op], '=') == 0): return -2
+		int value = css_skip(css, op + 1, close)
+		if (value >= close || (css_kind(css.tokens[value], c"string") == 0 && css_kind(css.tokens[value], c"ident") == 0)): return -2
+		int flag = css_skip(css, value + 1, close)
+		int insensitive = 0
+		if (flag < close):
+			if (css_kind(css.tokens[flag], c"ident") == 0 || css_skip(css, flag + 1, close) != close): return -2
+			if (css_ascii_equal(css.tokens[flag].value, c"i")): insensitive = 1
+			else if (css_ascii_equal(css.tokens[flag].value, c"s") == 0): return -2
+		if (node != 0):
+			if (attr == 0 || win_attribute_matches(attr.value, css.tokens[value].value, operator, insensitive) == 0): return -1
+	if (node != 0 && attr == 0): return -1
+	return 1
+
 int win_selector_match(css_document* css, int first, int last, html_node* node);
+
+# Validate every branch before matching: unsupported syntax inside :not() must
+# not turn into a successful negation. Commas are handled by the owning list.
+int win_selector_valid(css_document* css, int first, int last):
+	int pos = css_skip(css, first, last)
+	last = css_trim(css, pos, last)
+	int compound = 0
+	int type_allowed = 1
+	while (pos < last):
+		css_token* t = css.tokens[pos]
+		if (css_kind(t, c"comment")):
+			pos = pos + 1
+			continue
+		if (css_kind(t, c"space")):
+			pos = css_skip(css, pos + 1, last)
+			if (pos < last && (css_delim(css.tokens[pos], '>') || css_delim(css.tokens[pos], '+') || css_delim(css.tokens[pos], '~'))): continue
+			compound = 0
+			type_allowed = 1
+			continue
+		if (css_delim(t, '>') || css_delim(t, '+') || css_delim(t, '~')):
+			if (compound == 0): return 0
+			compound = 0
+			type_allowed = 1
+			pos = css_skip(css, pos + 1, last)
+			continue
+		if (css_kind(t, c"ident") || css_delim(t, '*')):
+			if (type_allowed == 0): return 0
+		else if (css_kind(t, c"hash")):
+			if (t.value[0] == 0): return 0
+		else if (css_delim(t, '.')):
+			pos = pos + 1
+			if (pos >= last || css_kind(css.tokens[pos], c"ident") == 0): return 0
+		else if (css_delim(t, '[')):
+			if (win_attribute_selector(css, pos, last, 0) != 1): return 0
+			pos = t.match
+		else if (css_delim(t, ':')):
+			pos = pos + 1
+			if (pos >= last || css_kind(css.tokens[pos], c"ident") == 0): return 0
+			char* pseudo = css.tokens[pos].value
+			if (css_ascii_equal(pseudo, c"not") || css_ascii_equal(pseudo, c"is") || css_ascii_equal(pseudo, c"where")):
+				int open = pos + 1
+				if (open >= last || css_delim(css.tokens[open], '(') == 0): return 0
+				int close = css.tokens[open].match
+				if (close < open || close >= last): return 0
+				int start = open + 1
+				int end = start
+				while (end <= close):
+					if (end == close || css_delim(css.tokens[end], ',')):
+						if (win_selector_valid(css, start, end) == 0): return 0
+						start = end + 1
+						end = end + 1
+					else: end = css_next_component(css, end, close)
+				pos = close
+			else if (css_ascii_equal(pseudo, c"nth-child") || css_ascii_equal(pseudo, c"nth-last-child") || css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")):
+				int open = pos + 1
+				if (open >= last || css_delim(css.tokens[open], '(') == 0): return 0
+				int close = css.tokens[open].match
+				if (close < open || close >= last || win_nth_matches(css, open + 1, close, 1) < 0): return 0
+				pos = close
+			else if (css_ascii_equal(pseudo, c"root") == 0 && css_ascii_equal(pseudo, c"first-child") == 0 && css_ascii_equal(pseudo, c"last-child") == 0 && css_ascii_equal(pseudo, c"only-child") == 0 && css_ascii_equal(pseudo, c"first-of-type") == 0 && css_ascii_equal(pseudo, c"last-of-type") == 0 && css_ascii_equal(pseudo, c"only-of-type") == 0 && css_ascii_equal(pseudo, c"link") == 0 && css_ascii_equal(pseudo, c"checked") == 0 && css_ascii_equal(pseudo, c"disabled") == 0): return 0
+		else: return 0
+		compound = 1
+		type_allowed = 0
+		pos = pos + 1
+	return compound
 
 int win_selector_specificity(css_document* css, int first, int last):
 	int score = 0
@@ -180,8 +411,8 @@ int win_selector_specificity(css_document* css, int first, int last):
 			if (pos + 1 < last && css_delim(css.tokens[pos + 1], '(')):
 				int close = css.tokens[pos + 1].match
 				if (close < 0): return score
-				if (strcmp(pseudo, c"not") == 0 || strcmp(pseudo, c"is") == 0): score = score + win_selector_specificity(css, pos + 2, close)
-				else if (strcmp(pseudo, c"where") != 0): score = score + 100
+				if (css_ascii_equal(pseudo, c"not") || css_ascii_equal(pseudo, c"is")): score = score + win_selector_specificity(css, pos + 2, close)
+				else if (css_ascii_equal(pseudo, c"where") == 0): score = score + 100
 				pos = close
 			else: score = score + 100
 		else if (css_kind(t, c"ident")): score = score + 1
@@ -211,25 +442,14 @@ int win_selector_compound(css_document* css, int first, int last, html_node* nod
 			if (win_class_has(win_attr(node, c"class"), css.tokens[pos].value) == 0): return -1
 			score = score + 100
 		else if (css_delim(t, '[')):
-			int close = t.match
-			if (close < pos || close >= last): return -1
-			int key = css_skip(css, pos + 1, close)
-			if (key >= close || css_kind(css.tokens[key], c"ident") == 0): return -1
-			html_attribute* attr = html_attribute_find(node.attributes, css.tokens[key].value)
-			if (attr == 0): return -1
-			int op = css_skip(css, key + 1, close)
-			if (op < close):
-				if (css_delim(css.tokens[op], '=') == 0): return -1
-				int value = css_skip(css, op + 1, close)
-				if (value >= close || css_skip(css, value + 1, close) != close): return -1
-				if (strcmp(attr.value, css.tokens[value].value) != 0): return -1
-			pos = close
+			if (win_attribute_selector(css, pos, last, node) != 1): return -1
+			pos = t.match
 			score = score + 100
 		else if (css_delim(t, ':')):
 			pos = pos + 1
 			if (pos >= last): return -1
 			char* pseudo = css.tokens[pos].value
-			if (strcmp(pseudo, c"not") == 0 || strcmp(pseudo, c"is") == 0 || strcmp(pseudo, c"where") == 0):
+			if (css_ascii_equal(pseudo, c"not") || css_ascii_equal(pseudo, c"is") || css_ascii_equal(pseudo, c"where")):
 				int open = pos + 1
 				if (open >= last || css_delim(css.tokens[open], '(') == 0): return -1
 				int close = css.tokens[open].match
@@ -246,45 +466,43 @@ int win_selector_compound(css_document* css, int first, int last, html_node* nod
 						start = end + 1
 						end = end + 1
 					else: end = css_next_component(css, end, close)
-				if (strcmp(pseudo, c"not") == 0):
+				if (css_ascii_equal(pseudo, c"not")):
 					if (matched): return -1
 					specificity = 100
 				else if (matched == 0): return -1
-				if (strcmp(pseudo, c"where") == 0): specificity = 0
+				if (css_ascii_equal(pseudo, c"where")): specificity = 0
 				score = score + specificity
 				pos = close + 1
 				continue
-			if (strcmp(pseudo, c"nth-child") == 0):
+			if (css_ascii_equal(pseudo, c"nth-child") || css_ascii_equal(pseudo, c"nth-last-child") || css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")):
 				int open = pos + 1
 				if (open >= last || css_delim(css.tokens[open], '(') == 0): return -1
 				int close = css.tokens[open].match
-				int value = css_skip(css, open + 1, close)
-				if (close < 0 || close >= last || value >= close || css_skip(css, value + 1, close) != close): return -1
-				int index = 1
-				html_node* previous = win_previous_element(node)
-				while (previous != 0):
-					index = index + 1
-					previous = win_previous_element(previous)
-				char* expression = css.tokens[value].value
-				if (strcmp(expression, c"odd") == 0):
-					if (index % 2 != 1): return -1
-				else if (strcmp(expression, c"even") == 0):
-					if (index % 2 != 0): return -1
-				else if (index != atoi(expression)): return -1
+				if (close < 0 || close >= last): return -1
+				int reverse = css_ascii_equal(pseudo, c"nth-last-child") || css_ascii_equal(pseudo, c"nth-last-of-type")
+				int of_type = css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")
+				if (win_nth_matches(css, open + 1, close, win_sibling_index(node, reverse, of_type)) != 1): return -1
 				pos = close
-			else if (strcmp(pseudo, c"root") == 0):
+			else if (css_ascii_equal(pseudo, c"root")):
 				if (node.parent != 0 && node.parent.kind != HTML_DOCUMENT): return -1
-			else if (strcmp(pseudo, c"first-child") == 0):
-				if (win_previous_element(node) != 0): return -1
-			else if (strcmp(pseudo, c"last-child") == 0):
-				html_node* next = node.next_sibling
-				while (next != 0):
-					if (next.kind == HTML_START): return -1
-					next = next.next_sibling
-			else if (strcmp(pseudo, c"link") == 0):
+			else if (css_ascii_equal(pseudo, c"first-child")):
+				if (win_sibling_index(node, 0, 0) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"last-child")):
+				if (win_sibling_index(node, 1, 0) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"only-child")):
+				if (win_sibling_index(node, 0, 0) != 1 || win_sibling_index(node, 1, 0) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"first-of-type")):
+				if (win_sibling_index(node, 0, 1) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"last-of-type")):
+				if (win_sibling_index(node, 1, 1) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"only-of-type")):
+				if (win_sibling_index(node, 0, 1) != 1 || win_sibling_index(node, 1, 1) != 1): return -1
+			else if (css_ascii_equal(pseudo, c"link")):
 				if (win_tag(node, c"a") == 0 || win_attr(node, c"href")[0] == 0): return -1
-			else if (strcmp(pseudo, c"disabled") == 0 || strcmp(pseudo, c"checked") == 0):
-				if (html_attribute_find(node.attributes, pseudo) == 0): return -1
+			else if (css_ascii_equal(pseudo, c"disabled")):
+				if (html_attribute_find(node.attributes, c"disabled") == 0): return -1
+			else if (css_ascii_equal(pseudo, c"checked")):
+				if (html_attribute_find(node.attributes, c"checked") == 0): return -1
 			else: return -1
 			score = score + 100
 		else if (css_delim(t, '*') == 0): return -1
@@ -292,6 +510,7 @@ int win_selector_compound(css_document* css, int first, int last, html_node* nod
 	return win_selector_specificity(css, first, last)
 
 int win_selector_match(css_document* css, int first, int last, html_node* node):
+	if (win_selector_valid(css, first, last) == 0): return -1
 	first = css_skip(css, first, last)
 	last = css_trim(css, first, last)
 	if (first >= last || node == 0): return -1
@@ -488,35 +707,121 @@ float32 win_css_decimal(char* value):
 		pos = pos + 1
 	return result * cast(float32, sign)
 
+float32 win_css_color_clamp(float32 value):
+	if (value < 0.0): return 0.0
+	if (value > 1.0): return 1.0
+	return value
+
+# Reduce finite hues without float-to-integer overflow or work proportional
+# to the number of turns. An overflowed hue has the CSS infinite-angle value 0.
+float32 win_css_hue_turn(float32 hue):
+	if ((float_bits(hue) & 0x7f800000) == 0x7f800000): return 0.0
+	int negative = hue < 0.0
+	hue = fabs(hue)
+	float32 divisor = 1.0
+	while (divisor <= hue / 2.0): divisor = divisor * 2.0
+	while (divisor >= 1.0):
+		if (hue >= divisor): hue = hue - divisor
+		divisor = divisor / 2.0
+	if (negative && hue > 0.0): hue = 1.0 - hue
+	return hue
+
+float32 win_css_hsl_channel(float32 hue, float32 low, float32 high):
+	if (hue < 0.0): hue = hue + 1.0
+	if (hue >= 1.0): hue = hue - 1.0
+	if (hue < 1.0 / 6.0): return low + (high - low) * hue * 6.0
+	if (hue < 0.5): return high
+	if (hue < 2.0 / 3.0): return low + (high - low) * (2.0 / 3.0 - hue) * 6.0
+	return low
+
 ui_color win_css_function_color(css_document* css, int first, int last):
 	ui_color invalid = ui_color_new(0.0, 0.0, 0.0, -1.0)
-	if (css_ascii_equal(css.tokens[first].value, c"rgb") == 0 && css_ascii_equal(css.tokens[first].value, c"rgba") == 0): return invalid
+	if (first < 0 || first >= last || last > css.tokens.length): return invalid
+	css_token* name = css.tokens[first]
+	if (css_kind(name, c"ident") == 0): return invalid
+	int hsl = css_ascii_equal(name.value, c"hsl") || css_ascii_equal(name.value, c"hsla")
+	if (hsl == 0 && css_ascii_equal(name.value, c"rgb") == 0 && css_ascii_equal(name.value, c"rgba") == 0): return invalid
 	int open = first + 1
-	if (open >= last || css_delim(css.tokens[open], '(') == 0): return invalid
+	if (open >= last || css_delim(css.tokens[open], '(') == 0 || name.end != css.tokens[open].start): return invalid
 	int close = css.tokens[open].match
-	if (close < 0 || close != last - 1): return invalid
+	if (close < open || close >= last || css_skip(css, close + 1, last) != last): return invalid
+	int legacy = 0
+	for i in range(open + 1, close):
+		if (css_delim(css.tokens[i], ',')): legacy = 1
 	float32[4] values
 	values[3] = 1.0
 	int count = 0
-	for i in range(open + 1, close):
-		css_token* t = css.tokens[i]
-		if (css_trivia(t) || css_delim(t, ',') || css_delim(t, '/')): continue
-		if (count >= 4 || css_kind(t, c"number") == 0 && css_kind(t, c"percentage") == 0): return invalid
-		float32 component = win_css_decimal(t.value)
-		if (css_kind(t, c"percentage")): component = component / 100.0
-		else if (count < 3): component = component / 255.0
-		if (component < 0.0): component = 0.0
-		if (component > 1.0): component = 1.0
+	int rgb_percent = -1
+	int pos = css_skip(css, open + 1, close)
+	while (pos < close):
+		if (count >= 4): return invalid
+		css_token* t = css.tokens[pos]
+		int percentage = css_kind(t, c"percentage")
+		int number = css_kind(t, c"number")
+		int dimension = css_kind(t, c"dimension")
+		if (number == 0 && percentage == 0 && (hsl == 0 || count != 0 || dimension == 0)): return invalid
+		int consumed = 0
+		float32 component = parse_float(t.value, &consumed)
+		# A decoded unit beginning with e must not become a numeric exponent.
+		if (consumed == 0 || consumed != css_number_end(css, t.start) - t.start || fis_nan(component)): return invalid
+		if (hsl && count == 0):
+			if (percentage): return invalid
+			char* unit = t.value + consumed
+			if (number || css_ascii_equal(unit, c"deg")): component = component / 360.0
+			else if (css_ascii_equal(unit, c"grad")): component = component / 400.0
+			else if (css_ascii_equal(unit, c"rad")): component = component / 6.283185307179586
+			else if (css_ascii_equal(unit, c"turn") == 0): return invalid
+			component = win_css_hue_turn(component)
+		else:
+			if (count < 3 && hsl):
+				if (legacy && percentage == 0): return invalid
+				component = component / 100.0
+			else if (percentage): component = component / 100.0
+			else if (count < 3): component = component / 255.0
+			if (legacy && hsl == 0 && count < 3):
+				if (rgb_percent >= 0 && percentage != rgb_percent): return invalid
+				rgb_percent = percentage
+			component = win_css_color_clamp(component)
 		values[count] = component
 		count = count + 1
+		int next = css_skip(css, pos + 1, close)
+		if (next == close): break
+		if (count == 4): return invalid
+		if (legacy):
+			if (css_delim(css.tokens[next], ',') == 0): return invalid
+			pos = css_skip(css, next + 1, close)
+		else if (count == 3):
+			if (css_delim(css.tokens[next], '/') == 0): return invalid
+			pos = css_skip(css, next + 1, close)
+		else:
+			# CSS component whitespace is optional when tokenization already
+			# separates the values (including comments and signed numbers).
+			pos = next
+		if (pos >= close): return invalid
 	if (count < 3): return invalid
+	if (hsl):
+		float32 high = values[2] * (1.0 + values[1])
+		if (values[2] >= 0.5): high = values[2] + values[1] - values[2] * values[1]
+		float32 low = 2.0 * values[2] - high
+		return ui_color_new(win_css_hsl_channel(values[0] + 1.0 / 3.0, low, high), win_css_hsl_channel(values[0], low, high), win_css_hsl_channel(values[0] - 1.0 / 3.0, low, high), values[3])
 	return ui_color_new(values[0], values[1], values[2], values[3])
 
 int win_css_value_valid(int property, css_token* token, int size):
 	char* value = token.value
-	if (css_ascii_equal(value, c"inherit") && property >= 0 && property <= 7): return 1
+	if (css_kind(token, c"ident") && css_ascii_equal(value, c"inherit") && property >= 0 && property <= 7): return 1
 	if (property == 0 || property == 8 || property == 21):
 		ui_color invalid = ui_color_new(0.0, 0.0, 0.0, -1.0)
+		if (css_kind(token, c"hash")):
+			int n = strlen(value)
+			if (n != 3 && n != 4 && n != 6 && n != 8): return 0
+			for i in range(n):
+				if (win_hex(value[i]) < 0): return 0
+		else:
+			if (css_kind(token, c"ident") == 0): return 0
+			int hex = 1
+			for i in range(strlen(value)):
+				if (win_hex(value[i]) < 0): hex = 0
+			if (hex): return 0
 		return win_color(value, invalid).a >= 0.0
 	if (property == 1):
 		int n = win_css_length(token, size)

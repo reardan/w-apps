@@ -287,6 +287,39 @@ void test_interactive_page(char* executable, char* home):
 	ui_render_destroy(&renderer)
 	win_browser_free(&b)
 
+void test_compatibility_page(char* executable, char* home):
+	win_browser b
+	win_browser_init(&b, executable, home)
+	win_navigate(&b, c"standards.html", home, -1)
+	wait_for_page(&b)
+	assert_equal(0, b.script.failures)
+	asserts(c"compatibility lifecycle and DOM selectors", page_contains(b.page, c"Compatibility-ready"))
+	int colors = 0
+	for i in range(b.page.runs.length):
+		win_run* run = b.page.runs[i]
+		if (strcmp(run.text, c"Green") == 0):
+			asserts(c"attribute selector applies HSL green", run.color.r < 0.01 && run.color.g > 0.49 && run.color.g < 0.51 && run.color.b < 0.01)
+			win_box* box = win_page_node_box(b.page, run.node)
+			asserts(c"an+b selector applies translucent HSL background", box != 0 && box.color.a > 0.19 && box.color.a < 0.21)
+			colors = colors + 1
+		if (strcmp(run.text, c"Blue") == 0):
+			asserts(c"suffix selector applies turn hue", run.color.b > 0.99 && run.color.r < 0.01 && run.color.g < 0.01)
+			colors = colors + 1
+	assert_equal(2, colors)
+	html_node* submitter = test_find_node(b.page, c"trace-submit")
+	win_browser_submit(&b, submitter)
+	asserts(c"target listener cancels browser navigation", b.load == 0)
+	char* trace = win_dom_text(test_find_node(b.page, c"trace"))
+	assert_strings_equal(c"DCTB", trace)
+	free(trace)
+	win_browser_submit(&b, submitter)
+	asserts(c"second submit stays on page", b.load == 0)
+	trace = win_dom_text(test_find_node(b.page, c"trace"))
+	assert_strings_equal(c"CTB", trace)
+	free(trace)
+	assert_equal(0, b.script.failures)
+	win_browser_free(&b)
+
 void test_form_navigation(char* executable, char* address):
 	win_browser b
 	win_browser_init(&b, executable, c"")
@@ -323,5 +356,6 @@ int main(int argc, int argv):
 	test_addresses()
 	test_navigation(args_get(1), args_get(2))
 	test_interactive_page(args_get(1), args_get(2))
+	test_compatibility_page(args_get(1), args_get(2))
 	println(c"Win document, layout, navigation, and UI tests: OK")
 	return 0

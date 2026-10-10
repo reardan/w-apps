@@ -143,6 +143,13 @@ Exit: a local article fixture containing headings, paragraphs, nested inline tex
 
 ### M3 CSS styling and layout
 
+Current compatibility increment: attribute substring/word/language operators and
+case flags, structural `an+b` selectors in both directions and by element type,
+and RGB/HSL function syntax are implemented with focused regression tests.
+Malformed supported syntax is rejected before applying a rule or declaration.
+The [CSS compatibility matrix](css-compatibility.md) retains the remaining layout,
+selector, and value limitations.
+
 - Consume W's CSS syntax trees, validate selectors/property values, and implement matching, cascade, and computed styles.
 - Load inline and local linked stylesheets; preserve stylesheet order independently of completion order.
 - Implement the scoped box model and text properties, dirty flags, and inspector views for matched rules and computed values.
@@ -171,6 +178,13 @@ Exit: Win evaluates supported scripts and calls a host function. A retained clos
 M5 can begin after M0. Browser integration still depends on M2's DOM ownership and M3's invalidation behavior. W's standalone interpreter tests are existing dependency validation, not an unimplemented engine milestone.
 
 ### M6 Interactive pages
+
+Current compatibility increment: capture/target/bubble dispatch, capture/once/passive
+listener options, immediate propagation stopping, and event cancellation metadata
+are implemented. `standards.html` and browser integration tests combine those
+bindings with CSS/DOM selector queries and canceled form navigation. Timers and
+the broader ECMAScript runtime remain separate future work; see the
+[JavaScript compatibility matrix](javascript-compatibility.md).
 
 - Bind the JavaScript realm to its document through stable node handles. Add supported DOM APIs, event dispatch, timers, and classic script scheduling.
 - Connect input changes and DOM mutations to style/layout invalidation; paint after bounded script/event work.

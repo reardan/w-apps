@@ -4,7 +4,7 @@ Build Win as a native browser written in W. Reuse W's HTML/CSS libraries, genera
 
 The first release target is a small browser that renders local documents and selected HTTP/HTTPS pages, follows links, applies a documented CSS subset, and runs simple interactive JavaScript examples. Begin on Linux x64 with X11; expand platform support after the engine works. Full modern website compatibility is a longer-term goal.
 
-All paths in code blocks are relative to the `w-apps` repository root unless stated otherwise. The [current executable](../README.md) implements an initial slice of M0–M2 plus bounded HTTP loading. Milestones below remain the target acceptance criteria; tabs, full CSS, images, mutable DOM, and page scripting are still outstanding.
+All paths in code blocks are relative to the `w-apps` repository root unless stated otherwise. The [current executable](../README.md) integrates tabs, bounded document/subresource loading, stylesheet cascade and box layout, images, forms, and mutable DOM/page scripting. The [CSS](css-compatibility.md) and [JavaScript](javascript-compatibility.md) matrices distinguish implemented behavior from standards compatibility still outstanding. Milestones below remain the broader target acceptance criteria.
 
 ## W foundations and gaps
 
@@ -123,7 +123,7 @@ Exit: a fresh checkout can initialize the submodule, build a window, prepare gen
 
 ### M1 Native browser shell and local documents
 
-Current slice: a single-window browser with address editing, local/network loading, history, reload/stop, scrolling, and error state is operational. Tabs remain outstanding.
+Current slice: a single-window browser with independent tabs, address editing, local/network loading, history, reload/stop, scrolling, and error state is operational.
 
 - Reuse W textbox, button, scroll, tab, and menu widgets for the shell.
 - Implement tab/session ownership, explicit local-file loading, navigation generation IDs, loading/error views, and basic history.
@@ -133,7 +133,7 @@ Exit: open two local files in separate tabs, switch and close tabs, navigate his
 
 ### M2 HTML to DOM to readable pages
 
-Current slice: owned static HTML trees, default element styling, basic inline CSS, text runs, wrapping, link hit testing, fragments, and resize relayout are implemented. Mutable DOM storage and a complete box model remain outstanding.
+Current slice: owned mutable HTML trees, default styling, author CSS cascade, block boxes, text/image runs, form bounds, wrapping, link hit testing, fragments, and resize/mutation relayout are implemented. Full layout compatibility remains outstanding.
 
 - Adapt W's HTML static tree into Win document storage, preserving source spans and diagnostics; add UTF-8 validation and stable node identities.
 - Add default element styling, block layout, inline fragments, text measurement/wrapping, paint commands, and hit testing.
@@ -151,7 +151,7 @@ Exit: styled article and form fixtures match expected computed styles, layout co
 
 ### M4 HTTP and HTTPS navigation
 
-Current slice: bounded asynchronous document fetches, redirects, decoding, cancellation, and HTTP are working. Subresource loading remains outstanding; public HTTPS verification failures are recorded in the [readiness assessment](foundation-readiness.md#public-https-follow-up).
+Current slice: bounded asynchronous document fetches, redirects, decoding, cancellation, and HTTP are working. CSS, script and image subresource loading is implemented; public HTTPS verification failures are recorded in the [readiness assessment](foundation-readiness.md#public-https-follow-up).
 
 - Integrate W's URL resolution, fragments, final response URLs, owned clients, and content decoding. Add MIME/encoding decisions, aggregate page budgets, and scheduling for CSS, scripts, and images.
 - Use W's redirect approval callback so each hop is policy-checked and the final URL becomes the document base. Resolve against `<base href>` when supported.
@@ -241,4 +241,4 @@ Every milestone must ship an executable example and automated checks. Maintain a
 - End-to-end tests drive address entry, navigation, focus, tabs, scrolling, and scripted updates. Track parse/style/layout/paint time, peak document memory, frame latency, and cancellation latency on fixed fixtures; set budgets after M2 establishes measurements.
 - For Win changes, run its focused checks and headless suite plus relevant native smoke tests. For changes inside W, follow its own `AGENTS.md` checks and required regression suite before advancing the pin.
 
-The first executable slice is now present. Next, implement M3 selector matching, cascade, and computed styles, then extend the text-run engine into a box layout and add image resources. Track public HTTPS verification as an upstream compatibility blocker, and integrate the new JavaScript callback API when the mutable DOM bridge is ready.
+The interactive application slice is implemented and tested. Next work is broader standards compatibility, more complete form semantics, accessibility, persistent browser state, and content-process isolation. Public HTTPS P-384 verification is an independent upstream workstream.

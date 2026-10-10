@@ -13,7 +13,7 @@ case "$action" in
   build|run|check|test) ;;
   *) echo 'Usage: win/build [build|run|check|test] [browser arguments]' >&2; exit 2 ;;
 esac
-(cd "$w_root" && ./wbuild build)
+(cd "$w_root" && ./wbuild build javascript_parser)
 mkdir -p "$win_root/bin"
 compiler=("$w_root/bin/wv2" x64)
 imports=(--import-root "$win_root/src" --import-root "$w_root")
@@ -24,8 +24,13 @@ if [[ "$action" == run ]]; then
   exec "$win_root/bin/win" --home "$win_root/fixtures/start.html" "$@"
 fi
 if [[ "$action" == test ]]; then
-  "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/browser_test.w"
-  "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/browser_test.w" -o "$win_root/bin/browser_test"
-  "$win_root/bin/browser_test" "$win_root/bin/win" "$win_root/fixtures/start.html"
-  python3 "$win_root/tests/integration.py" "$win_root/bin/win" "$win_root/fixtures/start.html"
+  for source in "$win_root"/tests/*_test.w; do
+    name="$(basename "$source" .w)"
+    "${compiler[@]}" check --json "${imports[@]}" "$source"
+    "${compiler[@]}" --strict "${imports[@]}" "$source" -o "$win_root/bin/$name"
+    "$win_root/bin/$name" "$win_root/bin/win" "$win_root/fixtures/start.html"
+  done
+  for test in "$win_root"/tests/*integration.py; do
+    python3 "$test" "$win_root/bin/win" "$win_root/fixtures/start.html"
+  done
 fi

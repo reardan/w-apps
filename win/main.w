@@ -1,6 +1,6 @@
 import lib.args
 import lib.stream
-import win.browser
+import win.app
 
 int win_screenshot(char* path, int width, int height):
 	if (width <= 0 || height <= 0 || width > 4096 || height > 4096): return 0
@@ -36,17 +36,28 @@ int main(int argc, int argv):
 		println(c"win [--page PATH_OR_URL] [--dump] [--frames N --screenshot FILE.ppm]")
 		return 0
 	char* fetch = args_value(c"fetch")
-	if (fetch != 0): return win_fetch_worker(fetch)
+	if (fetch != 0):
+		char* method = args_value(c"method")
+		char* body = args_value(c"body")
+		if (method == 0): method = c"GET"
+		if (body == 0): body = c""
+		return win_fetch_request_worker(fetch, method, body)
+	char* resource = args_value(c"resource")
+	if (resource != 0):
+		char* kind = args_value(c"kind")
+		if (kind == 0): return 1
+		return win_resource_worker(resource, kind)
 	char* home = args_value(c"home")
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
-	win_browser browser
-	win_browser_init(&browser, args_program(), home)
-	win_navigate(&browser, start, c"", -1)
+	win_app app
+	win_app_init(&app, args_program(), home)
+	win_app_open(&app, start, c"")
+	win_browser* browser = app.tabs[0]
 	if (args_has_flag(c"dump")):
-		while (browser.load != 0):
-			win_browser_poll(&browser)
+		while (win_browser_loading(browser)):
+			win_app_poll(&app)
 			sleep_ms(2)
 		int code = 0
 		if (browser.page == 0):
@@ -56,20 +67,21 @@ int main(int argc, int argv):
 			println(browser.address)
 			println(browser.page.title)
 			for i in range(browser.page.runs.length):
+				if (browser.page.runs[i].hidden): continue
 				print(browser.page.runs[i].text)
 				print(c" ")
 			println(c"")
-		win_browser_free(&browser)
+		win_app_free(&app)
 		return code
 	gfx_window* window = gfx_window_open(c"Win — W browser", 1000, 760)
 	if (window == 0):
 		println2(c"Win needs an X11 display. Use --dump for headless document checks.")
-		win_browser_free(&browser)
+		win_app_free(&app)
 		return 1
 	ui_renderer renderer
 	if (ui_render_init(&renderer) == 0):
 		gfx_window_destroy(window)
-		win_browser_free(&browser)
+		win_app_free(&app)
 		return 1
 	ui_theme theme
 	ui_theme_light(&theme)
@@ -85,9 +97,9 @@ int main(int argc, int argv):
 	char* screenshot = args_value(c"screenshot")
 	int code = 0
 	while (gfx_window_poll(window)):
-		win_browser_poll(&browser)
+		win_app_poll(&app)
 		ui_begin_window(&ctx, window)
-		win_browser_frame(&browser, &ctx, window.width, window.height)
+		win_app_frame(&app, &ctx, window.width, window.height)
 		ui_end(&ctx)
 		frames = frames + 1
 		int last = max_frames > 0 && frames >= max_frames
@@ -97,7 +109,7 @@ int main(int argc, int argv):
 		gfx_window_swap(window)
 		if (last): break
 		sleep_ms(16)
-	win_browser_free(&browser)
+	win_app_free(&app)
 	ui_render_destroy(&renderer)
 	gfx_window_destroy(window)
 	return code

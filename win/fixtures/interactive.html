@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Win interactive demo</title>
+<link rel="stylesheet" href="interactive.css">
+</head>
+<body>
+<header><p class="eyebrow">WIN / INTERACTIVE PAGES</p><h1>A page that responds.</h1><p>Stylesheets, images, editable forms and JavaScript, running in W.</p></header>
+<main>
+<section class="cards">
+<article><h2>Click a counter</h2><p id="count">0 clicks</p><button id="increment" type="button">Add one</button></article>
+<article><h2>Decoded pixels</h2><img src="resources/checker.png" width="100" height="100" alt="Two by two color sample"><p>A PNG loaded by a resource worker.</p></article>
+</section>
+<section class="editor"><h2>Make this page yours</h2><form id="greeting-form"><p><label for="name">Your name</label></p><input id="name" name="name" value="World" required><p><label for="note">A short note</label></p><textarea id="note" name="note">Hello from an editable page.</textarea><p><input id="agree" type="checkbox" name="agree" checked> Include a greeting</p><button type="submit">Update</button><button type="reset">Reset</button></form><p id="greeting">Hello, World!</p></section>
+<p><a href="article.html" target="_blank">Open the article in a new tab</a> · <a href="start.html">Home</a></p>
+</main>
+<script src="interactive.js"></script>
+</body>
+</html>

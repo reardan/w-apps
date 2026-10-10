@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><title>Win stylesheet layout</title><style>
+body { color:#18344d; background:#f0f4f8; font-size:18px; }
+main { max-width:760px; margin:10px auto; padding:24px; background:white; border:1px solid #ccd9e5; }
+h1 { color:#174b82; margin:0 0 12px; }
+.note { padding:12px 16px; background:rgba(40,110,180,0.12); border:2px solid #3579bb; }
+.cards { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin:16px 0; }
+.cards > section { margin:0; padding:16px; background:#eaf1f8; border:1px solid #aac0d8; }
+.cards h2 { font-size:23px; margin:0 0 10px; }
+p { margin:0 0 12px; }
+.center { text-align:center; }
+@media screen and (max-width:500px) { .cards { grid-template-columns:1fr; } main {padding:12px;} }
+</style></head><body><main>
+<h1>Stylesheets, boxes, and columns</h1>
+<p class="note">Author CSS now controls inherited typography, responsive layout, spacing, backgrounds and borders.</p>
+<div class="cards"><section><h2>Document flow</h2><p>Blocks compute padding and borders. Text wraps inside the available content width.</p></section><section><h2>Responsive columns</h2><p>Resize this window below 500 pixels to stack these cards into one grid column.</p></section></div>
+<p class="center"><a href="start.html">Return to the start page</a></p>
+</main></body></html>

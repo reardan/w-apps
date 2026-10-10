@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><title>A browser built from W</title></head><body>
+<p><a href="start.html">Back to the start page</a></p>
+<h1>A browser built from W</h1>
+<p>The first useful step is a document that you can read. A window is only the beginning: text needs a layout, links need destinations, and navigation needs to preserve a page while the next one loads.</p>
+<h2>From source to a page</h2>
+<p>W parses the source into a tree. Win walks that tree and builds lines of text. Each word has a font, a position, and a width. When a word no longer fits, the line ends and a new one starts.</p>
+<p>Text can be <strong>bold</strong>, <em>italic</em>, or <a href="#navigation">a link</a>. These inline elements stay in the paragraph instead of turning into separate UI widgets.</p>
+<h2 id="navigation">Navigation is state</h2>
+<p>Following a link records the old location. Back and Forward visit that history and restore the scroll position. A fragment link names a position inside the current document.</p>
+<ul><li>A slow request runs in a separate loader process.</li><li>Stop closes that loader and leaves the current page readable.</li><li>Starting another navigation discards the previous request.</li></ul>
+<h2>Small, explicit boundaries</h2>
+<p>Documents are limited to one mebibyte. The parser also limits tree depth and node count. Unsupported document types produce a visible loading error. Network certificates are verified by W's TLS stack.</p>
+<h2>Text and language</h2>
+<p>UTF-8 examples: café, naïve, Ελληνικά, Кириллица. The bundled fonts cover these scripts; shaping and wider font fallback remain separate work.</p>
+<p style="color: #17683d">This paragraph uses an inline color declaration parsed by W's CSS library.</p>
+<p style="display: none">HIDDEN_FIXTURE_TEXT</p>
+<h2>Next milestones</h2>
+<ol><li>Computed styles and selector matching.</li><li>Block and inline box geometry.</li><li>Image resources and decoded textures.</li><li>Mutable documents and JavaScript host bindings.</li></ol>
+<p><a href="start.html">Return home</a></p>
+<script>SHOULD_NOT_RENDER_OR_EXECUTE</script>
+</body></html>

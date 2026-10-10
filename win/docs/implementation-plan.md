@@ -4,11 +4,11 @@ Build Win as a native browser written in W. Reuse W's HTML/CSS libraries, genera
 
 The first release target is a small browser that renders local documents and selected HTTP/HTTPS pages, follows links, applies a documented CSS subset, and runs simple interactive JavaScript examples. Begin on Linux x64 with X11; expand platform support after the engine works. Full modern website compatibility is a longer-term goal.
 
-All paths in code blocks are relative to the `w-apps` repository root unless stated otherwise. Proposed files and commands below are implementation work, not existing browser functionality.
+All paths in code blocks are relative to the `w-apps` repository root unless stated otherwise. The [current executable](../README.md) implements an initial slice of M0–M2 plus bounded HTTP loading. Milestones below remain the target acceptance criteria; tabs, full CSS, images, mutable DOM, and page scripting are still outstanding.
 
 ## W foundations and gaps
 
-Baseline: W at `731f0919522047bbb8d74d5b7779e3d02e81da7b`. The [readiness assessment](foundation-readiness.md) records the verified capabilities and remaining gaps. This revision is sufficient to start the native shell and static-page engine; keep reusable foundations in W and implement browser behavior here.
+Baseline: W at `f63d97aea815b3541ab78dd195ef8e1b17b4c30f`. The [readiness assessment](foundation-readiness.md) records the verified capabilities and remaining gaps. This revision is sufficient to start the native shell and static-page engine; keep reusable foundations in W and implement browser behavior here.
 
 | Area | Existing W foundation | Win work |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ Build W's generated JavaScript parser in the dependency checkout before compilin
 
 Call `html_parse_with_limits` after explicit input decoding/UTF-8 normalization. The existing static tree supplies implied document elements, attributes, text, a limited entity set, raw/RCDATA content, and initial malformed-markup recovery. Adapt it to Win's document model with stable node IDs. Retain unknown ordinary elements.
 
-The initial renderer supports UTF-8 articles with headings, paragraphs, lists, links, preformatted text, and simple controls. Keep the supported parser boundary visible: full table recovery, formatting reconstruction, script escaped states, fragment contexts, encoding sniffing, and streaming resume remain upstream compatibility work. Implement `innerHTML` only after fragment parsing is specified and tested.
+The initial renderer supports UTF-8 articles with headings, paragraphs, lists, links, preformatted text, and simple controls. Keep the supported parser boundary visible: full table recovery, formatting reconstruction, fragment contexts, encoding sniffing, and streaming resume remain upstream compatibility work. Implement `innerHTML` only after fragment parsing is specified and tested.
 
 ### CSS
 
@@ -91,7 +91,7 @@ Use `libs.extras.javascript.runtime` on x64, with one instance per document. W a
 
 The executable subset is narrower than parser acceptance. Use `let`/`const` and ordinary functions in initial fixtures. `var`, arrows, classes, modules, `this`, prototypes/accessors, standard built-ins, async/generators, templates, and regex execution are outside the current runtime contract. W rejects unsupported syntax before execution; do not silently emulate different semantics in Win.
 
-Resolve the [embedding gaps](foundation-readiness.md#resolve-before-event-driven-scripting) before M6: a supported host-to-JavaScript callback entry point with fresh budget/completion setup, application context, and DOM property behavior. Budget exhaustion is a terminal abort, not a resumable execution slice. Host callbacks need their own bounded work/deadline policy.
+Use the newly available `js_runtime_invoke` for callbacks. Resolve the remaining [embedding gaps](foundation-readiness.md#resolve-before-event-driven-scripting) before M6: application context and DOM property behavior. Budget exhaustion is a terminal abort, not a resumable execution slice. Host callbacks need their own bounded work/deadline policy.
 
 Expose `console.log`, selected document lookup/creation APIs, `textContent`, attributes, append/remove operations, event listeners, and timers through that bridge. Add event capture/target/bubble phases and default actions for supported events. Begin with classic scripts at the end of `body`; parser suspension and classic external script ordering need a separate integration design because the existing HTML parser produces a completed static tree. Stage `async`, `defer`, modules, promises, `fetch`, `eval`, and `document.write` as later compatibility work.
 
@@ -113,6 +113,8 @@ Use W's PNG/baseline JPEG decoders and RGBA painting APIs. Supply placeholders w
 
 ### M0 Establish build and engine test boundaries
 
+Current slice: `win/build`, the x64 entry point, fixtures, strict checks, headless tests, and native rendering are implemented. Clock/loader simulation interfaces remain future refinements.
+
 - Add the W entry point, build wrapper, generated-output directory, and headless test runner. Use explicit import roots for Win source and W.
 - Bootstrap the pinned W compiler, prove a small native UI window and a headless render test, and compile an external consumer of W's HTML/CSS APIs and generated JavaScript parser.
 - Define resource-loader and clock interfaces with deterministic fakes. Add fixture formats for DOM, styles, boxes, and diagnostics.
@@ -121,6 +123,8 @@ Exit: a fresh checkout can initialize the submodule, build a window, prepare gen
 
 ### M1 Native browser shell and local documents
 
+Current slice: a single-window browser with address editing, local/network loading, history, reload/stop, scrolling, and error state is operational. Tabs remain outstanding.
+
 - Reuse W textbox, button, scroll, tab, and menu widgets for the shell.
 - Implement tab/session ownership, explicit local-file loading, navigation generation IDs, loading/error views, and basic history.
 - Initially paint source/plain text through the page viewport to prove resizing, scrolling, focus, and chrome/content event separation.
@@ -128,6 +132,8 @@ Exit: a fresh checkout can initialize the submodule, build a window, prepare gen
 Exit: open two local files in separate tabs, switch and close tabs, navigate history, and resize without leaking sessions or losing address-bar input.
 
 ### M2 HTML to DOM to readable pages
+
+Current slice: owned static HTML trees, default element styling, basic inline CSS, text runs, wrapping, link hit testing, fragments, and resize relayout are implemented. Mutable DOM storage and a complete box model remain outstanding.
 
 - Adapt W's HTML static tree into Win document storage, preserving source spans and diagnostics; add UTF-8 validation and stable node identities.
 - Add default element styling, block layout, inline fragments, text measurement/wrapping, paint commands, and hit testing.
@@ -144,6 +150,8 @@ Exit: a local article fixture containing headings, paragraphs, nested inline tex
 Exit: styled article and form fixtures match expected computed styles, layout coordinates, and selected render probes at two viewport widths. One invalid declaration leaves neighboring valid declarations effective.
 
 ### M4 HTTP and HTTPS navigation
+
+Current slice: bounded asynchronous document fetches, redirects, decoding, cancellation, and HTTP are working. Subresource loading remains outstanding; public HTTPS verification failures are recorded in the [readiness assessment](foundation-readiness.md#public-https-follow-up).
 
 - Integrate W's URL resolution, fragments, final response URLs, owned clients, and content decoding. Add MIME/encoding decisions, aggregate page budgets, and scheduling for CSS, scripts, and images.
 - Use W's redirect approval callback so each hop is policy-checked and the final URL becomes the document base. Resolve against `<base href>` when supported.
@@ -211,7 +219,7 @@ git submodule update --init --recursive
 (cd w && ./wbuild build javascript_parser)
 ```
 
-After M0 creates `win/main.w` and `win/src`, use:
+The application can now be built and run with `./win/build run`. Equivalent direct compilation uses:
 
 ```sh
 mkdir -p win/bin
@@ -233,4 +241,4 @@ Every milestone must ship an executable example and automated checks. Maintain a
 - End-to-end tests drive address entry, navigation, focus, tabs, scrolling, and scripted updates. Track parse/style/layout/paint time, peak document memory, frame latency, and cancellation latency on fixed fixtures; set budgets after M2 establishes measurements.
 - For Win changes, run its focused checks and headless suite plus relevant native smoke tests. For changes inside W, follow its own `AGENTS.md` checks and required regression suite before advancing the pin.
 
-The first implementation slice is M0 followed by M1 and a small M2 article fixture. That establishes the native W application, parser integration, document ownership, and rendering path before the larger CSS and JavaScript work.
+The first executable slice is now present. Next, implement M3 selector matching, cascade, and computed styles, then extend the text-run engine into a box layout and add image resources. Track public HTTPS verification as an upstream compatibility blocker, and integrate the new JavaScript callback API when the mutable DOM bridge is ready.

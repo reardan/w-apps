@@ -4,5 +4,6 @@ See the [application README](../README.md) to build, run, and test Win. The brow
 
 - [CSS compatibility](css-compatibility.md): selectors, cascade, properties, layout, and remaining limits.
 - [JavaScript compatibility](javascript-compatibility.md): execution, DOM bindings, events, budgets, and language limitations.
+- [Standards gap analysis](standards-gap-analysis.md): audited CSS/ECMAScript gaps, executable findings, and a staged parallel implementation plan.
 - [Foundation readiness](foundation-readiness.md): integration status and the separate public HTTPS verification follow-up.
 - [Implementation plan](implementation-plan.md): architecture and longer-term milestones.

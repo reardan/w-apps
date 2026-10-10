@@ -1,0 +1,3 @@
+[submodule "w"]
+	path = w
+	url = git@github.com:reardan/w.git

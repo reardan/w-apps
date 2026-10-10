@@ -5,6 +5,16 @@ import graphics.ui.text
 import lib.format
 import lib.fmath
 
+# Installed only for synchronous DOM queries; stylesheet matching uses no JS
+# budget. Nested filters/combinators must charge work as well as DOM traversal.
+int* win_selector_budget
+
+int win_selector_step():
+	if (win_selector_budget == 0): return 1
+	if (win_selector_budget[0] <= 0): return 0
+	win_selector_budget[0] = win_selector_budget[0] - 1
+	return 1
+
 struct win_style:
 	int size
 	int line_height
@@ -29,6 +39,9 @@ struct win_style:
 	int padding_bottom
 	int padding_left
 	int border
+	int border_width
+	int border_style
+	int border_current_color
 	int gap
 	int flex_column
 	int columns
@@ -70,6 +83,9 @@ win_style win_default_style():
 	s.padding_bottom = 0
 	s.padding_left = 0
 	s.border = 0
+	s.border_width = 3
+	s.border_style = 0
+	s.border_current_color = 1
 	s.gap = 0
 	s.flex_column = 0
 	s.columns = 1
@@ -152,6 +168,7 @@ html_node* win_previous_element(html_node* node):
 	html_node* prev = 0
 	html_node* child = node.parent.first_child
 	while (child != 0 && child != node):
+		if (win_selector_step() == 0): return 0
 		if (child.kind == HTML_START): prev = child
 		child = child.next_sibling
 	return prev
@@ -200,6 +217,7 @@ int win_sibling_index(html_node* node, int reverse, int of_type):
 		if (node.parent == 0): return 1
 		sibling = node.parent.first_child
 	while (sibling != 0):
+		if (win_selector_step() == 0): return 0
 		if (reverse == 0 && sibling == node): break
 		if (sibling.kind == HTML_START && (of_type == 0 || css_ascii_equal(sibling.name, node.name))): index = index + 1
 		sibling = sibling.next_sibling
@@ -321,6 +339,57 @@ int win_attribute_selector(css_document* css, int pos, int last, html_node* node
 	return 1
 
 int win_selector_match(css_document* css, int first, int last, html_node* node);
+int win_selector_valid(css_document* css, int first, int last);
+
+# Only :is() and :where() use forgiving lists. Ordinary lists, :not(), and
+# nth-child's filter reject the entire list if any branch is invalid.
+int win_selector_list_valid(css_document* css, int first, int last):
+	int start = first
+	int end = first
+	while (end <= last):
+		if (win_selector_step() == 0): return 0
+		if (end == last || css_delim(css.tokens[end], ',')):
+			if (win_selector_valid(css, start, end) == 0): return 0
+			start = end + 1
+			end = end + 1
+		else: end = css_next_component(css, end, last)
+	return 1
+
+int win_selector_list_match(css_document* css, int first, int last, html_node* node):
+	int start = first
+	int end = first
+	int maximum = -1
+	while (end <= last):
+		if (win_selector_step() == 0): return -1
+		if (end == last || css_delim(css.tokens[end], ',')):
+			int score = win_selector_match(css, start, end, node)
+			if (score > maximum): maximum = score
+			start = end + 1
+			end = end + 1
+		else: end = css_next_component(css, end, last)
+	return maximum
+
+# Locate the optional filter without looking inside nested components.
+int win_nth_filter(css_document* css, int first, int last):
+	int pos = first
+	while (pos < last):
+		if (css_kind(css.tokens[pos], c"ident") && css_ascii_equal(css.tokens[pos].value, c"of")): return pos
+		pos = css_next_component(css, pos, last)
+	return last
+
+int win_filtered_sibling_index(css_document* css, int first, int last, html_node* node, int reverse):
+	if (win_selector_list_match(css, first, last, node) < 0): return 0
+	int index = 1
+	html_node* sibling = node.next_sibling
+	if (reverse == 0):
+		if (node.parent == 0): return 1
+		sibling = node.parent.first_child
+	while (sibling != 0):
+		if (win_selector_step() == 0): return 0
+		if (reverse == 0 && sibling == node): break
+		if (sibling.kind == HTML_START && win_selector_list_match(css, first, last, sibling) >= 0): index = index + 1
+		sibling = sibling.next_sibling
+	return index
 
 # Validate every branch before matching: unsupported syntax inside :not() must
 # not turn into a successful negation. Commas are handled by the owning list.
@@ -330,6 +399,7 @@ int win_selector_valid(css_document* css, int first, int last):
 	int compound = 0
 	int type_allowed = 1
 	while (pos < last):
+		if (win_selector_step() == 0): return 0
 		css_token* t = css.tokens[pos]
 		if (css_kind(t, c"comment")):
 			pos = pos + 1
@@ -365,20 +435,18 @@ int win_selector_valid(css_document* css, int first, int last):
 				if (open >= last || css_delim(css.tokens[open], '(') == 0): return 0
 				int close = css.tokens[open].match
 				if (close < open || close >= last): return 0
-				int start = open + 1
-				int end = start
-				while (end <= close):
-					if (end == close || css_delim(css.tokens[end], ',')):
-						if (win_selector_valid(css, start, end) == 0): return 0
-						start = end + 1
-						end = end + 1
-					else: end = css_next_component(css, end, close)
+				if (css_ascii_equal(pseudo, c"not") && win_selector_list_valid(css, open + 1, close) == 0): return 0
 				pos = close
 			else if (css_ascii_equal(pseudo, c"nth-child") || css_ascii_equal(pseudo, c"nth-last-child") || css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")):
 				int open = pos + 1
 				if (open >= last || css_delim(css.tokens[open], '(') == 0): return 0
 				int close = css.tokens[open].match
-				if (close < open || close >= last || win_nth_matches(css, open + 1, close, 1) < 0): return 0
+				if (close < open || close >= last): return 0
+				int filter = win_nth_filter(css, open + 1, close)
+				if (win_nth_matches(css, open + 1, filter, 1) < 0): return 0
+				if (filter < close):
+					if (css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")): return 0
+					if (win_selector_list_valid(css, filter + 1, close) == 0): return 0
 				pos = close
 			else if (css_ascii_equal(pseudo, c"root") == 0 && css_ascii_equal(pseudo, c"first-child") == 0 && css_ascii_equal(pseudo, c"last-child") == 0 && css_ascii_equal(pseudo, c"only-child") == 0 && css_ascii_equal(pseudo, c"first-of-type") == 0 && css_ascii_equal(pseudo, c"last-of-type") == 0 && css_ascii_equal(pseudo, c"only-of-type") == 0 && css_ascii_equal(pseudo, c"link") == 0 && css_ascii_equal(pseudo, c"checked") == 0 && css_ascii_equal(pseudo, c"disabled") == 0): return 0
 		else: return 0
@@ -387,16 +455,17 @@ int win_selector_valid(css_document* css, int first, int last):
 		pos = pos + 1
 	return compound
 
-int win_selector_specificity(css_document* css, int first, int last):
+int win_selector_specificity(css_document* css, int first, int last);
+
+# Only validated branches reach this scanner. Invalid forgiving branches can
+# contain punctuation that would otherwise corrupt both scoring and list splits.
+int win_selector_branch_specificity(css_document* css, int first, int last):
 	int score = 0
-	int maximum = 0
 	int pos = first
 	while (pos < last):
+		if (win_selector_step() == 0): return 0
 		css_token* t = css.tokens[pos]
-		if (css_delim(t, ',')):
-			if (score > maximum): maximum = score
-			score = 0
-		else if (css_kind(t, c"hash")): score = score + 10000
+		if (css_kind(t, c"hash")): score = score + 10000
 		else if (css_delim(t, '.')):
 			score = score + 100
 			pos = pos + 1
@@ -406,18 +475,34 @@ int win_selector_specificity(css_document* css, int first, int last):
 			continue
 		else if (css_delim(t, ':')):
 			pos = pos + 1
-			if (pos >= last): return score
 			char* pseudo = css.tokens[pos].value
 			if (pos + 1 < last && css_delim(css.tokens[pos + 1], '(')):
 				int close = css.tokens[pos + 1].match
-				if (close < 0): return score
 				if (css_ascii_equal(pseudo, c"not") || css_ascii_equal(pseudo, c"is")): score = score + win_selector_specificity(css, pos + 2, close)
-				else if (css_ascii_equal(pseudo, c"where") == 0): score = score + 100
+				else if (css_ascii_equal(pseudo, c"where") == 0):
+					score = score + 100
+					if (css_ascii_equal(pseudo, c"nth-child") || css_ascii_equal(pseudo, c"nth-last-child")):
+						int filter = win_nth_filter(css, pos + 2, close)
+						if (filter < close): score = score + win_selector_specificity(css, filter + 1, close)
 				pos = close
 			else: score = score + 100
 		else if (css_kind(t, c"ident")): score = score + 1
 		pos = pos + 1
-	if (score > maximum): maximum = score
+	return score
+
+int win_selector_specificity(css_document* css, int first, int last):
+	int maximum = 0
+	int start = first
+	int end = first
+	while (end <= last):
+		if (win_selector_step() == 0): return 0
+		if (end == last || css_delim(css.tokens[end], ',')):
+			if (win_selector_valid(css, start, end)):
+				int score = win_selector_branch_specificity(css, start, end)
+				if (score > maximum): maximum = score
+			start = end + 1
+			end = end + 1
+		else: end = css_next_component(css, end, last)
 	return maximum
 
 # Specificity is bounded by parser depth; -1 means no match.
@@ -426,6 +511,7 @@ int win_selector_compound(css_document* css, int first, int last, html_node* nod
 	int score = 0
 	int pos = first
 	while (pos < last):
+		if (win_selector_step() == 0): return -1
 		css_token* t = css.tokens[pos]
 		if (css_kind(t, c"comment")):
 			pos = pos + 1
@@ -481,7 +567,11 @@ int win_selector_compound(css_document* css, int first, int last, html_node* nod
 				if (close < 0 || close >= last): return -1
 				int reverse = css_ascii_equal(pseudo, c"nth-last-child") || css_ascii_equal(pseudo, c"nth-last-of-type")
 				int of_type = css_ascii_equal(pseudo, c"nth-of-type") || css_ascii_equal(pseudo, c"nth-last-of-type")
-				if (win_nth_matches(css, open + 1, close, win_sibling_index(node, reverse, of_type)) != 1): return -1
+				int filter = win_nth_filter(css, open + 1, close)
+				int index = 0
+				if (filter < close): index = win_filtered_sibling_index(css, filter + 1, close, node, reverse)
+				else: index = win_sibling_index(node, reverse, of_type)
+				if (index == 0 || win_nth_matches(css, open + 1, filter, index) != 1): return -1
 				pos = close
 			else if (css_ascii_equal(pseudo, c"root")):
 				if (node.parent != 0 && node.parent.kind != HTML_DOCUMENT): return -1
@@ -559,9 +649,8 @@ int win_css_length(css_token* token, int size):
 int win_selector_matches(html_node* node, char* selector):
 	css_document* css = css_parse_selectors_n(selector, strlen(selector), 0)
 	int found = 0
-	if (css.failed == 0):
-		for i in range(css.nodes.length):
-			if (win_selector_match(css, css.nodes[i].first, css.nodes[i].last, node) >= 0): found = 1
+	if (css.failed == 0 && win_selector_list_valid(css, 0, css.tokens.length)):
+		found = win_selector_list_match(css, 0, css.tokens.length, node) >= 0
 	css_document_free(css)
 	return found
 
@@ -594,6 +683,7 @@ int win_css_property(char* name):
 	if (css_ascii_equal(name, c"flex-direction")): return 25
 	if (css_ascii_equal(name, c"grid-template-columns")): return 26
 	if (css_ascii_equal(name, c"line-height")): return 27
+	if (css_ascii_equal(name, c"border-style")): return 28
 	return -1
 
 float32 win_css_decimal(char* value);
@@ -662,7 +752,7 @@ void win_css_value(win_style* s, win_style inherited, int property, css_token* t
 		else if (property == 17): s.padding_right = n
 		else if (property == 18): s.padding_bottom = n
 		else if (property == 19): s.padding_left = n
-		else if (property == 20): s.border = n
+		else if (property == 20): s.border_width = n
 	else if (property == 21): s.border_color = win_color(value, s.border_color)
 	else if (property == 22): s.box_sizing = css_ascii_equal(value, c"border-box")
 	else if (property == 27):
@@ -759,12 +849,15 @@ ui_color win_css_function_color(css_document* css, int first, int last):
 		int percentage = css_kind(t, c"percentage")
 		int number = css_kind(t, c"number")
 		int dimension = css_kind(t, c"dimension")
-		if (number == 0 && percentage == 0 && (hsl == 0 || count != 0 || dimension == 0)): return invalid
+		int missing = legacy == 0 && css_kind(t, c"ident") && css_ascii_equal(t.value, c"none")
+		if (missing == 0 && number == 0 && percentage == 0 && (hsl == 0 || count != 0 || dimension == 0)): return invalid
 		int consumed = 0
-		float32 component = parse_float(t.value, &consumed)
+		float32 component = 0.0
+		if (missing == 0): component = parse_float(t.value, &consumed)
 		# A decoded unit beginning with e must not become a numeric exponent.
-		if (consumed == 0 || consumed != css_number_end(css, t.start) - t.start || fis_nan(component)): return invalid
-		if (hsl && count == 0):
+		if (missing == 0 && (consumed == 0 || consumed != css_number_end(css, t.start) - t.start || fis_nan(component))): return invalid
+		if (missing): component = 0.0
+		else if (hsl && count == 0):
 			if (percentage): return invalid
 			char* unit = t.value + consumed
 			if (number || css_ascii_equal(unit, c"deg")): component = component / 360.0
@@ -842,24 +935,115 @@ int win_css_value_valid(int property, css_token* token, int size):
 	if (property == 23): return css_ascii_equal(value, c"visible") || css_ascii_equal(value, c"hidden") || css_ascii_equal(value, c"collapse")
 	if (property == 27): return css_ascii_equal(value, c"normal") || css_ascii_equal(value, c"inherit") || css_kind(token, c"number") && win_css_decimal(value) >= 0.0 && win_css_decimal(value) <= 100.0 || win_css_length(token, size) >= 0
 	if (property == 25): return css_ascii_equal(value, c"row") || css_ascii_equal(value, c"column")
+	if (property == 28): return css_kind(token, c"ident") && (css_ascii_equal(value, c"none") || css_ascii_equal(value, c"hidden") || css_ascii_equal(value, c"solid"))
 	return 1
+
+# Resolve used border values after the entire cascade, so currentColor tracks
+# color regardless of declaration order and width remains independent of style.
+void win_css_resolve_border(win_style* style):
+	style.border = 0
+	if (style.border_style): style.border = style.border_width
+	if (style.border_current_color): style.border_color = style.color
+
+int win_css_border_width(css_document* css, css_token* token, int size):
+	if (css_kind(token, c"ident")):
+		if (css_ascii_equal(token.value, c"thin")): return 1
+		if (css_ascii_equal(token.value, c"medium")): return 3
+		if (css_ascii_equal(token.value, c"thick")): return 5
+		return -1
+	if (css_kind(token, c"number") == 0 && css_kind(token, c"dimension") == 0): return -1
+	int consumed = 0
+	float32 value = parse_float(token.value, &consumed)
+	if (consumed == 0 || consumed != css_number_end(css, token.start) - token.start || fis_nan(value) || value < 0.0): return -1
+	if (css_kind(token, c"number")):
+		if (value == 0.0): return 0
+		return -1
+	char* unit = token.value + consumed
+	if (css_ascii_equal(unit, c"em")): value = value * cast(float32, size)
+	else if (css_ascii_equal(unit, c"rem")): value = value * 18.0
+	else if (css_ascii_equal(unit, c"px") == 0): return -1
+	if (value > 100000.0): return -1
+	return cast(int, value)
+
+# The supported uniform border shorthand is parsed atomically. Invalid trailing
+# tokens or duplicate components cannot partially replace earlier longhands.
+void win_css_border(css_document* css, int first, int last, int priority, int* winners, win_style* style):
+	int width = 3
+	int visible = 0
+	int current = 1
+	ui_color color = style.color
+	int have_width = 0
+	int have_style = 0
+	int have_color = 0
+	int pos = first
+	while (pos < last):
+		css_token* t = css.tokens[pos]
+		int end = pos + 1
+		if (end < last && css_delim(css.tokens[end], '(')):
+			end = css_next_component(css, end, last)
+			ui_color parsed = win_css_function_color(css, pos, end)
+			if (have_color || parsed.a < 0.0): return
+			color = parsed
+			current = 0
+			have_color = 1
+		else if (win_css_value_valid(28, t, style.size)):
+			if (have_style): return
+			visible = css_ascii_equal(t.value, c"solid")
+			have_style = 1
+		else if (win_css_border_width(css, t, style.size) >= 0):
+			if (have_width): return
+			width = win_css_border_width(css, t, style.size)
+			have_width = 1
+		else:
+			if (have_color): return
+			if (css_kind(t, c"ident") && css_ascii_equal(t.value, c"currentcolor")): current = 1
+			else:
+				if (win_css_value_valid(21, t, style.size) == 0): return
+				color = win_color(t.value, color)
+				current = 0
+			have_color = 1
+		pos = css_skip(css, end, last)
+	if (priority >= winners[20]):
+		style.border_width = width
+		winners[20] = priority
+	if (priority >= winners[28]):
+		style.border_style = visible
+		winners[28] = priority
+	if (priority >= winners[21]):
+		style.border_color = color
+		style.border_current_color = current
+		winners[21] = priority
 
 void win_css_declaration(css_document* css, css_node* d, int priority, int* winners, win_style* style, win_style inherited):
 	int first = css_skip(css, d.first, d.last)
 	if (first >= d.last): return
 	int property = win_css_property(d.name)
 	if (property >= 0):
+		if (property == 20):
+			int width = win_css_border_width(css, css.tokens[first], style.size)
+			if (width >= 0 && css_skip(css, first + 1, d.last) == d.last && priority >= winners[20]):
+				style.border_width = width
+				winners[20] = priority
+			return
+		if (property == 21 && css_skip(css, first + 1, d.last) == d.last && css_kind(css.tokens[first], c"ident") && css_ascii_equal(css.tokens[first].value, c"currentcolor")):
+			if (priority >= winners[21]):
+				style.border_current_color = 1
+				winners[21] = priority
+			return
 		if ((property == 0 || property == 8 || property == 21) && first + 1 < d.last):
 			ui_color color = win_css_function_color(css, first, d.last)
 			if (color.a >= 0.0 && priority >= winners[property]):
 				if (property == 0): style.color = color
 				if (property == 8): style.background = color
-				if (property == 21): style.border_color = color
+				if (property == 21):
+					style.border_color = color
+					style.border_current_color = 0
 				winners[property] = priority
 			return
 		if (win_css_value_valid(property, css.tokens[first], inherited.size) == 0): return
 		if (property != 26 && css_skip(css, first + 1, d.last) != d.last): return
 		if (priority >= winners[property]):
+			if (property == 21): style.border_current_color = 0
 			if (property == 26):
 				int columns = 0
 				int pos = first
@@ -870,6 +1054,7 @@ void win_css_declaration(css_document* css, css_node* d, int priority, int* winn
 						if (css_trivia(css.tokens[pos]) == 0): columns = columns + 1
 						pos = css_next_component(css, pos, d.last)
 				if (columns >= 1 && columns <= 12): style.columns = columns
+			else if (property == 28): style.border_style = css_ascii_equal(css.tokens[first].value, c"solid")
 			else: win_css_value(style, inherited, property, css.tokens[first])
 			winners[property] = priority
 		return
@@ -895,18 +1080,7 @@ void win_css_declaration(css_document* css, css_node* d, int priority, int* winn
 				win_css_value(style, inherited, base + k, css.tokens[values[k]])
 				winners[base + k] = priority
 	else if (css_ascii_equal(d.name, c"border")):
-		for i in range(first, d.last):
-			css_token* t = css.tokens[i]
-			if (css_trivia(t)): continue
-			int prop = 21
-			if (win_css_length(t, style.size) >= 0): prop = 20
-			if (css_ascii_equal(t.value, c"none")):
-				if (priority >= winners[20]):
-					style.border = 0
-					winners[20] = priority
-			else if (win_css_value_valid(prop, t, style.size) && priority >= winners[prop]):
-				win_css_value(style, inherited, prop, t)
-				winners[prop] = priority
+		win_css_border(css, first, d.last, priority, winners, style)
 
 int win_css_media(css_document* css, css_node* rule, int width):
 	# Support screen/all and min/max-width conjunctions. Unknown media queries
@@ -945,6 +1119,7 @@ void win_css_rules(css_document* css, list[css_node*] rules, html_node* node, in
 			if (css_ascii_equal(rule.name, c"media") && win_css_media(css, rule, width)): win_css_rules(css, rule.children, node, width, winners, style, inherited)
 			continue
 		if (strcmp(rule.kind, c"qualified-rule") != 0): continue
+		if (win_selector_list_valid(css, rule.first, rule.last) == 0): continue
 		int specificity = -1
 		for j in range(rule.children.length):
 			css_node* selector = rule.children[j]

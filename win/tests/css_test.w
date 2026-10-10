@@ -101,6 +101,23 @@ void test_visibility_and_leading():
 	asserts(c"unitless inherited line height", after.y - hidden.y >= 54.0)
 	win_page_free(page)
 
+void test_selector_recovery_cascade():
+	char* source = c"<style>p{color:blue} p,:unknown{color:red!important} #one{color:blue} :is(.pick,#absent:unknown){color:red} :is(.pick,#absent){color:lime} #two{color:blue} :nth-child(2 of .pick,#absent){color:red} #three{color:blue} :where(.pick,#absent){color:red} :nth-child(3 of .pick){border:2px solid hsl(none 100% 50%)} #three{border:9px solid rgb(255,,0,0)!important}</style><main><p id='one' class='pick'>first</p><span></span><p id='two' class='pick'>second</p><p id='three' class='pick'>third</p><p>strict</p></main>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_page_layout(page, 600)
+	asserts(c"valid unmatched ID branch determines is specificity", css_find(page, c"first").color.g == 1.0)
+	asserts(c"nth filter adds maximum specificity", css_find(page, c"second").color.r == 1.0)
+	asserts(c"where adds no specificity", css_find(page, c"third").color.b == 1.0)
+	asserts(c"invalid ordinary list discards entire rule", css_find(page, c"strict").color.b == 1.0)
+	win_box* box = win_page_node_box(page, css_find(page, c"third").node)
+	asserts(c"functional border and invalid important shorthand fallback", box != 0 && box.border == 2 && box.border_color.r == 1.0 && box.border_color.g == 0.0)
+	win_page_free(page)
+	char* invalid = c"<style>#one{color:blue} :is(.pick,#absent:unknown){color:red} #one,{color:red!important}</style><p id='one' class='pick'>invalid</p>"
+	page = win_page_parse(invalid, strlen(invalid))
+	win_page_layout(page, 600)
+	asserts(c"invalid branches have no specificity or cascade effect", css_find(page, c"invalid").color.b == 1.0)
+	win_page_free(page)
+
 int main():
 	test_selectors()
 	test_cascade()
@@ -109,5 +126,6 @@ int main():
 	test_columns()
 	test_invalid_and_colors()
 	test_visibility_and_leading()
+	test_selector_recovery_cascade()
 	println(c"Win CSS selectors, cascade, media, boxes and stylesheet ordering: OK")
 	return 0

@@ -24,7 +24,7 @@ HTTPS uses W's verified TLS client. The previously observed P-384 chain-verifica
 
 ## Features and compatibility
 
-- **CSS:** embedded and linked stylesheets, inline declarations, attribute and structural selectors, specificity, `!important`, inheritance, media width queries, RGB/HSL colors, text styling, box dimensions, margins, padding, backgrounds, borders, and basic flex/grid columns. [Exact CSS compatibility](docs/css-compatibility.md).
+- **CSS:** embedded and linked stylesheets, inline declarations, attribute and filtered structural selectors, forgiving `:is()`/`:where()` lists, specificity, `!important`, inheritance, media width queries, RGB/HSL colors with missing components, text styling, box dimensions, margins, padding, backgrounds, functional border colors, and basic flex/grid columns. [Exact CSS compatibility](docs/css-compatibility.md).
 - **Images:** intrinsic/aspect-ratio layout, HTML/CSS sizing, scaling, clipping, alpha, and alt-text fallback. Decoding runs in resource processes; texture upload occurs on the rendering thread. W supports non-interlaced 8-bit PNG and baseline JPEG. Progressive JPEG, SVG, GIF, WebP, animation, and data URLs are unsupported.
 - **Forms:** text/password fields, textareas, checkboxes, radio groups, single selects, submit/reset buttons, required fields, disabled/readonly controls, and URL-encoded GET/POST. Duplicate names and successful-control order are preserved. Submit and click handlers can cancel default actions. Single selects cycle through enabled options when activated. File uploads, multiple selects, multipart encoding, specialized date/number widgets, and full constraint validation are unsupported. Change events currently fire with each edit. History stores URLs; returning to or reloading a POST result fetches that URL with GET.
 - **JavaScript:** ordered classic inline/external scripts, per-page interpreter state, DOM queries and mutations, styles/classes, capture/target/bubble events, once/passive listeners, canceled default actions, lifecycle events, and bounded console storage. W's interpreter supports `let`/`const` and ordinary functions; it does not execute full ECMAScript. [Exact JavaScript compatibility](docs/javascript-compatibility.md).
@@ -43,11 +43,14 @@ Cookies, persistent cache, downloads, session persistence, complete web APIs, an
 
 `--dump` waits for initial resources and scripts, then emits the rendered text headlessly. Screenshots use the actual native GL window and write PPM. Tests need Python 3, no third-party packages, and no public-site access. The suite covers cascade/layout, image pixels/rendering, script ordering and events, form editing/GET/POST/redirects, tab isolation, navigation, cancellation, slow-server responsiveness, malformed content, and resource budgets.
 
-The `standards.html` fixture demonstrates attribute/structural selectors, HSL colors,
-and a form event trace with capture, target, bubble, and once listeners. Its loading,
-computed colors, DOM queries, and canceled form submissions are covered by the
-browser integration suite. These are tested compatibility increments; complete CSS
-and ECMAScript conformance remains future work.
+The `standards.html` fixture demonstrates filtered sibling selectors, forgiving
+selector lists, RGB/HSL border colors, DOM `matches()`/`closest()`, and a form event
+trace with capture, target, bubble, and once listeners. Its loading, computed
+colors/borders, DOM queries, and canceled form submissions are covered by the
+browser integration suite. Focused regressions also cover strict selector-list
+errors, specificity, border resets, and nested selector budgets. These are tested
+compatibility increments; complete CSS and ECMAScript conformance remains future
+work. This increment expands the browser bindings; W's language subset is unchanged.
 
 HTML is UTF-8 with a 1 MiB source/20,000-node limit. A page accepts at most 64 subresources, 16 MiB aggregate text resources, and 64 MiB decoded images. Each image allows 4 MiB input, 4096 pixels per dimension, and 16 MiB RGBA. HTTP workers have a 10-second total deadline and a 12-second parent watchdog. Tabs are limited to 32, histories to 128 entries, controls to 512, and encoded form data to 64 KiB. See the JavaScript compatibility document for interpreter and DOM limits.
 

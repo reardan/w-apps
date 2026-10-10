@@ -11,6 +11,7 @@ This is an implementation of W's bounded JavaScript language subset, not an ECMA
 Available operations:
 
 - `getElementById`, `querySelector`, and `querySelectorAll` (a static array) using Win's supported CSS selectors.
+- Element `matches(selector)` returns a boolean; `closest(selector)` checks the element and then its ancestors, returning the nearest matching wrapper or null, including in detached trees. These and the query methods share filtered nth-child selectors and forgiving `:is()`/`:where()` lists. An invalid or unsupported strict selector list throws a catchable object with `name: 'SyntaxError'` and a `message`, even on an empty tree; native DOMException prototypes are not implemented. A valid forgiving list with no surviving branches simply matches nothing.
 - `textContent`, `value`, `id`, `className`, `checked`, and `hidden` properties; `document.title` and `document.readyState`.
 - `getAttribute`, `setAttribute`, and `removeAttribute`.
 - `createElement`, `createTextNode`, `appendChild`, and `remove`. Detached nodes remain owned until the page is freed, so retained wrappers remain safe.
@@ -48,6 +49,11 @@ rather than interleaving in registration order. Event fields are ordinary mutabl
 wrapper properties, not native read-only accessors.
 
 ## Limits and ownership
+
+DOM selector calls parse once per call and charge validation, matching, nested
+filters, and ancestor/sibling traversal against the interpreter budget. Exhaustion
+is a terminal limit failure, not a catchable selector syntax error; subsequent
+evaluations start with a fresh budget.
 
 Each script/callback dispatch has a 100,000-step interpreter budget, including charged DOM traversals; depth is limited to 128. A script source is limited to 256 KiB and a realm retains at most 512 script ASTs, 100,000 runtime heap values, 1,024 node wrappers, and 1,024 registered listeners. The document has at most 20,000 nodes; DOM text/attribute strings and listener type names are limited to 64 KiB and copied DOM mutation data (including listener type names) has a conservative cumulative 4 MiB allocation budget. Removed/once listeners release their registrations and callback roots after dispatch; removals outside dispatch reclaim slots immediately. Interpreter limit failures terminate the dispatch, while ordinary callback exceptions allow later listeners to run. Appending a node cannot create cycles or exceed document depth limits. Reads of `textContent` return at most 64 KiB. These are deterministic limits, not resumable execution or a standards-compliant sandbox.
 

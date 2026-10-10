@@ -296,7 +296,7 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime_set(rt, object, c"tagName", win_js_string(rt, name))
 	return object
 
-void win_dom_query(win_script* script, html_node* node, char* selector, int by_id, list[html_node*] found):
+void win_dom_query_parsed(win_script* script, html_node* node, char* selector, css_document* css, list[html_node*] found):
 	if (node == 0 || found.length >= 1024): return
 	if (script.runtime.remaining <= 0):
 		js_runtime_fail(script.runtime, 5, c"DOM query budget")
@@ -304,13 +304,77 @@ void win_dom_query(win_script* script, html_node* node, char* selector, int by_i
 	script.runtime.remaining = script.runtime.remaining - 1
 	int match = 0
 	if (node.kind == HTML_START):
-		if (by_id): match = strcmp(win_attr(node, c"id"), selector) == 0
-		else: match = win_selector_matches(node, selector)
+		if (css == 0): match = strcmp(win_attr(node, c"id"), selector) == 0
+		else: match = win_selector_list_match(css, 0, css.tokens.length, node) >= 0
 	if (match): found.push(node)
 	html_node* child = node.first_child
 	while (child != 0):
-		win_dom_query(script, child, selector, by_id, found)
+		win_dom_query_parsed(script, child, selector, css, found)
 		child = child.next_sibling
+
+void win_dom_query(win_script* script, html_node* node, char* selector, int by_id, list[html_node*] found):
+	css_document* css = 0
+	if (by_id == 0):
+		css = css_parse_selectors_n(selector, strlen(selector), 0)
+		if (css.failed || win_selector_list_valid(css, 0, css.tokens.length) == 0):
+			css_document_free(css)
+			return
+	win_dom_query_parsed(script, node, selector, css, found)
+	if (css != 0): css_document_free(css)
+
+js_value* win_script_select(win_script* script, html_node* node, char* operation, char* selector):
+	js_runtime* rt = script.runtime
+	int* previous_budget = win_selector_budget
+	win_selector_budget = &rt.remaining
+	css_document* css = 0
+	if (strcmp(operation, c"id") != 0):
+		css = css_parse_selectors_n(selector, strlen(selector), 0)
+		if (css.failed || win_selector_list_valid(css, 0, css.tokens.length) == 0):
+			css_document_free(css)
+			win_selector_budget = previous_budget
+			if (rt.remaining <= 0):
+				js_runtime_fail(rt, 5, c"DOM selector budget")
+				return rt.undefined_value
+			js_value* error = js_runtime_alloc(rt, 5)
+			js_runtime_set(rt, error, c"name", win_js_string(rt, c"SyntaxError"))
+			js_runtime_set(rt, error, c"message", win_js_string(rt, c"Invalid or unsupported selector"))
+			js_runtime_throw(rt, error)
+			return rt.undefined_value
+	js_value* result = js_runtime_alloc(rt, 1)
+	if (strcmp(operation, c"matches") == 0 || strcmp(operation, c"closest") == 0):
+		int self_only = strcmp(operation, c"matches") == 0
+		if (self_only): result = js_runtime_boolean(rt, 0)
+		html_node* candidate = node
+		while (candidate != 0 && candidate.kind == HTML_START):
+			if (rt.remaining <= 0):
+				js_runtime_fail(rt, 5, c"DOM query budget")
+				break
+			rt.remaining = rt.remaining - 1
+			if (win_selector_list_match(css, 0, css.tokens.length, candidate) >= 0):
+				if (self_only): result = js_runtime_boolean(rt, 1)
+				else: result = win_script_wrap(script, candidate)
+				break
+			if (self_only): break
+			candidate = candidate.parent
+	else:
+		list[html_node*] found = new list[html_node*]
+		html_node* child = node.first_child
+		while (child != 0):
+			win_dom_query_parsed(script, child, selector, css, found)
+			child = child.next_sibling
+		if (strcmp(operation, c"all") == 0):
+			result = js_runtime_alloc(rt, 6)
+			for i in range(found.length):
+				char* key = itoa(i)
+				js_runtime_set(rt, result, key, win_script_wrap(script, found[i]))
+				free(key)
+			result.array_length = found.length
+		else if (found.length > 0): result = win_script_wrap(script, found[0])
+		__w_list_free(cast(__w_list*, found))
+	if (css != 0): css_document_free(css)
+	win_selector_budget = previous_budget
+	if (rt.remaining <= 0): js_runtime_fail(rt, 5, c"DOM selector budget")
+	return result
 
 int win_dom_height(html_node* node):
 	if (node == 0): return 0
@@ -363,22 +427,8 @@ js_value* win_script_host(void* context, list[js_value*] args):
 		text = win_js_text(args[2])
 	win_script_sync(script)
 	js_value* result = rt.undefined_value
-	if (strcmp(operation, c"id") == 0 || strcmp(operation, c"query") == 0 || strcmp(operation, c"all") == 0):
-		list[html_node*] found = new list[html_node*]
-		html_node* child = node.first_child
-		while (child != 0):
-			win_dom_query(script, child, text, strcmp(operation, c"id") == 0, found)
-			child = child.next_sibling
-		if (strcmp(operation, c"all") == 0):
-			result = js_runtime_alloc(rt, 6)
-			for i in range(found.length):
-				char* key = itoa(i)
-				js_runtime_set(rt, result, key, win_script_wrap(script, found[i]))
-				free(key)
-			result.array_length = found.length
-		else if (found.length > 0): result = win_script_wrap(script, found[0])
-		else: result = js_runtime_alloc(rt, 1)
-		__w_list_free(cast(__w_list*, found))
+	if (strcmp(operation, c"id") == 0 || strcmp(operation, c"query") == 0 || strcmp(operation, c"all") == 0 || strcmp(operation, c"matches") == 0 || strcmp(operation, c"closest") == 0):
+		result = win_script_select(script, node, operation, text)
 	else if (strcmp(operation, c"get") == 0):
 		if (html_attribute_find(node.attributes, text) == 0): result = js_runtime_alloc(rt, 1)
 		else: result = win_js_string(rt, win_attr(node, text))
@@ -533,7 +583,7 @@ win_script* win_script_new(win_page* page):
 	script.error = strclone(c"")
 	script.console = new list[char*]
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
-	char* bootstrap = c"function __winNode(id) { return {classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
+	char* bootstrap = c"function __winNode(id) { return {classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
 	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 100000)
 	win_script_result(script, completion)
 	script.runtime.remaining = 100000

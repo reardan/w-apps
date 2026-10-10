@@ -23,12 +23,20 @@ Pseudo-classes include `:root`, `:first-child`, `:last-child`, `:only-child`,
 `:not()`, `:is()`, and `:where()`. `:nth-child()`, `:nth-last-child()`,
 `:nth-of-type()`, and `:nth-last-of-type()` accept integer `an+b` expressions,
 integers, `odd`, and `even`, including negative coefficients and offsets.
-Coefficients and offsets are limited to magnitude 1,000,000,000. Unsupported or
-malformed branches inside `:not()`, `:is()`, and `:where()` reject the containing
-selector; forgiving selector-list recovery is not implemented.
+Coefficients and offsets are limited to magnitude 1,000,000,000.
+`:nth-child(An+B of S)` and `:nth-last-child(An+B of S)` count only siblings
+matching the selector list `S`, including the candidate itself; filters may use
+supported complex selectors. Their specificity includes the most specific filter
+branch, even if that branch does not match the candidate. The `of` clause is not
+valid for `:nth-of-type()` or `:nth-last-of-type()`.
 
-Filtered `:nth-child(... of selector)` syntax, pseudo-elements,
-interaction pseudo-classes such as `:hover`, namespaces and CSS nesting are not
+`:is()` and `:where()` use forgiving lists: invalid or unsupported branches are
+discarded, contribute no specificity, and an empty surviving list matches nothing.
+`:is()` uses the maximum surviving branch specificity; `:where()` contributes zero.
+Ordinary selector lists, `:not()` arguments, and nth-child filters are strict:
+one invalid branch rejects the entire list, including a whole stylesheet rule.
+
+Pseudo-elements, interaction pseudo-classes such as `:hover`, namespaces and CSS nesting are not
 implemented. `@media` supports screen/all and conjunctions of pixel `min-width`
 and `max-width`; unsupported queries (including print) do not apply. Media queries
 are re-evaluated on layout, including viewport resize.
@@ -42,7 +50,7 @@ Supported properties are:
 - `width`, `height`, `max-width`, `box-sizing`, `margin`, `padding`, and their
   four physical side longhands. Horizontal auto margins center or right-align
   constrained block boxes.
-- Solid `background`/`background-color`, `border`, `border-width`, and
+- Solid `background`/`background-color`, `border`, `border-width`, `border-style`, and
   `border-color` for block boxes.
 - `gap`, `column-gap`, `flex-direction`, and `grid-template-columns` for the
   simplified column layouts described below.
@@ -62,11 +70,24 @@ uses float32; out-of-gamut Color 4 mapping is not implemented. Colors also accep
 3/4/6/8-digit hex, transparent, and the classic CSS palette (black,
 white, gray/grey, silver, red, green, blue, yellow, orange, purple, navy, teal,
 maroon, olive, lime, aqua/cyan, and fuchsia/magenta). Invalid color declarations
-leave earlier valid declarations effective. Missing color components (`none`),
-relative colors, other color spaces, gradients, background images and custom
-properties are not implemented.
-Functional colors apply to `color`, `background`, `background-color`, and
-`border-color`; the `border` shorthand still accepts only named/hex colors.
+leave earlier valid declarations effective. Relative colors, other color spaces,
+gradients, background images and custom properties are not implemented.
+Functional colors apply to `color`, `background`, `background-color`,
+`border-color`, and the `border` shorthand. Space-separated RGB/HSL forms accept
+`none` for any channel (including alpha), rendered as zero; comma-separated forms
+reject it. Missing-component preservation for interpolation and computed color
+serialization is not implemented.
+
+Uniform borders support `solid`, `none`, and `hidden` styles, pixel/em/rem widths
+(rounded down to whole pixels), and `thin`/`medium`/`thick` (1/3/5 pixels).
+Width and style cascade independently: a width alone does not enable painting.
+The shorthand accepts supported components in any order and resets omitted
+components to medium width, none style, and `currentColor`. Invalid or duplicate
+components reject the whole declaration. Each component competes independently
+with longhands and `!important`. Omitted border colors and explicit `currentColor`
+in `border`/`border-color` follow the final computed text color. Per-side borders,
+multiple longhand values, other line styles, and CSS-wide border keywords remain
+unsupported.
 
 ## Layout and painting
 
@@ -99,8 +120,9 @@ columns, and stylesheet order independent of request completion. The existing
 browser regression suite also checks narrow viewport wrapping, oversized words,
 preformatted text and clickable link geometry.
 
-`win/tests/selectors_test.w` and `win/tests/colors_test.w` cover the expanded
-selector and color syntax, including malformed input and cascade fallback.
+`win/tests/selectors_test.w` and `win/tests/colors_test.w` cover filtered sibling
+counting, forgiving versus strict lists, specificity, missing color components,
+border shorthand resets, malformed input, and cascade fallback.
 `win/fixtures/standards.html` combines these features with page scripts and is
 checked through actual browser loading in `win/tests/browser_test.w`.
 The behavior targets the supported portions of

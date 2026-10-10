@@ -6,11 +6,12 @@ win_style colors_style(char* declarations):
 	win_style style = win_default_style()
 	style.color = ui_color_new(0.0, 0.0, 1.0, 1.0)
 	win_style inherited = style
-	int[28] winners
-	for i in range(28): winners[i] = 0
+	int[29] winners
+	for i in range(29): winners[i] = 0
 	for i in range(css.nodes.length):
-		win_css_declaration(css, css.nodes[i], i + 1, &winners[0], &style, inherited)
+		win_css_declaration(css, css.nodes[i], i + 1 + css.nodes[i].important * 10000000, &winners[0], &style, inherited)
 	css_document_free(css)
+	win_css_resolve_border(&style)
 	return style
 
 void colors_expect(char* declarations, float32 r, float32 g, float32 b, float32 a):
@@ -79,7 +80,7 @@ void test_invalid_colors():
 	colors_invalid(c"color:hsl(1\\65 2turn 100% 50%)")
 	colors_invalid(c"color:hsl(0 100deg 50%)")
 	colors_invalid(c"color:hsl(0 100% 50% / 1px)")
-	colors_invalid(c"color:hsl(none 100% 50%)")
+	colors_invalid(c"color:hsl(none,100%,50%)")
 	colors_invalid(c"color:rgb(calc(255) 0 0)")
 	colors_invalid(c"color:'red'")
 	colors_invalid(c"color:fff")
@@ -102,10 +103,77 @@ void test_existing_colors_and_properties():
 	style = colors_style(c"background:rgb(255 0 0);background:hsl(0,100,50);border-color:blue;border-color:rgb(255,0 0)")
 	asserts(c"invalid functions preserve background and border", style.background.r == 1.0 && style.border_color.b == 1.0)
 
+void test_missing_components():
+	colors_expect(c"color:rgb(none 255 none)", 0.0, 1.0, 0.0, 1.0)
+	colors_expect(c"color:rgb(255 none 50% / none)", 1.0, 0.0, 0.5, 0.0)
+	colors_expect(c"color:rgba(NONE none none / NONE)", 0.0, 0.0, 0.0, 0.0)
+	colors_expect(c"color:hsl(none 100% 50%)", 1.0, 0.0, 0.0, 1.0)
+	colors_expect(c"color:hsl(120 none 50%)", 0.5, 0.5, 0.5, 1.0)
+	colors_expect(c"color:hsl(120 100% none)", 0.0, 0.0, 0.0, 1.0)
+	colors_expect(c"color:hsla(none none none / none)", 0.0, 0.0, 0.0, 0.0)
+	colors_invalid(c"color:rgb(none,0,0)")
+	colors_invalid(c"color:rgba(255,0,0,none)")
+	colors_invalid(c"color:hsla(0,100%,50%,none)")
+	colors_invalid(c"color:rgb('none' 0 0)")
+	colors_invalid(c"color:rgb(none 0)")
+	colors_invalid(c"color:hsl(none 100% 50% none)")
+
+void border_invalid(char* declaration):
+	string_builder* source = string_from(c"border:2px solid blue;")
+	string_append(source, declaration)
+	win_style style = colors_style(source.data)
+	asserts(declaration, style.border == 2 && style.border_color.b == 1.0 && style.border_color.r == 0.0)
+	string_free(source)
+
+void test_border_shorthand():
+	win_style style = colors_style(c"border:4px solid rgb(255 0 0 / .5)")
+	asserts(c"functional border color", style.border == 4 && style.border_color.r == 1.0 && style.border_color.a == 0.5)
+	style = colors_style(c"border:hsl(120 100% 50%) 5px solid")
+	asserts(c"border components in any order", style.border == 5 && style.border_color.g == 1.0)
+	style = colors_style(c"border:solid rgb(none 255 none)")
+	asserts(c"border default medium width and missing channels", style.border == 3 && style.border_color.g == 1.0)
+	style = colors_style(c"border:2px solid red;border:solid;color:rgb(0 255 0)")
+	asserts(c"shorthand resets width and color; currentColor resolves after cascade", style.border == 3 && style.border_color.g == 1.0 && style.border_color.r == 0.0)
+	style = colors_style(c"color:red;border:solid currentColor;border-color:blue")
+	asserts(c"explicit color replaces currentColor", style.border_color.b == 1.0 && style.border_color.r == 0.0)
+	style = colors_style(c"border:solid red;border-color:currentColor;color:lime")
+	asserts(c"border color longhand currentColor", style.border_color.g == 1.0 && style.border_color.r == 0.0)
+	style = colors_style(c"border:5px solid red;border:2px blue")
+	asserts(c"omitted style resets to none", style.border == 0 && style.border_width == 2 && style.border_color.b == 1.0)
+	style = colors_style(c"border-width:7px;border-style:solid")
+	asserts(c"independent width and style longhands", style.border == 7)
+	style = colors_style(c"border:4px solid red;border-style:none;border-width:8px")
+	asserts(c"width cannot turn on a disabled border", style.border == 0 && style.border_width == 8)
+	style = colors_style(c"border:4px solid red;border:none;border-style:solid")
+	asserts(c"none resets omitted width and color", style.border == 3 && style.border_color.b == 1.0)
+	style = colors_style(c"border-width:7px!important;border-color:blue!important;border:3px solid red")
+	asserts(c"shorthand competes separately with important longhands", style.border == 7 && style.border_color.b == 1.0)
+	border_invalid(c"border:5px solid rgb(255,,0,0)")
+	border_invalid(c"border:5px solid rgb(255 0 0) junk")
+	border_invalid(c"border:5px solid red blue")
+	border_invalid(c"border:5px 6px solid red")
+	border_invalid(c"border:5px solid none red")
+	border_invalid(c"border:5px solid 'red'")
+	border_invalid(c"border:5px dashed red")
+	border_invalid(c"border:.5 solid red")
+	border_invalid(c"border:-1px solid red")
+	border_invalid(c"border:5quuxpx solid red")
+	border_invalid(c"border:NaN solid red")
+	border_invalid(c"border-width:.5")
+	border_invalid(c"border-width:5quuxpx")
+	style = colors_style(c"border:thick solid blue;border-width:2.5PX")
+	asserts(c"border widths validate units and round to pixels", style.border == 2)
+	style = colors_style(c"border:thin solid blue")
+	asserts(c"thin border width", style.border == 1)
+	border_invalid(c"border:5px solid rgb (255 0 0)")
+	border_invalid(c"border:5px solid rgb(255 0 0)!important junk")
+
 int main():
 	test_rgb_colors()
 	test_hsl_colors()
 	test_invalid_colors()
 	test_existing_colors_and_properties()
+	test_missing_components()
+	test_border_shorthand()
 	println(c"Win RGB/HSL colors, syntax validation and cascade fallback: OK")
 	return 0

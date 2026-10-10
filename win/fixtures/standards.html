@@ -7,19 +7,21 @@
 body { font-size: 18px; color: rgb(30 40 50); }
 main { max-width: 720px; margin: 0 auto; }
 h1 { color: hsl(210deg 60% 35%); }
-.samples p { padding: 12px; }
-.samples p:nth-child(2n+1) { background: hsl(150 50% 40% / 20%); }
+.samples :is(p, :future-selector) { padding: 12px; }
+.samples p:nth-child(2n+1 of :not([hidden])) { background: hsl(150 50% 40% / 20%); }
 .samples p[data-tone^="green" i] { color: hsl(120 100% 25%); }
 .samples p[data-tone$="blue" i] { color: hsl(.6666667turn 100% 50%); }
-#events { padding: 16px; border: 1px solid #ccddee; }
+#events { padding: 16px; border: 2px solid hsl(210 50% 80%); }
+#filtered { border: thin solid rgb(none 128 255 / 50%); padding: 8px; }
 #trace { color: rgb(10 20 30 / 75%); }
 </style>
 </head>
 <body>
 <main>
-<h1>More CSS and DOM events</h1>
-<p>Attribute selectors, structural selectors, HSL colors, and event phases.</p>
-<div class="samples"><p data-tone="GREEN-dark">Green</p><p data-tone="deep-BLUE">Blue</p><p>Striped</p></div>
+<h1>More CSS and DOM selectors</h1>
+<p>Filtered structural selectors, forgiving lists, functional border colors, and event phases.</p>
+<div class="samples"><p data-tone="GREEN-dark">Green</p><p hidden>Skipped</p><p data-tone="deep-BLUE">Blue</p><p>Striped</p></div>
+<p id="filtered">Checking filtered queries</p>
 <section id="events">
 <h2>Trace a form submission</h2>
 <p>The first submission visits document capture once, section capture, the form target, then section bubble. Later submissions skip the once listener.</p>
@@ -50,8 +52,12 @@ document.getElementById('events').addEventListener('submit', function(event) {
   trace = '';
 }, {passive: true});
 document.addEventListener('DOMContentLoaded', function(event) {
-  if (document.querySelectorAll('.samples p:nth-child(2n+1)').length !== 2) throw 'structural query';
+  if (document.querySelectorAll('.samples p:nth-child(2n+1 of :not([hidden]))').length !== 2) throw 'structural query';
   if (document.querySelector('[data-tone^="green" i]').textContent !== 'Green') throw 'attribute query';
+  const blue = document.querySelector('.samples p:nth-child(2 of :not([hidden]))');
+  if (!blue.matches(':is(:future-selector, [data-tone$="blue" i])')) throw 'matches query';
+  if (blue.closest('.samples') !== document.querySelector('.samples')) throw 'closest query';
+  document.getElementById('filtered').textContent = 'Filtered selectors ready';
   document.getElementById('loaded').textContent = 'Compatibility-ready';
 }, {once: true});
 </script>

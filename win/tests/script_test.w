@@ -14,6 +14,30 @@ html_node* script_node(win_script* script, char* id):
 	__w_list_free(cast(__w_list*, found))
 	return result
 
+void script_selector_tests():
+	char* html = c"<main id='outer' class='pick'><section id='near' class='pick'><p id='one' class='item'></p><span></span><p id='two' class='item'></p><p id='three' class='item' hidden></p></section></main>"
+	win_page* page = win_page_parse(html, strlen(html))
+	win_script* script = win_script_new(page)
+	asserts(c"selector API setup", script_eval(script, c"const outer=document.getElementById('outer'); const near=document.getElementById('near'); const one=document.getElementById('one'); const two=document.getElementById('two'); const three=document.getElementById('three');"))
+	asserts(c"matches uses shared selectors", script_eval(script, c"if(!two.matches(':nth-child(2 of .item)') || two.matches(':nth-child(2)')) throw 'matches'; if(!two.matches(':is(:unsupported, .item)')) throw 'recovery'; if(two.matches(':is(:unsupported)')) throw 'empty';"))
+	asserts(c"closest is inclusive and returns nearest stable wrapper", script_eval(script, c"if(two.closest('.item')!==two || two.closest('.pick')!==near || two.closest('main')!==outer || two.closest('.absent')!==null) throw 'closest';"))
+	asserts(c"filtered query order and identity", script_eval(script, c"const items=document.querySelectorAll(':nth-child(odd of .item)'); if(items.length!==2 || items[0]!==one || items[1]!==three) throw 'order'; if(near.querySelector(':nth-last-child(2 of .item)')!==two) throw 'reverse'; if(near.querySelector('.pick')!==null) throw 'descendants only';"))
+	asserts(c"invalid selector APIs throw named syntax errors", script_eval(script, c"let errors=0; try {two.matches('p, :unknown');} catch(e) {if(e.name==='SyntaxError') errors+=1;} try {two.closest(':not(:unknown)');} catch(e) {if(e.name==='SyntaxError') errors+=1;} try {document.querySelector('.item,');} catch(e) {if(e.name==='SyntaxError') errors+=1;} try {document.querySelectorAll(':nth-child(2 of .item,:unknown)');} catch(e) {if(e.name==='SyntaxError') errors+=1;} if(errors!==4) throw errors; if(document.querySelector(':is()')!==null || document.querySelectorAll(':where(:unknown)').length!==0) throw 'empty recovery';"))
+	asserts(c"mutation synchronizes before matching and collections are static", script_eval(script, c"two.className='changed'; if(two.matches('.item') || document.querySelector(':nth-child(2 of .item)')!==three || items.length!==2) throw 'mutation'; near.remove(); if(two.closest('.pick')!==near || two.closest('main')!==null) throw 'detached ancestry'; if(near.closest('.pick')!==near || !near.matches(':nth-child(1 of .pick)')) throw 'detached self';"))
+	asserts(c"empty tree still validates selectors", script_eval(script, c"const detached=document.createElement('div'); let caught=false; try {detached.querySelector('');} catch(e) {caught=e.name==='SyntaxError';} if(!caught || detached.closest('div')!==detached || !detached.matches('div')) throw 'detached';"))
+	assert_equal(0, script.failures)
+	string_builder* expensive = string_from(c"try {three.matches('")
+	for i in range(40): string_append(expensive, c":nth-child(n of ")
+	string_append(expensive, c".item")
+	for i in range(40): string_append_char(expensive, ')')
+	string_append(expensive, c"');} catch(e) {} document.title='escaped';")
+	int budget_result = win_script_eval(script, expensive.data, expensive.length)
+	asserts(c"nested selector budget is terminal even inside try", budget_result == 0 && script.runtime.completion.status == 5)
+	asserts(c"selector budget restored after terminal failure", win_selector_budget == 0 && script_eval(script, c"if(!one.matches('.item')) throw 'recovery';"))
+	string_free(expensive)
+	win_script_free(script)
+	win_page_free(page)
+
 void script_event_tests():
 	char* html = c"<div id='outer'><button id='inner'>Go</button></div>"
 	win_page* page = win_page_parse(html, strlen(html))
@@ -86,6 +110,7 @@ void script_event_tests():
 
 void main():
 	script_event_tests()
+	script_selector_tests()
 	char* html = c"<title>Before</title><div id='parent'><p id='message' class='note'>before</p><button id='button'>Go</button><input id='field' value='initial'></div>"
 	win_page* page = win_page_parse(html, strlen(html))
 	win_script* script = win_script_new(page)

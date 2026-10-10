@@ -306,6 +306,11 @@ void test_compatibility_page(char* executable, char* home):
 			asserts(c"suffix selector applies turn hue", run.color.b > 0.99 && run.color.r < 0.01 && run.color.g < 0.01)
 			colors = colors + 1
 	assert_equal(2, colors)
+	char* filtered = win_dom_text(test_find_node(b.page, c"filtered"))
+	assert_strings_equal(c"Filtered selectors ready", filtered)
+	free(filtered)
+	win_box* filtered_box = win_page_node_box(b.page, test_find_node(b.page, c"filtered"))
+	asserts(c"missing components in functional border render", filtered_box != 0 && filtered_box.border == 1 && filtered_box.border_color.r == 0.0 && filtered_box.border_color.b == 1.0 && filtered_box.border_color.a == 0.5)
 	html_node* submitter = test_find_node(b.page, c"trace-submit")
 	win_browser_submit(&b, submitter)
 	asserts(c"target listener cancels browser navigation", b.load == 0)

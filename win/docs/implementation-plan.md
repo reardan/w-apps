@@ -145,7 +145,10 @@ Exit: a local article fixture containing headings, paragraphs, nested inline tex
 
 Current compatibility increment: attribute substring/word/language operators and
 case flags, structural `an+b` selectors in both directions and by element type,
-and RGB/HSL function syntax are implemented with focused regression tests.
+filtered `of` lists, forgiving `:is()`/`:where()` lists, strict ordinary list
+validation, and RGB/HSL function syntax are implemented with focused regression
+tests. Missing color components and functional border colors are supported, with
+atomic shorthand validation, component resets, and independent width/style cascade.
 Malformed supported syntax is rejected before applying a rule or declaration.
 The [CSS compatibility matrix](css-compatibility.md) retains the remaining layout,
 selector, and value limitations.
@@ -183,7 +186,9 @@ Current compatibility increment: capture/target/bubble dispatch, capture/once/pa
 listener options, immediate propagation stopping, and event cancellation metadata
 are implemented. `standards.html` and browser integration tests combine those
 bindings with CSS/DOM selector queries and canceled form navigation. Timers and
-the broader ECMAScript runtime remain separate future work; see the
+the broader ECMAScript runtime remain separate future work. DOM `matches()` and
+`closest()` now share the selector engine with queries, including named selector
+syntax errors and charged nested matching work; see the
 [JavaScript compatibility matrix](javascript-compatibility.md).
 
 - Bind the JavaScript realm to its document through stable node handles. Add supported DOM APIs, event dispatch, timers, and classic script scheduling.

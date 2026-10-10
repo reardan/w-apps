@@ -128,8 +128,8 @@ void win_page_collect_styles(win_page* page, html_node* node):
 		child = child.next_sibling
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
-	int[28] winners
-	for i in range(28): winners[i] = -1
+	int[29] winners
+	for i in range(29): winners[i] = -1
 	for i in range(page.stylesheets.length):
 		css_document* css = page.stylesheets[i].css
 		if (css != 0): win_css_rules(css, css.nodes, node, page.width, &winners[0], &style, inherited)
@@ -141,6 +141,7 @@ win_style win_computed_style(win_page* page, html_node* node, win_style style, w
 				css_node* d = css.nodes[i]
 				win_css_declaration(css, d, 1000000 + d.important * 10000000, &winners[0], &style, inherited)
 		css_document_free(css)
+	win_css_resolve_border(&style)
 	return style
 
 win_page* win_page_parse(char* source, int length):

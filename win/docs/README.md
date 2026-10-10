@@ -1,7 +1,8 @@
 # Win browser documentation
 
-Win is an early native browser written in W. See the [application README](../README.md) to build and run the current static-page milestone.
+See the [application README](../README.md) to build, run, and test Win. The browser now has tabs, stylesheet cascade and box layout, image resources, forms, and page scripting.
 
-Start with the [implementation plan](implementation-plan.md). It defines the reusable foundations, browser architecture, initial compatibility scope, and milestones from a native window to scripted pages.
-
-The [foundation readiness assessment](foundation-readiness.md) records the current W pin, verified capabilities, remaining integration work, and test results. It includes the current implementation status and the public HTTPS verification gap found during live testing.
+- [CSS compatibility](css-compatibility.md): selectors, cascade, properties, layout, and remaining limits.
+- [JavaScript compatibility](javascript-compatibility.md): execution, DOM bindings, events, budgets, and language limitations.
+- [Foundation readiness](foundation-readiness.md): integration status and the separate public HTTPS verification follow-up.
+- [Implementation plan](implementation-plan.md): architecture and longer-term milestones.

@@ -9,7 +9,7 @@ int page_contains(win_page* page, char* text):
 
 void wait_for_page(win_browser* browser):
 	int start = time_monotonic_ms()
-	while (browser.load != 0):
+	while (win_browser_loading(browser)):
 		win_browser_poll(browser)
 		asserts(c"load finishes", time_monotonic_ms() - start < 14000)
 		sleep_ms(1)
@@ -233,14 +233,95 @@ void test_slow_request(char* executable, char* address):
 	win_browser_free(&b)
 	println(c"Win slow-request UI and cancellation: OK")
 
+html_node* test_find_node(win_page* page, char* id):
+	html_node* node = page.html.allocations
+	while (node != 0):
+		if (strcmp(win_attr(node, c"id"), id) == 0): return node
+		node = node.allocation_next
+	return 0
+
+void test_interactive_page(char* executable, char* home):
+	win_browser b
+	win_browser_init(&b, executable, home)
+	win_navigate(&b, c"interactive.html", home, -1)
+	wait_for_page(&b)
+	assert_equal(0, b.script.failures)
+	assert_equal(0, b.resources.failed)
+	ui_renderer renderer
+	ui_render_init_headless(&renderer)
+	ui_theme theme
+	ui_theme_light(&theme)
+	ui_context ctx
+	ui_context_init(&ctx, &renderer, &theme)
+	ui_begin(&ctx, 1000, 760)
+	win_browser_frame(&b, &ctx, 1000, 760)
+	ui_end(&ctx)
+	html_node* button = test_find_node(b.page, c"increment")
+	win_box* box = win_page_node_box(b.page, button)
+	asserts(c"counter button has geometry", box != 0)
+	b.scroll.offset_y = box.y - 50.0
+	gfx_event event
+	event.kind = GFX_EVENT_MOUSE_DOWN
+	event.code = 1
+	event.x = cast(int, box.x + 20.0)
+	event.y = 195
+	event.mods = 0
+	ui_feed_event(&ctx, &event)
+	event.kind = GFX_EVENT_MOUSE_UP
+	ui_feed_event(&ctx, &event)
+	ui_begin(&ctx, 1000, 760)
+	win_browser_frame(&b, &ctx, 1000, 760)
+	ui_end(&ctx)
+	char* count = win_dom_text(test_find_node(b.page, c"count"))
+	assert_strings_equal(c"1", count)
+	free(count)
+	assert_equal(0, b.script.failures)
+	# Submitting the demo mutates the page through a real form listener.
+	html_node* field = test_find_node(b.page, c"name")
+	win_form_set(field, c"value", c"Win")
+	win_browser_submit(&b, field)
+	asserts(c"demo submit keeps page", b.load == 0)
+	char* greeting = win_dom_text(test_find_node(b.page, c"greeting"))
+	assert_strings_equal(c"Hello, Win!", greeting)
+	free(greeting)
+	ui_render_destroy(&renderer)
+	win_browser_free(&b)
+
+void test_form_navigation(char* executable, char* address):
+	win_browser b
+	win_browser_init(&b, executable, c"")
+	win_navigate(&b, address, c"", -1)
+	wait_for_page(&b)
+	assert_strings_equal(c"Form fixture", b.page.title)
+	# A submit handler can cancel navigation and mutate the same document.
+	win_browser_submit(&b, test_find_node(b.page, c"cancel"))
+	asserts(c"submit prevented", b.load == 0)
+	char* result = win_dom_text(test_find_node(b.page, c"result"))
+	assert_strings_equal(c"prevented", result)
+	free(result)
+	win_browser_submit(&b, test_find_node(b.page, c"get"))
+	wait_for_page(&b)
+	assert_strings_equal(c"Submitted GET", b.page.title)
+	win_navigate(&b, address, c"", -1)
+	wait_for_page(&b)
+	win_browser_submit(&b, test_find_node(b.page, c"post"))
+	wait_for_page(&b)
+	assert_strings_equal(c"Submitted POST", b.page.title)
+	win_browser_free(&b)
+	println(c"Win GET/POST form navigation and prevented submit: OK")
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	if (argc == 4 && strcmp(args_get(1), c"--slow") == 0):
 		test_slow_request(args_get(2), args_get(3))
 		return 0
+	if (argc == 4 && strcmp(args_get(1), c"--forms") == 0):
+		test_form_navigation(args_get(2), args_get(3))
+		return 0
 	asserts(c"test arguments", argc == 3)
 	test_document()
 	test_addresses()
 	test_navigation(args_get(1), args_get(2))
+	test_interactive_page(args_get(1), args_get(2))
 	println(c"Win document, layout, navigation, and UI tests: OK")
 	return 0

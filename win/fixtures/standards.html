@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Win compatibility demo</title>
+<style>
+body { font-size: 18px; color: rgb(30 40 50); }
+main { max-width: 720px; margin: 0 auto; }
+h1 { color: hsl(210deg 60% 35%); }
+.samples p { padding: 12px; }
+.samples p:nth-child(2n+1) { background: hsl(150 50% 40% / 20%); }
+.samples p[data-tone^="green" i] { color: hsl(120 100% 25%); }
+.samples p[data-tone$="blue" i] { color: hsl(.6666667turn 100% 50%); }
+#events { padding: 16px; border: 1px solid #ccddee; }
+#trace { color: rgb(10 20 30 / 75%); }
+</style>
+</head>
+<body>
+<main>
+<h1>More CSS and DOM events</h1>
+<p>Attribute selectors, structural selectors, HSL colors, and event phases.</p>
+<div class="samples"><p data-tone="GREEN-dark">Green</p><p data-tone="deep-BLUE">Blue</p><p>Striped</p></div>
+<section id="events">
+<h2>Trace a form submission</h2>
+<p>The first submission visits document capture once, section capture, the form target, then section bubble. Later submissions skip the once listener.</p>
+<form id="trace-form"><button id="trace-submit" type="submit">Trace</button></form>
+<p id="trace">Ready</p>
+</section>
+<p id="loaded">Loading</p>
+</main>
+<script>
+let trace = '';
+document.addEventListener('submit', function(event) {
+  if (event.eventPhase !== 1) throw 'document capture phase';
+  trace = trace + 'D';
+}, {capture: true, once: true});
+document.getElementById('events').addEventListener('submit', function(event) {
+  if (event.eventPhase !== 1) throw 'section capture phase';
+  trace = trace + 'C';
+}, true);
+document.getElementById('trace-form').addEventListener('submit', function(event) {
+  if (event.eventPhase !== 2) throw 'target phase';
+  trace = trace + 'T';
+  event.preventDefault();
+});
+document.getElementById('events').addEventListener('submit', function(event) {
+  if (event.eventPhase !== 3) throw 'bubble phase';
+  trace = trace + 'B';
+  document.getElementById('trace').textContent = trace;
+  trace = '';
+}, {passive: true});
+document.addEventListener('DOMContentLoaded', function(event) {
+  if (document.querySelectorAll('.samples p:nth-child(2n+1)').length !== 2) throw 'structural query';
+  if (document.querySelector('[data-tone^="green" i]').textContent !== 'Green') throw 'attribute query';
+  document.getElementById('loaded').textContent = 'Compatibility-ready';
+}, {once: true});
+</script>
+</body>
+</html>

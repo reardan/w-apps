@@ -12,11 +12,22 @@ ignored rather than matching every element.
 
 Supported selectors are type, universal, ID, class, compound, comma-separated
 lists, descendant, child, adjacent sibling and general sibling. Attribute
-presence and exact equality are supported. Pseudo-classes include `:root`,
-`:first-child`, `:last-child`, `:link`, `:checked`, `:disabled`, `:not()`, `:is()`,
-`:where()` and `:nth-child()` with integers, `odd`, or `even`.
+presence, exact equality, whitespace-word (`~=`), language-prefix (`|=`), prefix
+(`^=`), suffix (`$=`), and substring (`*=`) matching are supported, with explicit
+ASCII case-insensitive `i` and case-sensitive `s` flags. Without a flag, attribute
+values use case-sensitive comparison; HTML's attribute-specific default case rules
+are not modeled.
 
-Attribute substring operators, arbitrary `an+b` expressions, pseudo-elements,
+Pseudo-classes include `:root`, `:first-child`, `:last-child`, `:only-child`,
+`:first-of-type`, `:last-of-type`, `:only-of-type`, `:link`, `:checked`, `:disabled`,
+`:not()`, `:is()`, and `:where()`. `:nth-child()`, `:nth-last-child()`,
+`:nth-of-type()`, and `:nth-last-of-type()` accept integer `an+b` expressions,
+integers, `odd`, and `even`, including negative coefficients and offsets.
+Coefficients and offsets are limited to magnitude 1,000,000,000. Unsupported or
+malformed branches inside `:not()`, `:is()`, and `:where()` reject the containing
+selector; forgiving selector-list recovery is not implemented.
+
+Filtered `:nth-child(... of selector)` syntax, pseudo-elements,
 interaction pseudo-classes such as `:hover`, namespaces and CSS nesting are not
 implemented. `@media` supports screen/all and conjunctions of pixel `min-width`
 and `max-width`; unsupported queries (including print) do not apply. Media queries
@@ -41,10 +52,21 @@ pixels. Width and max-width also accept percentages. Font-size percentages are
 relative to the inherited font size. Line height accepts pixels, em/rem,
 unitless inherited multipliers, normal, and inherit; values smaller than the font
 metrics currently keep the natural line height. Font sizes are limited to 8–144 pixels.
-Colors accept rgb()/rgba(), 3/4/6/8-digit hex, transparent, and the classic CSS palette (black,
+Colors accept `rgb()`/`rgba()` and `hsl()`/`hsla()` in comma-separated and
+space-separated forms, with slash alpha in space-separated forms. Hues accept
+unitless degrees, `deg`, `grad`, `rad`, and `turn`, including wrapping negative
+angles. Alpha accepts numbers and percentages. RGB and alpha channels are clamped
+to their valid ranges. HSL saturation and lightness accept percentages, or numbers
+in space-separated syntax, and are clamped to 0–100 before conversion. Color math
+uses float32; out-of-gamut Color 4 mapping is not implemented. Colors also accept
+3/4/6/8-digit hex, transparent, and the classic CSS palette (black,
 white, gray/grey, silver, red, green, blue, yellow, orange, purple, navy, teal,
-maroon, olive, lime, aqua/cyan, and fuchsia/magenta). HSL colors, gradients,
-background images and custom properties are not implemented.
+maroon, olive, lime, aqua/cyan, and fuchsia/magenta). Invalid color declarations
+leave earlier valid declarations effective. Missing color components (`none`),
+relative colors, other color spaces, gradients, background images and custom
+properties are not implemented.
+Functional colors apply to `color`, `background`, `background-color`, and
+`border-color`; the `border` shorthand still accepts only named/hex colors.
 
 ## Layout and painting
 
@@ -76,3 +98,12 @@ and inheritance, media resizing, box geometry and alignment, basic flex/grid
 columns, and stylesheet order independent of request completion. The existing
 browser regression suite also checks narrow viewport wrapping, oversized words,
 preformatted text and clickable link geometry.
+
+`win/tests/selectors_test.w` and `win/tests/colors_test.w` cover the expanded
+selector and color syntax, including malformed input and cascade fallback.
+`win/fixtures/standards.html` combines these features with page scripts and is
+checked through actual browser loading in `win/tests/browser_test.w`.
+The behavior targets the supported portions of
+[Selectors Level 4](https://www.w3.org/TR/selectors-4/) and
+[CSS Color Level 4](https://www.w3.org/TR/css-color-4/); these focused regressions
+do not establish full conformance to either specification.

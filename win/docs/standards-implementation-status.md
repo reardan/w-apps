@@ -7,8 +7,8 @@ the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation an
 The Git submodule pins merged commit
 `343a124b22e1a39cd577e34e0b7ab13ee5191387`. This also includes the concurrent
 [W #656](https://github.com/reardan/w/pull/656) wrapped-line bidi update.
-All 27 W runtime PR checks passed before merge; the merged dependency is
-validated again for browser integration.
+All 27 W runtime PR checks passed before merge. The exact merged dependency
+also passed the 1,205-target W suite, the browser suite and the standards gate.
 
 Win's CSS, flexbox, native rendering, and WPT work remain in the application.
 The earlier foundation and its validation are recorded below; the newer async,

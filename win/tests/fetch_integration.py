@@ -9,14 +9,15 @@ import threading
 WIN = str(pathlib.Path(sys.argv[1]).resolve())
 REQUESTS = []
 PAGES = {
+    '/binary': "fetch('/invalid-data').then(function(r){return r.arrayBuffer();}).then(function(b){const v=new Uint8Array(b);if(v.length!==1 || v[0]!==255) throw 'binary';document.title='binary-complete';});",
     '/success': "fetch('/data').then(function(r){if(r.status===200 && r.ok && !r.bodyUsed){return r.text();}throw 'bad response';}).then(function(t){document.title=t;});",
     '/status': "fetch('/missing').then(function(r){if(r.status===404 && !r.ok){return r.text();}throw 'bad status';}).then(function(t){document.title=t;});",
     '/twice': "fetch('/data').then(function(r){r.text();return r.text();}).catch(function(e){document.title='body-consumed';});",
     '/redirect': "fetch('/redirect-data').then(function(r){return r.text();}).then(function(t){document.title=t;});",
     '/cross': "fetch('http://localhost:PORT/forbidden').catch(function(e){document.title='cross-blocked';});",
     '/redirect-cross': "fetch('/redirect-foreign').catch(function(e){document.title='redirect-blocked';});",
-    '/invalid': "fetch('/invalid-data').catch(function(e){document.title='utf8-rejected';});",
-    '/large': "fetch('/large-data').catch(function(e){document.title='size-rejected';});",
+    '/invalid': "fetch('/invalid-data').then(function(r){return r.text();}).catch(function(e){document.title='utf8-rejected';});",
+    '/large': "fetch('/large-data').then(function(r){return r.text();}).catch(function(e){document.title='size-rejected';});",
     '/options': "fetch('/forbidden',{method:'POST'}).catch(function(e){document.title='options-rejected';});",
     '/microtask': "let order='';queueMicrotask(function(){order=order+'q';});Promise.resolve('p').then(function(v){order=order+v;document.title=order;});order=order+'s';",
 }
@@ -59,7 +60,7 @@ server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
 thread.start()
 try:
-    cases = [('/success', 'fetch-complete'), ('/status', 'http-error-body'),
+    cases = [('/binary', 'binary-complete'), ('/success', 'fetch-complete'), ('/status', 'http-error-body'),
              ('/twice', 'body-consumed'), ('/redirect', 'fetch-complete'),
              ('/cross', 'cross-blocked'), ('/redirect-cross', 'redirect-blocked'),
              ('/invalid', 'utf8-rejected'), ('/large', 'size-rejected'),
@@ -74,4 +75,4 @@ finally:
     server.shutdown()
     server.server_close()
     thread.join()
-print('fetch integration passed (10 cases)')
+print('fetch integration passed (11 cases)')

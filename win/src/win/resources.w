@@ -133,7 +133,7 @@ void win_resources_discover(win_resources* resources, html_node* node):
 	if (win_tag(node, c"link") && win_resource_rel_stylesheet(win_attr(node, c"rel")) && html_attribute_find(node.attributes, c"disabled") == 0):
 		char* media = win_attr(node, c"media")
 		if (strcmp(media, c"print") != 0): win_resources_add(resources, node, c"css", win_attr(node, c"href"))
-	else if (win_tag(node, c"script")): win_resources_add(resources, node, c"script", win_attr(node, c"src"))
+	else if (win_tag(node, c"script") && strcmp(win_attr(node, c"type"), c"module") != 0): win_resources_add(resources, node, c"script", win_attr(node, c"src"))
 	else if (win_tag(node, c"img")): win_resources_add(resources, node, c"image", win_attr(node, c"src"))
 	html_node* child = node.first_child
 	while (child != 0):

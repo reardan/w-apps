@@ -4,10 +4,17 @@ import win.document
 import win.resources
 import win.cssom
 import win.storage
+import win.modules
+import win.canvas
+import win.wasm
+import win.web_host
 import lib.time
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
+	js_value* computed
+	win_canvas* canvas
+	js_value* gl
 	html_node* node
 	js_value* object
 	void* context
@@ -30,6 +37,16 @@ struct win_script_timer:
 	list[js_value*] args
 
 struct win_script:
+	win_web_viewport viewport
+	int layout_width
+	char* address
+	win_wasm_realm* wasm
+	win_modules* modules
+	win_module_source* active_module
+	list[win_script_timer*] animation_frames
+	int animation_id
+	int time_origin
+	int frame_time
 	win_script_timer* executing_timer
 	int stopped_loading
 	list[win_script_timer*] timers
@@ -62,6 +79,7 @@ struct win_script:
 
 # Installed only during synchronous bounded host entry, restored afterward.
 win_script* win_active_script
+int win_script_graphics_available
 
 void win_dom_set_attr(html_node* node, char* name, char* value):
 	if (node == 0): return
@@ -231,6 +249,13 @@ char* win_style_attribute(int index):
 	if (index == 15): return c"justify-content"
 	return win_style_property(index)
 
+int win_dom_canvas_dimension(html_node* node, char* name):
+	int fallback = 300
+	if (strcmp(name, c"height") == 0): fallback = 150
+	return min(4096, win_canvas_attribute(node, name, fallback))
+
+void win_script_layout(win_script* script);
+
 # All listed properties operate on native state at the property access itself.
 # Unknown properties fall back to the runtime's ordinary object semantics.
 js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text* key):
@@ -238,6 +263,13 @@ js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text*
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (b.node == script.window_node): return win_web_viewport_get(rt, &script.viewport, key)
+	if (js_runtime_key_is(key, c"offsetWidth") || js_runtime_key_is(key, c"offsetHeight") || js_runtime_key_is(key, c"clientWidth") || js_runtime_key_is(key, c"clientHeight")):
+		win_script_layout(script)
+		return win_web_dimension(rt, script.page, b.node, key)
+	if (win_tag(b.node, c"canvas")):
+		if (js_runtime_key_is(key, c"width")): return js_runtime_number(rt, cast(float64, win_dom_canvas_dimension(b.node, c"width")))
+		if (js_runtime_key_is(key, c"height")): return js_runtime_number(rt, cast(float64, win_dom_canvas_dimension(b.node, c"height")))
 	if (js_runtime_key_is(key, c"style")): return b.style
 	if (b.node == script.page.html.root):
 		if (js_runtime_key_is(key, c"title")): return win_js_string(rt, script.page.title)
@@ -264,6 +296,26 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (win_tag(b.node, c"canvas") && (js_runtime_key_is(key, c"width") || js_runtime_key_is(key, c"height"))):
+		if (value.kind != 3 || value.number < 0.0 || value.number > 4096.0 || value.number != value.number):
+			js_runtime_fail(rt, 2, c"Canvas dimension must be between 0 and 4096")
+			return -1
+		int dimension = cast(int, value.number)
+		char* name = c"width"
+		if (js_runtime_key_is(key, c"height")): name = c"height"
+		int width = win_dom_canvas_dimension(b.node, c"width")
+		int height = win_dom_canvas_dimension(b.node, c"height")
+		if (strcmp(name, c"width") == 0): width = dimension
+		else: height = dimension
+		if (win_canvas_dimensions(width, height) == 0):
+			js_runtime_fail(rt, 5, c"Canvas pixel budget")
+			return -1
+		if (b.canvas != 0 && win_canvas_resize(b.canvas, width, height) == 0): return -1
+		char* text = itoa(dimension)
+		win_dom_set_attr(b.node, name, text)
+		free(text)
+		script.dirty = 1
+		return 1
 	if (js_runtime_key_is(key, c"style")):
 		js_text* css_text = js_runtime_key(c"cssText")
 		int result = win_style_set(rt, context, b.style, css_text, value)
@@ -498,6 +550,22 @@ int win_script_capture(js_runtime* rt, list[js_value*] args):
 	if (options.kind >= 5 && options.kind <= 9): return js_runtime_truth(js_runtime_get(rt, options, c"capture"))
 	return js_runtime_truth(options)
 
+js_value* win_script_gl_host(void* context, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, context)
+	win_script* script = win_active_script
+	if (script == 0 || script.runtime != rt || args.length < 2 || args[0].kind != 3 || args[1].kind != 4): return rt.undefined_value
+	if (args[0].number < 0.0 || args[0].number >= cast(float64, script.bindings.length)): return rt.undefined_value
+	int index = cast(int, args[0].number)
+	win_canvas* canvas = script.bindings[index].canvas
+	if (canvas == 0): return rt.undefined_value
+	list[js_value*] call_args = new list[js_value*]
+	for i in range(2, args.length): call_args.push(args[i])
+	char* method = win_js_text(args[1])
+	js_value* result = win_canvas_call(canvas, rt, method, call_args)
+	free(method)
+	__w_list_free(cast(__w_list*, call_args))
+	return result
+
 js_value* win_script_host(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
 	win_script* script = win_active_script
@@ -514,6 +582,27 @@ js_value* win_script_host(void* context, list[js_value*] args):
 	js_value* result = rt.undefined_value
 	if (strcmp(operation, c"id") == 0 || strcmp(operation, c"query") == 0 || strcmp(operation, c"all") == 0 || strcmp(operation, c"matches") == 0 || strcmp(operation, c"closest") == 0):
 		result = win_script_select(script, node, operation, text)
+	else if (strcmp(operation, c"rect") == 0):
+		win_script_layout(script)
+		result = win_web_rect(rt, script.page, node, &script.viewport)
+	else if (strcmp(operation, c"getContext") == 0):
+		result = js_runtime_alloc(rt, 1)
+		win_dom_binding* binding = script.bindings[index]
+		if (win_tag(node, c"canvas") && strcmp(text, c"webgl2") == 0 && win_script_graphics_available):
+			if (binding.canvas == 0):
+				int count = 0
+				for i in range(script.bindings.length):
+					if (script.bindings[i].canvas != 0): count = count + 1
+				if (count < 8): binding.canvas = win_canvas_new(node, win_dom_canvas_dimension(node, c"width"), win_dom_canvas_dimension(node, c"height"), 1)
+			if (binding.canvas != 0 && binding.canvas.context != 0):
+				if (binding.gl == 0):
+					list[js_value*] call_args = new list[js_value*]
+					call_args.push(js_runtime_number(rt, cast(float64, index)))
+					binding.gl = js_runtime_call(rt, js_runtime_get(rt, rt.global, c"__winGLContext"), call_args)
+					__w_list_free(cast(__w_list*, call_args))
+					js_runtime_set(rt, binding.object, c"__context", binding.gl)
+					js_runtime_set(rt, binding.gl, c"canvas", binding.object)
+				result = binding.gl
 	else if (strcmp(operation, c"get") == 0):
 		if (html_attribute_find(node.attributes, text) == 0): result = js_runtime_alloc(rt, 1)
 		else: result = win_js_string(rt, win_attr(node, text))
@@ -522,11 +611,18 @@ js_value* win_script_host(void* context, list[js_value*] args):
 		if (strlen(text) <= 256 && strlen(value) <= 65536 && script.dom_bytes <= 4194304 - strlen(text) - strlen(value)):
 			script.dom_bytes = script.dom_bytes + strlen(text) + strlen(value)
 			win_dom_set_attr(node, text, value)
+			if (win_tag(node, c"canvas") && (strcmp(text, c"width") == 0 || strcmp(text, c"height") == 0)):
+				win_canvas* canvas = script.bindings[index].canvas
+				if (canvas != 0):
+					if (win_canvas_resize(canvas, win_dom_canvas_dimension(node, c"width"), win_dom_canvas_dimension(node, c"height")) == 0): js_runtime_fail(rt, 5, c"Canvas pixel budget")
 			script.dirty = 1
 			if (win_tag(node, c"link") || win_tag(node, c"style")): script.styles_dirty = 1
 		free(value)
 	else if (strcmp(operation, c"removeAttr") == 0):
 		win_dom_remove_attr(node, text)
+		if (win_tag(node, c"canvas") && (strcmp(text, c"width") == 0 || strcmp(text, c"height") == 0)):
+			win_canvas* canvas = script.bindings[index].canvas
+			if (canvas != 0): win_canvas_resize(canvas, win_dom_canvas_dimension(node, c"width"), win_dom_canvas_dimension(node, c"height"))
 		script.dirty = 1
 		if (win_tag(node, c"link") || win_tag(node, c"style")): script.styles_dirty = 1
 	else if (strcmp(operation, c"create") == 0 || strcmp(operation, c"text") == 0):
@@ -659,7 +755,7 @@ int win_script_eval(win_script* script, char* source, int length):
 	win_script* previous = win_active_script
 	win_active_script = script
 	js_runtime_collect(script.runtime)
-	js_completion* result = js_runtime_eval(script.runtime, source, length, 100000)
+	js_completion* result = js_runtime_eval(script.runtime, source, length, 1000000)
 	win_script_sync(script)
 	win_script_result(script, result)
 	win_script_collect_listeners(script)
@@ -750,6 +846,8 @@ void win_script_bind_storage(win_script* script, win_storage_context* shared_sto
 	script.session_store = session_store
 	free(script.origin)
 	script.origin = win_storage_origin(address)
+	free(script.address)
+	script.address = strclone(address)
 
 # Every timer owns a unique rooted object, so listener/job roots never alias.
 void win_script_timer_free(win_script* script, win_script_timer* timer):
@@ -807,11 +905,87 @@ js_value* win_script_timer_host(void* context, list[js_value*] args):
 	script.timers.push(timer)
 	return js_runtime_number(rt, cast(float64, timer.id))
 
-void win_script_checkpoint(win_script* script):
-	if (script == 0): return
+# Animation callbacks run only when the visible page is about to paint, never
+# from network/timer polling. Snapshot ids defer nested registrations one frame.
+js_value* win_script_animation_host(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_script* script = cast(win_script*, context)
+	if (args.length == 0 || (args[0].kind != 7 && args[0].kind != 9)):
+		js_runtime_fail(rt, 2, c"Animation callback must be a function")
+		return rt.undefined_value
+	if (script.animation_frames.length >= 256 || script.animation_id >= 2147483647):
+		js_runtime_fail(rt, 5, c"Animation registration limit")
+		return rt.undefined_value
+	win_script_timer* frame = new win_script_timer()
+	frame.args = new list[js_value*]
+	frame.holder = js_runtime_alloc(rt, 5)
+	if (rt.completion.status != 0):
+		__w_list_free(cast(__w_list*, frame.args))
+		free(frame)
+		return rt.undefined_value
+	js_runtime_root(rt, frame.holder)
+	frame.callback = args[0]
+	js_runtime_set(rt, frame.holder, c"callback", frame.callback)
+	if (rt.completion.status != 0):
+		win_script_timer_free(script, frame)
+		return rt.undefined_value
+	script.animation_id = script.animation_id + 1
+	frame.id = script.animation_id
+	script.animation_frames.push(frame)
+	return js_runtime_number(rt, cast(float64, frame.id))
+
+js_value* win_script_animation_cancel(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_script* script = cast(win_script*, context)
+	if (args.length == 0 || args[0].kind != 3): return rt.undefined_value
+	for i in range(script.animation_frames.length):
+		win_script_timer* frame = script.animation_frames[i]
+		if (cast(float64, frame.id) == args[0].number):
+			win_script_timer_free(script, frame)
+			for j in range(i, script.animation_frames.length - 1): script.animation_frames[j] = script.animation_frames[j + 1]
+			script.animation_frames.pop()
+			break
+	return rt.undefined_value
+
+int win_script_frame_at(win_script* script, int now_ms):
+	if (script == 0): return 0
+	if (now_ms < script.frame_time): now_ms = script.frame_time
+	script.frame_time = now_ms
+	int last_id = script.animation_id
+	int budget = 1000000
+	int count = 0
 	win_script* previous = win_active_script
 	win_active_script = script
-	js_completion* result = js_runtime_drain_microtasks(script.runtime, 100000)
+	while (script.animation_frames.length > 0 && budget > 0):
+		win_script_timer* frame = script.animation_frames[0]
+		if (frame.id > last_id): break
+		for i in range(script.animation_frames.length - 1): script.animation_frames[i] = script.animation_frames[i + 1]
+		script.animation_frames.pop()
+		frame.args.push(js_runtime_number(script.runtime, cast(float64, now_ms - script.time_origin)))
+		js_completion* result = js_runtime_invoke_receiver(script.runtime, frame.callback, win_script_wrap(script, script.window_node), frame.args, budget)
+		budget = script.runtime.remaining
+		win_script_result(script, result)
+		if (result.status == 5): budget = 0
+		win_script_timer_free(script, frame)
+		if (budget > 0):
+			result = js_runtime_drain_microtasks(script.runtime, budget)
+			budget = script.runtime.remaining
+			win_script_result(script, result)
+			if (result.status == 5): budget = 0
+		count = count + 1
+	win_script_sync(script)
+	win_script_collect_listeners(script)
+	win_active_script = previous
+	return count
+
+void win_script_checkpoint(win_script* script):
+	if (script == 0): return
+	# A larger entry budget can exhaust the value heap before its fuel.
+	# Reclaim unrooted temporaries at the next independent task boundary.
+	js_runtime_collect(script.runtime)
+	win_script* previous = win_active_script
+	win_active_script = script
+	js_completion* result = js_runtime_drain_microtasks(script.runtime, 1000000)
 	win_script_result(script, result)
 	win_script_sync(script)
 	win_script_collect_listeners(script)
@@ -821,6 +995,9 @@ void win_script_stop(win_script* script):
 	if (script == 0): return
 	for i in range(script.timers.length): win_script_timer_free(script, script.timers[i])
 	while (script.timers.length > 0): script.timers.pop()
+	for i in range(script.animation_frames.length): win_script_timer_free(script, script.animation_frames[i])
+	while (script.animation_frames.length > 0): script.animation_frames.pop()
+	win_modules_stop(script.modules)
 	js_runtime_clear_microtasks(script.runtime)
 	script.next_script = script.scripts.length
 	script.stopped_loading = 1
@@ -839,7 +1016,7 @@ int win_script_poll_at(win_script* script, int now_ms):
 	win_script* previous = win_active_script
 	win_active_script = script
 	int count = 0
-	int budget = 100000
+	int budget = 1000000
 	int last_id = script.timer_id
 	while (count < 64 && budget > 0):
 		win_script_timer* next = 0
@@ -892,11 +1069,164 @@ void win_script_collect_nodes(win_script* script, html_node* node):
 		win_script_collect_nodes(script, child)
 		child = child.next_sibling
 
+# Flush layout for synchronous CSSOM/geometry reads without clearing the
+# browser's dirty flag (forms/resource discovery still need to observe it).
+void win_script_layout(win_script* script):
+	win_script_sync(script)
+	int width = max(160, script.layout_width)
+	if (script.dirty || script.page.width != width):
+		if (script.runtime.remaining < script.page.html.node_count):
+			js_runtime_fail(script.runtime, 5, c"DOM layout budget")
+			return
+		script.runtime.remaining = script.runtime.remaining - script.page.html.node_count
+		win_page_layout(script.page, width)
+
+void win_script_set_viewport(win_script* script, int width, int height, float64 ratio, float64 scroll_x, float64 scroll_y):
+	if (script == 0): return
+	script.viewport.width = cast(float64, width)
+	script.viewport.height = cast(float64, height)
+	script.viewport.ratio = ratio
+	script.viewport.scroll_x = scroll_x
+	script.viewport.scroll_y = scroll_y
+	script.layout_width = width
+	# Identifier lookup uses environment bindings rather than object hooks.
+	char*[7] names
+	names[0] = c"innerWidth"
+	names[1] = c"innerHeight"
+	names[2] = c"devicePixelRatio"
+	names[3] = c"scrollX"
+	names[4] = c"scrollY"
+	names[5] = c"pageXOffset"
+	names[6] = c"pageYOffset"
+	for i in range(7):
+		js_text* key = js_runtime_key(names[i])
+		js_runtime_set(script.runtime, script.runtime.global, names[i], win_web_viewport_get(script.runtime, &script.viewport, key))
+		js_text_free(key)
+
+js_value* win_script_location_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_script* script = cast(win_script*, context)
+	if (js_runtime_key_is(key, c"search")):
+		char* search = win_web_location_search(script.address)
+		js_value* result = win_js_string(rt, search)
+		free(search)
+		return result
+	if (js_runtime_key_is(key, c"href")): return win_js_string(rt, script.address)
+	return 0
+
+int win_script_location_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
+	if (js_runtime_key_is(key, c"search") || js_runtime_key_is(key, c"href")):
+		js_runtime_fail(cast(js_runtime*, runtime), 6, c"Location navigation is not supported")
+		return -1
+	return 0
+
+js_value* win_script_computed_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_dom_binding* binding = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, binding.context)
+	win_script_layout(script)
+	return win_web_computed_get(cast(js_runtime*, runtime), script.page, binding.node, key)
+
+int win_script_computed_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
+	js_runtime_fail(cast(js_runtime*, runtime), 2, c"Computed style is read-only")
+	return -1
+
+js_value* win_script_computed_property(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	if (args.length == 0 || args[0].kind != 4):
+		js_runtime_fail(rt, 2, c"getPropertyValue requires a property name")
+		return rt.undefined_value
+	js_value* result = win_script_computed_get(runtime, context, receiver, args[0].text)
+	if (result == 0): return win_js_string(rt, c"")
+	return result
+
+js_value* win_script_get_computed(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_script* script = cast(win_script*, context)
+	if (args.length > 1 && args[1].kind != 0 && args[1].kind != 1):
+		if (args[1].kind != 4 || args[1].text.units.length != 0):
+			js_runtime_fail(rt, 6, c"Pseudo-element computed style is unsupported")
+			return rt.undefined_value
+	if (args.length > 0):
+		for i in range(script.bindings.length):
+			win_dom_binding* binding = script.bindings[i]
+			if (binding.object == args[0] && binding.node.kind == HTML_START):
+				if (binding.computed == 0):
+					binding.computed = js_runtime_alloc(rt, 5)
+					js_runtime_root(rt, binding.computed)
+					js_runtime_set(rt, binding.computed, c"getPropertyValue", js_runtime_host_callable(rt, binding, win_script_computed_property))
+					js_runtime_set_host_hooks(rt, binding.computed, binding, win_script_computed_get, win_script_computed_set)
+				return binding.computed
+	js_runtime_fail(rt, 2, c"getComputedStyle requires an Element")
+	return rt.undefined_value
+
+js_value* win_script_search_get(void* context, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, context)
+	if (args.length < 2 || args[0].kind != 4): return rt.undefined_value
+	js_text* name = 0
+	if (args[1].kind == 4): name = js_text_clone(args[1].text)
+	else if (args[1].kind < 4):
+		char* text = win_js_text(args[1])
+		name = js_runtime_key(text)
+		free(text)
+	else:
+		js_runtime_fail(rt, 6, c"URLSearchParams object coercion is unsupported")
+		return rt.undefined_value
+	js_value* result = win_web_search_get(rt, args[0].text, name)
+	js_text_free(name)
+	return result
+
+js_value* win_script_search_new(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	js_value* query = win_js_string(rt, c"")
+	if (args.length > 0 && args[0].kind != 0 && args[0].kind != 1):
+		if (args[0].kind == 4): query = args[0]
+		else if (args[0].kind < 4):
+			char* text = win_js_text(args[0])
+			query = win_js_string(rt, text)
+			free(text)
+		else:
+			js_runtime_fail(rt, 6, c"URLSearchParams supports string initialization only")
+			return rt.undefined_value
+	if (query.text.units.length > 65536):
+		js_runtime_fail(rt, 5, c"URLSearchParams input limit")
+		return rt.undefined_value
+	list[js_value*] call_args = new list[js_value*]
+	call_args.push(query)
+	js_value* result = js_runtime_call(rt, js_runtime_get(rt, rt.global, c"__winSearchObject"), call_args)
+	__w_list_free(cast(__w_list*, call_args))
+	return result
+
+void win_script_web_install(win_script* script, js_value* window):
+	js_runtime* rt = script.runtime
+	js_runtime_bind(rt, c"__winSearchGet", win_script_search_get)
+	char* source = c"function __winSearchObject(query){return {get:function(name){return __winSearchGet(query,name);}};}"
+	win_script_result(script, js_runtime_eval(rt, source, strlen(source), 1000000))
+	js_value* constructor = js_runtime_host_callable(rt, script, win_script_search_new)
+	constructor.host_construct = 1
+	js_runtime_set(rt, rt.global, c"URLSearchParams", constructor)
+	js_runtime_set(rt, window, c"URLSearchParams", constructor)
+	js_value* computed = js_runtime_host_callable(rt, script, win_script_get_computed)
+	js_runtime_set(rt, rt.global, c"getComputedStyle", computed)
+	js_runtime_set(rt, window, c"getComputedStyle", computed)
+	js_value* location = js_runtime_alloc(rt, 5)
+	js_runtime_set_host_hooks(rt, location, script, win_script_location_get, win_script_location_set)
+	js_runtime_set(rt, rt.global, c"location", location)
+	js_runtime_set(rt, window, c"location", location)
+	js_runtime_set(rt, js_runtime_get(rt, rt.global, c"document"), c"location", location)
+	win_script_set_viewport(script, cast(int, script.viewport.width), cast(int, script.viewport.height), script.viewport.ratio, 0.0, 0.0)
+
 win_script* win_script_new(win_page* page):
 	win_script* script = new win_script()
 	script.timers = new list[win_script_timer*]
+	script.animation_frames = new list[win_script_timer*]
 	script.now_ms = time_monotonic_ms()
+	script.time_origin = script.now_ms
+	script.frame_time = script.now_ms
 	script.origin = strclone(c"")
+	script.address = strclone(c"about:blank")
+	script.viewport.ratio = 1.0
+	script.layout_width = page.width
+	script.viewport.width = cast(float64, page.width)
 	script.page = page
 	script.runtime = js_runtime_new()
 	script.runtime.max_properties = 65536
@@ -911,10 +1241,13 @@ win_script* win_script_new(win_page* page):
 	js_runtime_bind(script.runtime, c"__winStorage", win_script_storage_host)
 	js_runtime_bind(script.runtime, c"__winTimer", win_script_timer_host)
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
-	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
-	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 100000)
+	js_runtime_bind(script.runtime, c"__winGL", win_script_gl_host)
+	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
+	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 1000000)
 	win_script_result(script, completion)
-	script.runtime.remaining = 100000
+	char* gl_source = win_canvas_bootstrap()
+	win_script_result(script, js_runtime_eval(script.runtime, gl_source, strlen(gl_source), 1000000))
+	script.runtime.remaining = 1000000
 	js_value* document = win_script_wrap(script, page.html.root)
 	js_runtime_set(script.runtime, script.runtime.global, c"document", document)
 	js_runtime_set(script.runtime, document, c"document", document)
@@ -931,6 +1264,12 @@ win_script* win_script_new(win_page* page):
 	js_runtime_set(script.runtime, window, c"clearInterval", js_runtime_get(script.runtime, script.runtime.global, c"clearInterval"))
 	js_runtime_set(script.runtime, window, c"queueMicrotask", js_runtime_get(script.runtime, script.runtime.global, c"queueMicrotask"))
 	js_runtime_set(script.runtime, window, c"Promise", js_runtime_get(script.runtime, script.runtime.global, c"Promise"))
+	js_value* animation = js_runtime_host_callable(script.runtime, script, win_script_animation_host)
+	js_value* cancel_animation = js_runtime_host_callable(script.runtime, script, win_script_animation_cancel)
+	js_runtime_set(script.runtime, window, c"requestAnimationFrame", animation)
+	js_runtime_set(script.runtime, script.runtime.global, c"requestAnimationFrame", animation)
+	js_runtime_set(script.runtime, window, c"cancelAnimationFrame", cancel_animation)
+	js_runtime_set(script.runtime, script.runtime.global, c"cancelAnimationFrame", cancel_animation)
 	for k in range(2):
 		list[js_value*] storage_args = new list[js_value*]
 		storage_args.push(js_runtime_number(script.runtime, cast(float64, k)))
@@ -945,6 +1284,9 @@ win_script* win_script_new(win_page* page):
 	win_dom_query(script, page.html.root, c"body", 0, bodies)
 	if (bodies.length > 0): js_runtime_set(script.runtime, document, c"body", win_script_wrap(script, bodies[0]))
 	__w_list_free(cast(__w_list*, bodies))
+	script.wasm = win_wasm_install(script.runtime)
+	js_runtime_set(script.runtime, window, c"WebAssembly", js_runtime_get(script.runtime, script.runtime.global, c"WebAssembly"))
+	win_script_web_install(script, window)
 	win_script_collect_nodes(script, page.html.root)
 	return script
 
@@ -1010,7 +1352,7 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	win_script* previous = win_active_script
 	win_active_script = script
 	js_runtime_collect(rt)
-	js_runtime_begin(rt, 100000)
+	js_runtime_begin(rt, 1000000)
 	script.prevented = 0
 	script.stopped = 0
 	script.immediate = 0
@@ -1090,11 +1432,49 @@ int win_script_run_pending(win_script* script, win_resources* resources):
 			script.next_script = script.next_script + 1
 			return 1
 		char* type = win_attr(node, c"type")
-		if (type[0] != 0 && strcmp(type, c"text/javascript") != 0 && strcmp(type, c"application/javascript") != 0):
-			if (strcmp(type, c"module") == 0):
+		if (strcmp(type, c"module") == 0):
+			if (script.modules == 0):
 				script.failures = script.failures + 1
 				free(script.error)
-				script.error = strclone(c"JavaScript modules are not supported")
+				script.error = strclone(c"Module loader is unavailable")
+			else:
+				if (script.active_module == 0 && script.modules.error == 0):
+					char* src = win_attr(node, c"src")
+					if (src[0] != 0):
+						char* resolved = win_resolve(script.modules.address, src)
+						if (resolved != 0): script.active_module = win_modules_request(script.modules, resolved, script.modules.address)
+						else: win_modules_fail(script.modules, c"Invalid module script URL")
+						free(resolved)
+					else:
+						string_builder* source = string_new()
+						html_node* child = node.first_child
+						while (child != 0 && source.length <= 262144):
+							if (child.kind == HTML_TEXT): string_append_bytes(source, child.text, child.text_length)
+							child = child.next_sibling
+						string_builder* identifier = string_new()
+						string_append(identifier, script.modules.address)
+						string_append(identifier, c"#win-inline-")
+						string_append_int(identifier, script.next_script)
+						script.active_module = win_modules_add_inline(script.modules, identifier.data, script.modules.address, source.data, source.length)
+						string_free(identifier)
+						string_free(source)
+				if (win_modules_poll(script.modules) == 0): return 0
+				if (script.modules.error != 0):
+					script.failures = script.failures + 1
+					free(script.error)
+					script.error = strclone(script.modules.error)
+				else if (script.active_module != 0):
+					win_script* previous = win_active_script
+					win_active_script = script
+					win_modules_evaluate(script.modules, script.active_module.source.identifier, 1000000)
+					win_script_result(script, script.runtime.completion)
+					win_script_sync(script)
+					win_script_checkpoint(script)
+					win_active_script = previous
+				script.active_module = 0
+			script.next_script = script.next_script + 1
+			return 1
+		if (type[0] != 0 && strcmp(type, c"text/javascript") != 0 && strcmp(type, c"application/javascript") != 0):
 			script.next_script = script.next_script + 1
 			return 1
 		if (win_attr(node, c"src")[0] != 0):
@@ -1123,8 +1503,12 @@ void win_script_free(win_script* script):
 	if (script == 0): return
 	for i in range(script.timers.length): win_script_timer_free(script, script.timers[i])
 	__w_list_free(cast(__w_list*, script.timers))
+	for i in range(script.animation_frames.length): win_script_timer_free(script, script.animation_frames[i])
+	__w_list_free(cast(__w_list*, script.animation_frames))
 	free(script.origin)
+	free(script.address)
 	for i in range(script.bindings.length):
+		win_canvas_free(script.bindings[i].canvas)
 		free(script.bindings[i])
 	for i in range(script.listeners.length):
 		free(script.listeners[i].event)
@@ -1134,6 +1518,8 @@ void win_script_free(win_script* script):
 	__w_list_free(cast(__w_list*, script.scripts))
 	for i in range(script.console.length): free(script.console[i])
 	__w_list_free(cast(__w_list*, script.console))
+	win_modules_free(script.modules)
+	win_wasm_free(script.wasm)
 	js_runtime_free(script.runtime)
 	free(script.error)
 	free(script)

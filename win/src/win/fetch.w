@@ -7,7 +7,8 @@ struct win_fetch_request:
 	win_load* load
 	js_value* promise
 	js_value* response
-	js_value* body
+	char* bytes
+	int length
 	int consumed
 	char* failure
 
@@ -45,9 +46,27 @@ js_value* win_fetch_text(void* runtime, void* context, js_value* receiver, list[
 	if (rt.completion.status != 0): return promise
 	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
 	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	if (request.length > 65536): return win_fetch_reject(rt, promise, c"Fetch response text budget exceeded")
+	if (utf8_validate_bytes(request.bytes, request.length) == 0): return win_fetch_reject(rt, promise, c"Fetch response is not UTF-8")
+	js_value* body = win_fetch_string(rt, request.bytes, request.length)
+	if (rt.completion.status != 0): return promise
 	request.consumed = 1
 	js_runtime_set(rt, receiver, c"bodyUsed", js_runtime_boolean(rt, 1))
-	js_runtime_promise_settle(rt, promise, request.body, 0)
+	js_runtime_promise_settle(rt, promise, body, 0)
+	return promise
+
+js_value* win_fetch_array_buffer(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_fetch_request* request = cast(win_fetch_request*, context)
+	js_value* promise = js_runtime_promise_new(rt)
+	if (rt.completion.status != 0): return promise
+	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
+	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	js_value* buffer = js_runtime_array_buffer_copy(rt, cast(byte*, request.bytes), request.length)
+	if (rt.completion.status != 0): return promise
+	request.consumed = 1
+	js_runtime_set(rt, receiver, c"bodyUsed", js_runtime_boolean(rt, 1))
+	js_runtime_promise_settle(rt, promise, buffer, 0)
 	return promise
 
 int win_fetch_pending(win_fetch_context* context):
@@ -110,12 +129,9 @@ int win_fetch_poll(win_fetch_context* context):
 		js_runtime_begin(rt, 100000)
 		if (load.error != 0): win_fetch_reject(rt, request.promise, load.error)
 		else if (request.failure != 0): win_fetch_reject(rt, request.promise, request.failure)
-		else if (load.length > 65536 || (request.response == 0 && context.bytes > 4194304 - load.length)): win_fetch_reject(rt, request.promise, c"Fetch response text budget exceeded")
-		else if (utf8_validate_bytes(load.source, load.length) == 0): win_fetch_reject(rt, request.promise, c"Fetch response is not UTF-8")
+		else if (load.length > 1048576 || (request.response == 0 && context.bytes > 4194304 - load.length)): win_fetch_reject(rt, request.promise, c"Fetch response byte budget exceeded")
 		else:
 			if (request.response == 0):
-				request.body = win_fetch_string(rt, load.source, load.length)
-				if (request.body != rt.undefined_value): js_runtime_root(rt, request.body)
 				request.response = js_runtime_alloc(rt, 5)
 				if (request.response != rt.undefined_value): js_runtime_root(rt, request.response)
 				if (rt.completion.status == 0):
@@ -124,13 +140,16 @@ int win_fetch_poll(win_fetch_context* context):
 					js_runtime_set(rt, request.response, c"url", win_fetch_string(rt, load.address, strlen(load.address)))
 					js_runtime_set(rt, request.response, c"bodyUsed", js_runtime_boolean(rt, 0))
 					js_runtime_set(rt, request.response, c"text", js_runtime_host_callable(rt, request, win_fetch_text))
+					js_runtime_set(rt, request.response, c"arrayBuffer", js_runtime_host_callable(rt, request, win_fetch_array_buffer))
 				if (rt.completion.status != 0):
-					if (request.body != rt.undefined_value): js_runtime_unroot(rt, request.body)
 					if (request.response != rt.undefined_value): js_runtime_unroot(rt, request.response)
-					request.body = 0
 					request.response = 0
 					request.failure = c"Fetch response allocation failed"
 					return 1
+				request.bytes = cast(char*, malloc(load.length + 1))
+				for j in range(load.length): request.bytes[j] = load.source[j]
+				request.bytes[load.length] = 0
+				request.length = load.length
 				context.bytes = context.bytes + load.length
 			js_runtime_promise_settle(rt, request.promise, request.response, 0)
 		if (rt.completion.status != 0): return 1
@@ -163,7 +182,7 @@ void win_fetch_free(win_fetch_context* context):
 		win_load_free(request.load)
 		if (request.promise != 0): js_runtime_unroot(context.runtime, request.promise)
 		if (request.response != 0): js_runtime_unroot(context.runtime, request.response)
-		if (request.body != 0): js_runtime_unroot(context.runtime, request.body)
+		free(request.bytes)
 		free(request)
 	__w_list_free(cast(__w_list*, context.requests))
 	free(context.executable)

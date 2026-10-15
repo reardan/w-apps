@@ -35,10 +35,12 @@ int main(int argc, int argv):
 	args_declare_bool(c"dump")
 	args_declare_bool(c"isolated-dump")
 	args_declare_bool(c"script-worker")
+	args_declare_bool(c"interactive-worker")
+	args_declare_bool(c"isolated-interactive")
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--frames N --screenshot FILE.ppm] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--reftest]")
 		return 0
 	char* fetch = args_value(c"fetch")
 	if (fetch != 0):
@@ -56,6 +58,10 @@ int main(int argc, int argv):
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
+	if (args_has_flag(c"interactive-worker")):
+		char* limit = args_value(c"worker-limit")
+		if (limit == 0): return 1
+		return win_script_interactive_execute(args_program(), start, home, atoi(limit))
 	if (args_has_flag(c"script-worker")):
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1
@@ -76,6 +82,7 @@ int main(int argc, int argv):
 		return code
 	win_app app
 	win_app_init(&app, args_program(), home)
+	app.isolated = args_has_flag(c"isolated-interactive")
 	win_app_open(&app, start, c"")
 	win_browser* browser = app.tabs[0]
 	if (args_has_flag(c"dump")):
@@ -117,6 +124,10 @@ int main(int argc, int argv):
 		win_app_free(&app)
 		win_network_state_clear()
 		return 1
+	win_script_graphics_available = 1
+	if (reftest):
+		win_browser_set_viewport(browser, 800, 600)
+		browser.width = 800
 	ui_theme theme
 	ui_theme_light(&theme)
 	theme.background = ui_color_new(0.92, 0.95, 0.97, 1.0)
@@ -144,6 +155,10 @@ int main(int argc, int argv):
 			ui_rect viewport = ui_rect_new(0.0, 0.0, 800.0, 600.0)
 			ui_render_rect(ctx.rndr, viewport, ui_gray(1.0))
 			if (browser.page != 0):
+				win_script_frame_at(browser.script, time_monotonic_ms())
+				if (browser.script != 0 && browser.script.dirty):
+					win_page_layout(browser.page, 800)
+					browser.script.dirty = 0
 				if (browser.page.width != 800): win_page_layout(browser.page, 800)
 				win_browser_paint(browser, &ctx, viewport, 0.0)
 				win_forms_draw(browser.forms, &ctx, 0.0, 0.0)
@@ -174,6 +189,7 @@ int main(int argc, int argv):
 	if (reftest && captured == 0): code = 1
 	win_app_free(&app)
 	win_network_state_clear()
+	win_script_graphics_available = 0
 	ui_render_destroy(&renderer)
 	gfx_window_destroy(window)
 	return code

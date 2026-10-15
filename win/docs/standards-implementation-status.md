@@ -5,8 +5,10 @@ module foundation from [W #657](https://github.com/reardan/w/pull/657), on top o
 the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation and
 [W #652](https://github.com/reardan/w/pull/652) labelled JavaScript implementation.
 The Git submodule pins merged commit
-`343a124b22e1a39cd577e34e0b7ab13ee5191387`. Its tree matches the validated
-runtime branch, and all 27 W PR checks passed before merge.
+`343a124b22e1a39cd577e34e0b7ab13ee5191387`. This also includes the concurrent
+[W #656](https://github.com/reardan/w/pull/656) wrapped-line bidi update.
+All 27 W runtime PR checks passed before merge; the merged dependency is
+validated again for browser integration.
 
 Win's CSS, flexbox, native rendering, and WPT work remain in the application.
 The earlier foundation and its validation are recorded below; the newer async,

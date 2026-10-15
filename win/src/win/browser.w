@@ -3,6 +3,7 @@ import win.loader
 import win.resources
 import win.forms
 import win.script
+import win.fetch
 import graphics.ui.widgets
 
 struct win_history_entry:
@@ -14,6 +15,10 @@ struct win_browser:
 	win_resources* resources
 	win_forms* forms
 	win_script* script
+	win_fetch_context* fetches
+	win_storage_context* local_storage
+	win_storage_context* session_storage
+	int owns_local_storage
 	int script_failures
 	int resource_failures
 	int restore_pending
@@ -41,6 +46,10 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.resources = 0
 	b.forms = 0
 	b.script = 0
+	b.fetches = 0
+	b.local_storage = win_storage_new()
+	b.session_storage = win_storage_new()
+	b.owns_local_storage = 1
 	b.script_failures = 0
 	b.resource_failures = 0
 	b.restore_pending = 0
@@ -62,7 +71,10 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 void win_browser_free(win_browser* b):
 	win_load_free(b.load)
 	free(b.new_tab)
+	win_fetch_free(b.fetches)
 	win_script_free(b.script)
+	if (b.owns_local_storage): win_storage_free(b.local_storage)
+	win_storage_free(b.session_storage)
 	win_resources_free(b.resources)
 	win_forms_free(b.forms)
 	win_page_free(b.page)
@@ -77,9 +89,9 @@ void win_browser_free(win_browser* b):
 	free(b.status)
 
 void win_stop(win_browser* b):
-	if (b.load == 0 && win_resources_done(b.resources) && (b.script == 0 || b.script.ready)): return
+	win_fetch_stop(b.fetches)
 	win_resources_stop(b.resources)
-	if (b.script != 0): b.script.ready = 1
+	win_script_stop(b.script)
 	win_load_free(b.load)
 	b.load = 0
 	win_status(b, c"Loading stopped")
@@ -163,6 +175,8 @@ void win_browser_poll_document(win_browser* b):
 		win_page* page = win_page_parse(b.load.source, b.load.length)
 		if (page == 0): win_status(b, c"Invalid UTF-8 or HTML document exceeds parser limits")
 		else:
+			win_fetch_free(b.fetches)
+			b.fetches = 0
 			win_script_free(b.script)
 			win_resources_free(b.resources)
 			win_forms_free(b.forms)
@@ -171,6 +185,8 @@ void win_browser_poll_document(win_browser* b):
 			b.forms = win_forms_new(page)
 			b.resources = win_resources_start(b.executable, page, b.load.address)
 			b.script = win_script_new(page)
+			win_script_bind_storage(b.script, b.local_storage, b.session_storage, b.load.address)
+			b.fetches = win_fetch_new(b.script.runtime, b.executable, b.load.address)
 			b.script_failures = 0
 			b.resource_failures = 0
 			win_page_layout(page, b.width)
@@ -186,12 +202,15 @@ void win_browser_poll_document(win_browser* b):
 	b.load = 0
 
 int win_browser_loading(win_browser* b):
-	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0)
+	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0) || win_fetch_pending(b.fetches) != 0
 
 void win_browser_poll(win_browser* b):
 	win_browser_poll_document(b)
 	int changed = win_resources_poll(b.resources)
 	win_script_run_pending(b.script, b.resources)
+	if (win_fetch_poll(b.fetches) && b.script != 0): win_script_result(b.script, b.script.runtime.completion)
+	win_script_poll(b.script)
+	if (win_resources_refresh(b.resources)): changed = 1
 	if (b.script != 0):
 		if (b.script.dirty): changed = 1
 		b.script.dirty = 0
@@ -322,6 +341,38 @@ int win_address_editor(win_browser* b, ui_context* ctx, ui_rect area):
 	ui_textarea(ctx, area, &b.input)
 	return submitted
 
+# The native canvas has 8-bit RGB channels. Round solid paint colors here,
+# preserving float computed values and alpha until paint. Sending half-byte
+# RGB values directly through interpolated GL varyings can round differently
+# across triangles/drivers (for example 50% green versus #008000).
+float32 win_paint_channel(float32 value):
+	value = win_css_color_clamp(value)
+	return cast(float32, cast(int, value * 255.0 + 0.5)) / 255.0
+
+ui_color win_paint_color(ui_color color):
+	return ui_color_new(win_paint_channel(color.r), win_paint_channel(color.g), win_paint_channel(color.b), color.a)
+
+# Shared page painting for the interactive viewport and native reftests.
+void win_browser_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float32 y_offset):
+	for i in range(b.page.boxes.length):
+		win_box* box = b.page.boxes[i]
+		if (box.hidden): continue
+		ui_rect rect = ui_rect_new(viewport.x + box.x, y_offset + box.y, box.width, box.height)
+		ui_render_rect(ctx.rndr, rect, win_paint_color(box.color))
+		if (box.border > 0.0):
+			float32 edge = box.border
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, rect.w, edge), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y + rect.h - edge, rect.w, edge), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, edge, rect.h), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x + rect.w - edge, rect.y, edge, rect.h), win_paint_color(box.border_color))
+	for i in range(b.page.runs.length):
+		win_run* run = b.page.runs[i]
+		if (run.hidden): continue
+		float32 y = y_offset + run.y
+		if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
+		if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
+		else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, win_paint_color(run.color))
+
 void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	if (width < 360 || height < 240):
 		ui_draw_text(ctx.rndr, 12.0, 12.0, c"Enlarge the window to browse", 2, ctx.theme.text)
@@ -364,24 +415,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		if (ctx.input.mouse_pressed && cast(float32, ctx.input.press_x) >= viewport.x + viewport.w - 16.0 && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))): b.restore_pending = 0
 		ui_scroll_begin(ctx, viewport, &b.scroll)
 		float32 y_offset = viewport.y - b.scroll.offset_y
-		for i in range(b.page.boxes.length):
-			win_box* box = b.page.boxes[i]
-			if (box.hidden): continue
-			ui_rect rect = ui_rect_new(viewport.x + box.x, y_offset + box.y, box.width, box.height)
-			ui_render_rect(ctx.rndr, rect, box.color)
-			if (box.border > 0.0):
-				float32 edge = box.border
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, rect.w, edge), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y + rect.h - edge, rect.w, edge), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, edge, rect.h), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x + rect.w - edge, rect.y, edge, rect.h), box.border_color)
-		for i in range(b.page.runs.length):
-			win_run* run = b.page.runs[i]
-			if (run.hidden): continue
-			float32 y = y_offset + run.y
-			if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
-			if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
-			else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, run.color)
+		win_browser_paint(b, ctx, viewport, y_offset)
 		ui_region_claim(ctx, ui_rect_new(viewport.x, y_offset, cast(float32, b.width), b.page.height))
 		float32 mx = cast(float32, ctx.input.mouse_x)
 		float32 my = cast(float32, ctx.input.mouse_y)

@@ -132,15 +132,122 @@ void test_slow_resources(char* executable, char* address):
 	win_page_free(page)
 	ui_render_destroy(&renderer)
 
+void resource_test_attr(html_node* node, char* name, char* value):
+	html_attribute* attr = html_attribute_find(node.attributes, name)
+	if (attr == 0):
+		attr = new html_attribute()
+		attr.name = strclone(name)
+		attr.next = node.attributes
+		node.attributes = attr
+	else: free(attr.value)
+	attr.value = strclone(value)
+	attr.value_length = strlen(value)
+
+void test_dynamic_resources(char* executable, char* fixture):
+	char* source = c"<link rel='stylesheet' href='theme.css'><img src='checker.png'><script src='page.js'></script><img src=''><script src=''></script>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_resources* resources = win_resources_start(executable, page, fixture)
+	assert_equal(3, resources.entries.length)
+	for i in range(5): assert_equal(0, win_resources_refresh(resources))
+	resource_test_wait(resources)
+	win_resource* sheet = resources.entries[0]
+	win_resource* image = resources.entries[1]
+	win_resource* script = resources.entries[2]
+	asserts(c"loaded stylesheet", page.stylesheets[0].css != 0)
+	int used_bytes = resources.bytes
+	int used_image_bytes = resources.image_bytes
+	resource_test_attr(sheet.node, c"media", c"print")
+	resource_test_attr(image.node, c"src", c"missing.png")
+	resource_test_attr(script.node, c"src", c"missing.js")
+	assert_equal(1, win_resources_refresh(resources))
+	assert_equal(5, resources.entries.length)
+	assert_equal(used_bytes, resources.bytes)
+	assert_equal(used_image_bytes, resources.image_bytes)
+	assert_equal(1, sheet.retired)
+	asserts(c"obsolete stylesheet removed", page.stylesheets[0].css == 0)
+	assert_equal(1, image.retired)
+	assert_equal(1, script.retired)
+	asserts(c"obsolete script source released", script.source == 0)
+	asserts(c"lookup selects new script", win_resources_script(resources, script.node) == resources.entries[4])
+	assert_equal(1, page.images.length)
+	asserts(c"stale image pixels removed", page.images[0].pixels == 0 && page.images[0].width == 0)
+	resource_test_wait(resources)
+	assert_equal(2, resources.failed)
+	resource_test_attr(image.node, c"src", c"checker.png")
+	resource_test_attr(sheet.node, c"media", c"screen")
+	assert_equal(1, win_resources_refresh(resources))
+	resource_test_wait(resources)
+	assert_equal(8, page.images[0].width)
+	asserts(c"stylesheet restored", page.stylesheets[0].css != 0)
+	# Previously empty sources become discoverable on mutation.
+	html_node* inserted_image = script.node.next_sibling
+	html_node* inserted_script = inserted_image.next_sibling
+	resource_test_attr(inserted_image, c"src", c"checker.png")
+	resource_test_attr(inserted_script, c"src", c"page.js")
+	assert_equal(1, win_resources_refresh(resources))
+	resource_test_wait(resources)
+	assert_equal(2, page.images.length)
+	asserts(c"new script downloaded", win_resources_script(resources, inserted_script).source != 0)
+	# Disconnect and reconnect the tail, retaining node ownership in the DOM.
+	script.node.next_sibling = 0
+	assert_equal(1, win_resources_refresh(resources))
+	asserts(c"detached script unavailable", win_resources_script(resources, inserted_script) == 0)
+	assert_equal(1, page.images[1].failed)
+	script.node.next_sibling = inserted_image
+	assert_equal(1, win_resources_refresh(resources))
+	resource_test_wait(resources)
+	assert_equal(2, page.images.length)
+	assert_equal(8, page.images[1].width)
+	# URL churn cannot replenish the lifetime request budget.
+	for i in range(80):
+		if (i % 2 == 0): resource_test_attr(image.node, c"src", c"missing.png")
+		else: resource_test_attr(image.node, c"src", c"checker.png")
+		win_resources_refresh(resources)
+	assert_equal(WIN_RESOURCE_COUNT, resources.entries.length)
+	win_resources_stop(resources)
+	assert_equal(0, win_resources_refresh(resources))
+	assert_equal(0, win_resources_poll(resources))
+	for i in range(resources.entries.length): asserts(c"all replaced workers reaped", resources.entries[i].load == 0)
+	win_resources_free(resources)
+	win_page_free(page)
+
+void test_stale_resources(char* executable, char* address):
+	char* source = c"<img src='slow.png'><link rel='stylesheet' href='slow.css'><script src='slow.js'></script>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_resources* resources = win_resources_start(executable, page, address)
+	win_resources_poll(resources)
+	sleep_ms(80)
+	win_resource* old_image = resources.entries[0]
+	win_resource* old_css = resources.entries[1]
+	win_resource* old_script = resources.entries[2]
+	resource_test_attr(old_image.node, c"src", c"checker.png")
+	resource_test_attr(old_css.node, c"href", c"theme.css")
+	resource_test_attr(old_script.node, c"src", c"second.js")
+	# poll itself must reconcile first, even if the caller omitted refresh.
+	win_resources_poll(resources)
+	asserts(c"stale workers canceled", old_image.load == 0 && old_css.load == 0 && old_script.load == 0)
+	asserts(c"stale records retired", old_image.retired && old_css.retired && old_script.retired)
+	resource_test_wait(resources)
+	assert_equal(0, resources.failed)
+	assert_equal(8, page.images[0].width)
+	asserts(c"fresh stylesheet replaces stale response", page.stylesheets[0].css != 0 && strcmp(page.stylesheets[0].css.source, c".hidden { display:none; }") == 0)
+	asserts(c"fresh script replaces stale response", starts_with(win_resources_script(resources, old_script.node).source, c"if (document.title"))
+	asserts(c"stale script not returned", win_resources_script(resources, old_script.node) != old_script)
+	assert_equal(0, win_resources_refresh(resources))
+	win_resources_free(resources)
+	win_page_free(page)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	if (argc == 4 && strcmp(args_get(1), c"--slow") == 0):
 		test_slow_resources(args_get(2), args_get(3))
+		test_stale_resources(args_get(2), args_get(3))
 		return 0
 	assert_equal(3, argc)
 	char* dir = path_dirname(args_get(2))
 	char* fixture = path_join(dir, c"resources/images.html")
 	test_resource_queue(args_get(1), fixture)
+	test_dynamic_resources(args_get(1), fixture)
 	free(fixture)
 	free(dir)
 	test_resource_policy(args_get(1))

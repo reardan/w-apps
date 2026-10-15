@@ -1,6 +1,7 @@
 import lib.args
 import lib.stream
 import win.app
+import win.script_worker
 
 int win_screenshot(char* path, int width, int height):
 	if (width <= 0 || height <= 0 || width > 4096 || height > 4096): return 0
@@ -29,11 +30,15 @@ int win_screenshot(char* path, int width, int height):
 	return ok
 
 int main(int argc, int argv):
+	if (win_script_worker_parent_guard() == 0): return 1
 	args_init(argc, argv)
 	args_declare_bool(c"dump")
+	args_declare_bool(c"isolated-dump")
+	args_declare_bool(c"script-worker")
 	args_declare_bool(c"help")
+	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump] [--frames N --screenshot FILE.ppm]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--frames N --screenshot FILE.ppm] [--reftest]")
 		return 0
 	char* fetch = args_value(c"fetch")
 	if (fetch != 0):
@@ -51,6 +56,24 @@ int main(int argc, int argv):
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
+	if (args_has_flag(c"script-worker")):
+		char* limit = args_value(c"worker-limit")
+		if (limit == 0): return 1
+		return win_script_worker_execute(args_program(), start, home, atoi(limit))
+	if (args_has_flag(c"isolated-dump")):
+		int timeout = 30000
+		char* configured = args_value(c"worker-timeout")
+		if (configured != 0): timeout = atoi(configured)
+		win_script_worker* worker = win_script_worker_start(args_program(), start, home, timeout, WIN_SCRIPT_WORKER_LIMIT)
+		while (win_script_worker_poll(worker) == 0): sleep_ms(2)
+		int code = 1
+		if (worker.status == 1):
+			print(worker.text)
+			if (worker.script_failures == 0 && worker.resource_failures == 0): code = 0
+			else: println2(c"Isolated page completed with script or resource errors")
+		else: println2(worker.error)
+		win_script_worker_free(worker)
+		return code
 	win_app app
 	win_app_init(&app, args_program(), home)
 	win_app_open(&app, start, c"")
@@ -72,16 +95,27 @@ int main(int argc, int argv):
 				print(c" ")
 			println(c"")
 		win_app_free(&app)
+		win_network_state_clear()
 		return code
-	gfx_window* window = gfx_window_open(c"Win — W browser", 1000, 760)
+	# Reftests capture an 800x600 content viewport, excluding browser chrome.
+	int reftest = args_has_flag(c"reftest")
+	int window_width = 1000
+	int window_height = 760
+	if (reftest):
+		window_width = 800
+		window_height = 600
+		browser.width = 800
+	gfx_window* window = gfx_window_open(c"Win — W browser", window_width, window_height)
 	if (window == 0):
 		println2(c"Win needs an X11 display. Use --dump for headless document checks.")
 		win_app_free(&app)
+		win_network_state_clear()
 		return 1
 	ui_renderer renderer
 	if (ui_render_init(&renderer) == 0):
 		gfx_window_destroy(window)
 		win_app_free(&app)
+		win_network_state_clear()
 		return 1
 	ui_theme theme
 	ui_theme_light(&theme)
@@ -96,20 +130,50 @@ int main(int argc, int argv):
 	if (count != 0): max_frames = atoi(count)
 	char* screenshot = args_value(c"screenshot")
 	int code = 0
-	while (gfx_window_poll(window)):
+	int ready_frames = 0
+	int captured = 0
+	if (reftest):
+		max_frames = 1200
+		if (screenshot == 0):
+			println2(c"--reftest requires --screenshot")
+			code = 1
+	while (code == 0 && gfx_window_poll(window)):
 		win_app_poll(&app)
 		ui_begin_window(&ctx, window)
-		win_app_frame(&app, &ctx, window.width, window.height)
+		if (reftest):
+			ui_rect viewport = ui_rect_new(0.0, 0.0, 800.0, 600.0)
+			ui_render_rect(ctx.rndr, viewport, ui_gray(1.0))
+			if (browser.page != 0):
+				if (browser.page.width != 800): win_page_layout(browser.page, 800)
+				win_browser_paint(browser, &ctx, viewport, 0.0)
+				win_forms_draw(browser.forms, &ctx, 0.0, 0.0)
+		else: win_app_frame(&app, &ctx, window.width, window.height)
 		ui_end(&ctx)
 		frames = frames + 1
 		int last = max_frames > 0 && frames >= max_frames
+		if (reftest):
+			if (win_browser_loading(browser) == 0):
+				if (browser.page == 0 || browser.script_failures != 0 || browser.resource_failures != 0 || browser.page.truncated):
+					println2(c"Reftest load failed or content was truncated")
+					code = 1
+					break
+			if (win_browser_loading(browser) == 0 && browser.page != 0): ready_frames = ready_frames + 1
+			else: ready_frames = 0
+			if (ready_frames >= 2): last = 1
+			if (last && (ready_frames < 2 || browser.script_failures != 0 || browser.resource_failures != 0 || browser.page.truncated)):
+				println2(c"Reftest load failed or did not settle")
+				code = 1
+				break
 		if (last && screenshot != 0):
 			glFinish()
 			if (win_screenshot(screenshot, window.width, window.height) == 0): code = 1
+			else: captured = 1
 		gfx_window_swap(window)
 		if (last): break
 		sleep_ms(16)
+	if (reftest && captured == 0): code = 1
 	win_app_free(&app)
+	win_network_state_clear()
 	ui_render_destroy(&renderer)
 	gfx_window_destroy(window)
 	return code

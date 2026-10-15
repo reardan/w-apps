@@ -16,6 +16,13 @@ div { margin: 0; }
 #overflow { width: 140px; height: 20px; background: #f1c232; }
 #tall { width: 60px; height: 50px; background: #46a1b9; }
 #following { width: 90px; height: 15px; background: #7e57c2; }
+.new-flex { display: flex; width: 410px; gap: 10px; margin-bottom: 8px; }
+.new-flex div { height: 20px; }
+#grow-a { flex: 1 1 0px; background: #216a94; }
+#grow-b { flex: 3 1 0px; background: #947821; }
+#justify { justify-content: space-between; }
+#justify-a { width: 80px; background: #8f4794; }
+#justify-b { width: 80px; background: #47948f; }
 </style>
 </head>
 <body>
@@ -28,6 +35,9 @@ div { margin: 0; }
 <div id="shorthand" style="margin:1px;margin-left:2px"></div>
 <p>The next sibling follows the fixed 20px height; the taller child remains visible.</p>
 <div id="overflow"><div id="tall"></div></div><div id="following"></div>
+<p>Explicit flex growth (1:3), followed by space-between alignment.</p>
+<div class="new-flex"><div id="grow-a"></div><div id="grow-b"></div></div>
+<div id="justify" class="new-flex"><div id="justify-a"></div><div id="justify-b"></div></div>
 <script>document.getElementById('shorthand').style.margin='12px';</script>
 </body>
 </html>

@@ -33,7 +33,7 @@ char* win_cssom_value(css_document* css, css_node* declaration):
 # specified token ranges here, rather than computing lengths or comparing only
 # declaration names (which would lose shorthand/longhand relationships).
 void win_cssom_collect(css_document* css, win_css_specified* winners):
-	for i in range(29): winners[i].present = 0
+	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	if (css.failed): return
 	for i in range(css.nodes.length):
 		css_node* d = css.nodes[i]
@@ -43,6 +43,7 @@ int win_cssom_contains(char* name, int property):
 	if (win_css_property(name) == property): return 1
 	if (win_cssom_equal(name, c"margin")): return property >= 12 && property <= 15
 	if (win_cssom_equal(name, c"padding")): return property >= 16 && property <= 19
+	if (win_cssom_equal(name, c"flex")): return property >= 29 && property <= 31
 	if (win_cssom_equal(name, c"border")): return property == 20 || property == 21 || property == 28
 	return 0
 
@@ -57,10 +58,18 @@ char* win_cssom_longhand(int property):
 	if (property == 19): return c"padding-left"
 	if (property == 20): return c"border-width"
 	if (property == 21): return c"border-color"
+	if (property == 29): return c"flex-grow"
+	if (property == 30): return c"flex-shrink"
+	if (property == 31): return c"flex-basis"
 	return c"border-style"
 
 char* win_cssom_specified(win_css_specified* slot, int property):
 	if (slot.reset):
+		if (slot.reset == 2): return strclone(c"1")
+		if (slot.reset == 3):
+			if (property == 31): return strclone(c"0px")
+			return strclone(c"0")
+		if (property == 31): return strclone(c"auto")
 		if (property == 20): return strclone(c"medium")
 		if (property == 21): return strclone(c"currentcolor")
 		return strclone(c"none")
@@ -80,7 +89,7 @@ void win_cssom_append(string_builder* out, char* name, char* value, int importan
 # the same priority. A mixture of CSS-wide and ordinary values has no shorthand.
 char* win_cssom_get(char* source, char* name, int priority):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[29] winners
+	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
 	int[4] properties
 	int count = 0
@@ -89,12 +98,12 @@ char* win_cssom_get(char* source, char* name, int priority):
 		properties[0] = property
 		count = 1
 	else:
-		for p in range(29):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			if (win_cssom_contains(name, p)):
 				properties[count] = p
 				count = count + 1
 	# Border is conventionally serialized as width, style, color.
-	if (count == 3):
+	if (count == 3 && win_cssom_equal(name, c"border")):
 		properties[1] = 28
 		properties[2] = 21
 	int valid = count > 0
@@ -136,7 +145,7 @@ char* win_cssom_get(char* source, char* name, int priority):
 void win_cssom_serialize(string_builder* out, css_document* css, css_node* d, int order, win_css_specified* winners):
 	int complete = 1
 	int matches = 0
-	for p in range(29):
+	for p in range(WIN_CSS_PROPERTY_COUNT):
 		if (win_cssom_contains(d.name, p)):
 			win_css_specified* slot = &winners[p]
 			if (slot.present && slot.css == css && slot.key.order == order): matches = matches + 1
@@ -147,7 +156,7 @@ void win_cssom_serialize(string_builder* out, css_document* css, css_node* d, in
 		win_cssom_append(out, d.name, value, d.important)
 		free(value)
 	else:
-		for p in range(29):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			win_css_specified* slot = &winners[p]
 			if (slot.present && slot.css == css && slot.key.order == order):
 				char* value = win_cssom_specified(slot, p)
@@ -174,10 +183,10 @@ char* win_cssom_edit(char* source, char* name, char* value, char* priority):
 			css_document_free(parsed)
 			return 0
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[29] winners
+	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
 	if (name != 0):
-		for p in range(29):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			if (win_cssom_contains(name, p)): winners[p].present = 0
 	if (parsed != 0):
 		parsed.nodes[0].important = important

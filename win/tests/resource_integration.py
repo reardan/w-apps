@@ -85,6 +85,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == '/site/second.js':
             body = b'if (document.title === "First script") { document.title = "Ordered scripts"; document.getElementById("message").textContent = "script-updated-marker"; }'
             mime = 'text/javascript'
+        elif self.path == '/site/slow.css':
+            time.sleep(0.5)
+            body, mime = b'p { display:none; }', 'text/css'
+        elif self.path == '/site/slow.js':
+            time.sleep(0.5)
+            body, mime = b'document.title = "Stale script";', 'text/javascript'
         elif self.path == '/site/slow.png':
             time.sleep(0.3)
             body, mime = PNG, 'image/png'
@@ -164,7 +170,11 @@ try:
     worker('/site/missing.png', 'image', False)
     resource_test = pathlib.Path(WIN).parent / 'resources_test'
     if resource_test.exists():
+        before = len(REQUESTS)
         subprocess.run([str(resource_test), '--slow', WIN, base + '/site/index.html'], check=True, timeout=8)
+        dynamic_requests = REQUESTS[before:]
+        for path in ('/site/checker.png', '/site/theme.css', '/site/second.js'):
+            assert dynamic_requests.count(path) == 1, dynamic_requests
     invalid = subprocess.run([WIN, '--dump', '--page', base + '/bad-utf8.html'], capture_output=True, text=True, timeout=20)
     assert invalid.returncode == 0 and 'survives-bad-script' in invalid.stdout, (invalid.stdout, invalid.stderr)
     result = subprocess.run([WIN, '--dump', '--page', base + '/redirect'], capture_output=True, text=True, timeout=20)

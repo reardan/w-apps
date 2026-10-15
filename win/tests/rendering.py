@@ -51,6 +51,14 @@ def check(binary: Path, screenshot: Path) -> None:
     assert yellow[3] - yellow[1] == 20, ("fixed parent height", yellow)
     assert following[1] - yellow[1] == 20, ("following sibling flow", following, yellow)
     assert tall[3] - yellow[1] == 50, ("visible overflow", tall, yellow)
+    grow_a = bounds((0x21, 0x6A, 0x94))
+    grow_b = bounds((0x94, 0x78, 0x21))
+    justify_a = bounds((0x8F, 0x47, 0x94))
+    justify_b = bounds((0x47, 0x94, 0x8F))
+    assert grow_a[2] - grow_a[0] == 100, ("flex-grow 1", grow_a)
+    assert grow_b[2] - grow_b[0] == 300, ("flex-grow 3", grow_b)
+    assert grow_b[0] - grow_a[2] == 10, ("explicit growth gap", grow_a, grow_b)
+    assert justify_b[0] - justify_a[0] == 330, ("space-between alignment", justify_a, justify_b)
     print("Win native rendering: flex sizing, controls, CSSOM and overflow: OK")
 
 

@@ -1,73 +1,78 @@
-# Standards implementation checkpoint
+# Standards implementation status
 
-Work paused at the user's shutdown request. This is an incomplete draft of the
-[standards implementation plan](standards-gap-analysis.md), not a completed roadmap.
+The browser consumes merged W main
+`a5a54fd77eb049d7126db6ce7f1a68e823fa5aca`, which includes
+[W #647](https://github.com/reardan/w/pull/647) and
+[W #650](https://github.com/reardan/w/pull/650). The earlier paused draft
+checkpoint is superseded by this integration. The broader
+[standards implementation plan](standards-gap-analysis.md) remains open; this is
+a bounded browser foundation, not general website or standards conformance.
 
-## Saved implementation
+## Implemented foundation
 
-- CSS now uses structured specificity/cascade keys and validated specified
-  declarations, resolving font-relative values after selecting winners. Numeric
-  lengths retain fractions, exponent syntax and case-insensitive units. The
-  foundation also corrects selector state, invalid-value fallback, media grammar,
-  inheritance/defaulting and upstream syntax metadata/recovery.
-- W adds descriptors/prototypes, receiver-aware calls, synchronous host get/set
-  hooks, typed errors, completion handling, `var` environments, `typeof`, and
-  named-function binding corrections. Parser changes address scoped regex
-  structure, module exports, parameter early errors and chained labels.
-- A native conformance runner actually executes W, with pinned fixtures and
-  explicit expected failures. It is not a complete Test262 harness.
-- Win uses native property hooks for synchronous DOM reads/writes, ordered inline
-  style mutation and reads, and basic CSSStyleDeclaration methods. Stylesheet
-  text/tree mutations reconcile the active sheets. Window and Document are
-  distinct wrappers; event calls preserve receivers. DOMContentLoaded no longer
-  waits for an unrelated pending image before load.
+- CSS uses structured specificity/cascade keys and validates specified values
+  before selecting winners. Fractional/exponent lengths and case-insensitive
+  units are preserved, font-relative values resolve after the cascade, and
+  supported properties implement inheritance/initial/unset behavior.
+- W provides descriptor/prototype hooks, receiver-aware calls, synchronous host
+  properties, typed runtime errors, completion handling, `var` environments,
+  synchronous arrows, and `typeof`. Its parser and native execution ledger cover
+  additional early errors and pinned cases; the ledger is not a complete Test262
+  harness.
+- Win reads and writes supported DOM properties synchronously and exposes
+  specified inline style reads plus CSSStyleDeclaration methods. Shorthand
+  mutation accounts for supported longhands, and stylesheet text/tree mutations
+  reconcile active sheet order. Window and Document are distinct event targets;
+  callbacks preserve receivers. DOMContentLoaded follows the initial scripts,
+  while load waits for the initial resource queue.
+- Layout generates anonymous text items, skips hidden items, and measures
+  intrinsic text, controls, and images. Row flex uses initial sizing and weighted
+  shrinking; percentage max-width resolves once against the container. Fixed
+  block heights place following siblings correctly, while visible overflow
+  contributes to page extent. Grid still uses equal tracks.
+- W supplies the complete pinned HTML named-character-reference table and numeric
+  repair rules. Browser regressions check decoded titles/text and preserved link
+  attributes; complete HTML tree construction/recovery remains deferred.
+- The dependency includes P-384 certificate/handshake verification. See
+  [HTTPS compatibility](foundation-readiness.md#https-compatibility) for upstream
+  evidence and remaining limits.
 
-The W dependency is published on `standards/integration`, commit `2673375a`, in
-[draft W PR #647](https://github.com/reardan/w/pull/647). The application gitlink
-references that published commit. All agent work was committed and integrated;
-the last layout checkpoint is included explicitly as unvalidated WIP. It adds
-generated items, intrinsic sizing helpers, initial row-flex shrinking, fixed-height
-flow extent and visible-overflow page height. Inline-block remains deferred.
+## Validation
 
-## Validation at shutdown
+Validated on Linux x64 on October 15, 2026 against the dependency pin above:
 
-- CSS agent: full Win suite passed before the DOM integration; focused W CSS
-  tests passed on both x86 and x64.
-- Runtime agent: structured checks and four runtime suites passed, including
-  their memory/ownership runs. One debug allocator run emitted a guard-page
-  installation diagnostic while its leak checks and assertions still passed.
-- Parser/harness agent: focused parser, validation, binding, restriction and new
-  early-error tests passed. In that isolated branch, the conformance gate reported
-  13 PASS and 9 XFAIL, plus seven runner-contract tests passing.
-- Root: the new Win CSSOM/DOM mutation/lifecycle suite passed against the first
-  runtime foundation and CSS integration. Structured checking passed.
-- The layout WIP passed a structured x64 check only. Its execution and regression
-  tests remain outstanding.
-- Combined full W and Win suites have **not** been run on the final checkpoint.
-  Do not treat the individual results as validation of the final combined tree.
+- `env -u NO_COLOR ./wbuild -j 8 tests` in `w/`: **1,190 targets passed**,
+  including bootstrap verification and the native JavaScript conformance gate
+  (26 PASS, one tracked XFAIL for labelled-statement lowering).
+- `./win/build test`: structured checks and strict compilation passed for the
+  application and **11 W test programs**; all programs and both Python HTTP
+  integration suites passed. This includes HTML character-reference integration,
+  synchronous DOM/CSSOM/lifecycle behavior, shorthand mutation geometry, and the
+  new intrinsic sizing/flex/overflow regressions. The legacy inline-style test
+  now checks CSSOM property values instead of obsolete serialization spacing.
+- `xvfb-run -a python3 win/tests/rendering.py win/bin/win`: native GL pixel
+  assertions passed for percentage flex sizing/gaps, intrinsic input width,
+  shorthand margin mutation, fixed-height sibling flow, and visible overflow.
+  The screenshot was also visually inspected. The percentage-width assertion
+  failed against the prior browser binary (100px instead of 200px).
+- A separate live `win/bin/win --dump --page https://example.com/` smoke check
+  successfully loaded Example Domain with certificate verification enabled.
+  Public-site access is not required by the automated suites.
 
-## Resume here
+These results qualify the documented foundation on Linux x64, not general
+website compatibility or complete standards conformance. W has no local source
+edits; only its application submodule pin changed.
 
-1. Reconcile the conformance ledger with the runtime improvements. Fixed cases
-   currently retain old XFAIL entries and should become ordinary expected passes;
-   do not weaken the gate's XPASS or changed-failure checks.
-2. Run the new CSSOM suite against the final dependency. Update the legacy
-   `script_test.w` assertion that expects unspaced, unterminated inline-style
-   serialization; prefer asserting the CSSOM property value. Review shorthand
-   interactions and document the current limited serialization surface.
-3. Review DOM hook ownership/budgets, dynamic stylesheet handling, Window event
-   behavior, and separate lifecycle readiness before extending resource scheduling.
-4. Add and run layout regressions for anonymous text, hidden items, intrinsic
-   sizing, flex shrinking and fixed-height overflow. Follow W's structured checks and manifest-based test selection, then run its
-   required `./wbuild tests`. Run `./win/build test` and relevant rendering checks.
-5. Update the existing compatibility documents, which still describe parts of the
-   old snapshot/property and integer-length behavior. Resolve integration failures
-   before marking either PR ready for review.
-6. Resume the plan's dependent work: formatting boxes/intrinsic sizing and actual
-   flex/grid algorithms, more complete ECMAScript environments/built-ins,
-   CSSOM/DOM interfaces, then asynchronous scheduling/modules. These remain open.
+## Remaining work
 
-Agents used isolated worktrees under `/tmp/w-apps-standards-css`,
-`/tmp/w-standards-runtime`, and `/tmp/w-standards-conformance`. Their committed
-checkpoints are incorporated into the application and W draft branches; resuming
-does not depend on those temporary directories or generated binaries.
+Full flex/grid sizing and alignment, independent inline-block formatting contexts,
+complete intrinsic/inline layout, and broader CSS remain deferred. CSSOM exposes
+only the documented properties and methods, with no computed-style or stylesheet
+rule API. Resource discovery is static: DOM changes do not start external
+stylesheet/script/image fetches or execute inserted scripts.
+
+W's runtime remains a language subset. Complete ECMAScript environments and
+built-ins, asynchronous scheduling, timers, promises, modules, fetch/XHR, browser
+storage, native DOM interfaces, accessibility, cookies/cache, and content-process
+isolation remain future work. See the [CSS contract](css-compatibility.md) and
+[JavaScript contract](javascript-compatibility.md) for the supported surface.

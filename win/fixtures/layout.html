@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Win layout regressions</title>
+<style>
+body { font-size: 18px; color: #203040; }
+h1 { font-size: 24px; }
+p { margin: 8px 0; }
+div { margin: 0; }
+.row { display: flex; width: 400px; gap: 10px; margin-bottom: 16px; }
+#percent { width: 400px; max-width: 50%; height: 32px; background: #12ab34; }
+#neighbor { width: 100px; height: 32px; background: #ab1234; }
+#marker { width: 40px; height: 34px; background: #3456cd; }
+#shorthand { width: 80px; height: 24px; background: #cd34ef; }
+#overflow { width: 140px; height: 20px; background: #f1c232; }
+#tall { width: 60px; height: 50px; background: #46a1b9; }
+#following { width: 90px; height: 15px; background: #7e57c2; }
+</style>
+</head>
+<body>
+<h1>Layout foundation checks</h1>
+<p>The green item uses half its 400px container; the red item follows a 10px gap.</p>
+<div class="row"><div id="percent"></div><div id="neighbor"></div></div>
+<p>The input keeps its intrinsic width, followed by a blue marker.</p>
+<div class="row"><input aria-label="Layout input" value="Editable input"><div id="marker"></div></div>
+<p>A shorthand update gives the purple box a 12px left margin.</p>
+<div id="shorthand" style="margin:1px;margin-left:2px"></div>
+<p>The next sibling follows the fixed 20px height; the taller child remains visible.</p>
+<div id="overflow"><div id="tall"></div></div><div id="following"></div>
+<script>document.getElementById('shorthand').style.margin='12px';</script>
+</body>
+</html>

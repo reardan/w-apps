@@ -390,7 +390,7 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	if (block): style.display = 1
 	return win_computed_style(page, node, style, inherited)
 
-void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href);
+void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width);
 
 int win_layout_skipped(html_node* node):
 	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return 1
@@ -405,13 +405,83 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 		win_text(page, node.text, node.text_length, inherited, href)
 		return
 	if (win_layout_skipped(node)): return
-	win_layout_node_style(page, node, win_node_style(page, node, inherited), href)
+	win_layout_node_style(page, node, win_node_style(page, node, inherited), href, -1.0)
+
+int win_layout_control(html_node* node):
+	return win_tag(node, c"input") || win_tag(node, c"textarea") || win_tag(node, c"select") || win_tag(node, c"button")
+
+struct win_replaced_size:
+	float32 width
+	float32 height
+
+# Return content dimensions. An indefinite containing width leaves percentages
+# unresolved for intrinsic measurement; flex supplies its final used width.
+win_replaced_size win_replaced_dimensions(win_page* page, html_node* node, win_style style, float32 containing_width, float32 used_width):
+	win_replaced_size size
+	size.width = 220.0
+	size.height = 34.0
+	int image_node = win_tag(node, c"img")
+	win_image* image = win_image_find(page.images, node)
+	int explicit_width = 0
+	int explicit_height = 0
+	if (image_node):
+		size.width = cast(float32, image.width)
+		size.height = cast(float32, image.height)
+		int width = atoi(win_attr(node, c"width"))
+		int height = atoi(win_attr(node, c"height"))
+		if (width > 100000): width = 100000
+		if (height > 100000): height = 100000
+		if (width > 0):
+			size.width = cast(float32, width)
+			explicit_width = 1
+		if (height > 0):
+			size.height = cast(float32, height)
+			explicit_height = 1
+	else:
+		if (win_tag(node, c"button") || css_ascii_equal(win_attr(node, c"type"), c"submit")): size.width = 100.0
+		if (win_tag(node, c"textarea")): size.height = 80.0
+	if (style.width >= 0.0 && (style.width_percent == 0 || containing_width >= 0.0)):
+		size.width = style.width
+		if (style.width_percent): size.width = containing_width * size.width / 100.0
+		if (style.box_sizing): size.width = size.width - win_box_horizontal_extras(style)
+		explicit_width = 1
+	if (style.height >= 0.0):
+		size.height = win_box_content_height(style)
+		explicit_height = 1
+	if (used_width >= 0.0):
+		size.width = used_width
+		explicit_width = 1
+	if (size.width < 0.0): size.width = 0.0
+	if (image_node):
+		if (explicit_width && explicit_height == 0): size.height = size.width * cast(float32, image.height) / cast(float32, image.width)
+		if (explicit_height && explicit_width == 0): size.width = size.height * cast(float32, image.width) / cast(float32, image.height)
+	if (used_width < 0.0 && style.max_width >= 0.0 && (style.max_width_percent == 0 || containing_width >= 0.0)):
+		float32 maximum = style.max_width
+		if (style.max_width_percent): maximum = containing_width * maximum / 100.0
+		if (style.box_sizing): maximum = maximum - win_box_horizontal_extras(style)
+		if (maximum < 0.0): maximum = 0.0
+		if (size.width > maximum):
+			if (image_node && explicit_height == 0): size.height = size.height * maximum / size.width
+			size.width = maximum
+	return size
 
 win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style style):
 	win_intrinsic_size result
 	result.min_content = 0.0
 	result.max_content = 0.0
 	if (node.kind == HTML_TEXT): return win_intrinsic_text(node.text, node.text_length, style)
+	win_image* image = win_image_find(page.images, node)
+	if (win_layout_control(node) || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)):
+		win_style intrinsic_style = style
+		intrinsic_style.width = -1.0
+		intrinsic_style.max_width = -1.0
+		win_replaced_size size = win_replaced_dimensions(page, node, intrinsic_style, -1.0, -1.0)
+		result.min_content = size.width
+		result.max_content = size.width
+		return result
+	if (win_tag(node, c"img")):
+		char* alt = win_attr(node, c"alt")
+		return win_intrinsic_text(alt, strlen(alt), style)
 	html_node* child = node.first_child
 	float32 inline_max = 0.0
 	while (child != 0):
@@ -424,6 +494,20 @@ win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style
 			win_intrinsic_size size = win_intrinsic_node(page, child, child_style)
 			if (child.kind == HTML_START):
 				float32 extras = win_box_horizontal_extras(child_style)
+				# Definite child widths contribute to their parent's intrinsic
+				# size, while the child's own flex minimum stays content-based.
+				if (child_style.width >= 0.0 && child_style.width_percent == 0):
+					float32 preferred = child_style.width
+					if (child_style.box_sizing): preferred = preferred - extras
+					if (preferred < 0.0): preferred = 0.0
+					size.min_content = preferred
+					size.max_content = preferred
+				if (child_style.max_width >= 0.0 && child_style.max_width_percent == 0):
+					float32 maximum = child_style.max_width
+					if (child_style.box_sizing): maximum = maximum - extras
+					if (maximum < 0.0): maximum = 0.0
+					if (size.min_content > maximum): size.min_content = maximum
+					if (size.max_content > maximum): size.max_content = maximum
 				size.min_content = size.min_content + extras
 				size.max_content = size.max_content + extras
 			if (size.min_content > result.min_content): result.min_content = size.min_content
@@ -471,7 +555,7 @@ list[win_layout_item*] win_layout_items(win_page* page, html_node* container, wi
 			string_free(text)
 	return items
 
-void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href):
+void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width):
 	if (page.truncated || style.display == 0): return
 	int block = style.display == 1 || style.display == 3 || style.display == 4
 	if (win_tag(node, c"a") && html_attribute_find(node.attributes, c"href") != 0): href = win_attr(node, c"href")
@@ -481,6 +565,11 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	int align = page.align
 	win_box* box = 0
 	float32 content_top = page.y
+	int control = win_layout_control(node)
+	win_image* image = win_image_find(page.images, node)
+	int replaced = control || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)
+	win_replaced_size dimensions
+	if (replaced): dimensions = win_replaced_dimensions(page, node, style, right - left, used_width)
 	if (block):
 		win_line_end(page, 0)
 		page.align = style.align
@@ -488,6 +577,8 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 		float32 ml = cast(float32, style.margin_left)
 		float32 mr = cast(float32, style.margin_right)
 		float32 width = win_box_border_width(style, right - left)
+		if (used_width >= 0.0): width = used_width + win_box_horizontal_extras(style)
+		if (replaced): width = dimensions.width + win_box_horizontal_extras(style)
 		float32 available = right - left - width - ml - mr
 		if (available > 0.0 && style.margin_left_auto):
 			ml = available
@@ -507,45 +598,17 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	if (win_tag(node, c"br")):
 		win_line_end(page, 1)
 		return
-	int control = win_tag(node, c"input") || win_tag(node, c"textarea") || win_tag(node, c"select") || win_tag(node, c"button")
-	if (control && strcmp(win_attr(node, c"type"), c"hidden") != 0):
+	if (control):
 		win_line_end(page, 0)
-		float32 width = 220.0
-		float32 height = 34.0
-		if (win_tag(node, c"button") || strcmp(win_attr(node, c"type"), c"submit") == 0): width = 100.0
-		if (win_tag(node, c"textarea")): height = 80.0
-		if (style.width >= 0): width = cast(float32, style.width)
-		if (style.width_percent): width = (page.right - page.left) * width / 100.0
-		if (style.height >= 0): height = cast(float32, style.height)
-		if (width > page.right - page.left): width = page.right - page.left
+		float32 width = dimensions.width + win_box_horizontal_extras(style)
+		float32 height = dimensions.height + win_box_vertical_extras(style)
 		if (box == 0): box = win_box_add(page, node, style, page.left, page.y, width, height)
-		else:
-			box.width = width
-			box.height = height
-		page.y = page.y + height + 6.0
+		if (block): page.y = page.y + dimensions.height
+		else: page.y = page.y + height + 6.0
 	else if (win_tag(node, c"img")):
-		win_image* image = win_image_find(page.images, node)
-		if (image != 0 && image.width > 0 && image.failed == 0):
-			float32 iw = cast(float32, image.width)
-			float32 ih = cast(float32, image.height)
-			int width = atoi(win_attr(node, c"width"))
-			int height = atoi(win_attr(node, c"height"))
-			if (style.width >= 0): width = style.width
-			if (style.width_percent): width = cast(int, (page.right - page.left) * cast(float32, width) / 100.0)
-			if (style.height >= 0): height = style.height
-			if (width > 100000): width = 100000
-			if (height > 100000): height = 100000
-			if (width > 0):
-				iw = cast(float32, width)
-				ih = iw * cast(float32, image.height) / cast(float32, image.width)
-			if (height > 0):
-				ih = cast(float32, height)
-				if (width <= 0): iw = ih * cast(float32, image.width) / cast(float32, image.height)
-			float32 maximum = cast(float32, style.max_width)
-			if (style.max_width_percent): maximum = (page.right - page.left) * maximum / 100.0
-			if (style.max_width >= 0 && iw > maximum):
-				ih = ih * maximum / iw
-				iw = maximum
+		if (replaced):
+			float32 iw = dimensions.width
+			float32 ih = dimensions.height
 			if (page.x + iw > page.right && page.x > page.left): win_line_end(page, 0)
 			win_run* run = new win_run()
 			run.hidden = style.hidden
@@ -606,14 +669,13 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 						text = text.next_sibling
 				else:
 					win_style item_style = item.style
-					# Flex/grid items are blockified and their allocation supplies
-					# used width. Percentages were resolved against the container.
+					# Flex/grid items are blockified. Row-flex sizing already
+					# resolved percentages and constraints against its container;
+					# keep the original style for height and box sizing.
 					if (item_style.display == 2): item_style.display = 1
-					if (flex_row):
-						item_style.width = item.main_size
-						item_style.width_percent = 0
-						item_style.box_sizing = 0
-					win_layout_node_style(page, item.first, item_style, href)
+					float32 used_width = -1.0
+					if (flex_row): used_width = item.main_size
+					win_layout_node_style(page, item.first, item_style, href, used_width)
 				win_line_end(page, 0)
 				if (page.y > row_bottom): row_bottom = page.y
 				cursor = cursor + width + style.gap

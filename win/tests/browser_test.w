@@ -65,6 +65,24 @@ void test_document():
 	asserts(c"long word splits", page.runs.length > 1)
 	win_page_free(page)
 
+void test_character_references():
+	char* source = c"<title>&copy; &#x80</title><p>&NotEqualTilde; &notit; &#128</p><a href='next.html?x=&notit;'>link</a>"
+	win_page* page = win_page_parse(source, strlen(source))
+	asserts(c"character reference document parses", page != 0)
+	assert_strings_equal(c"© €", page.title)
+	win_page_layout(page, 600)
+	asserts(c"multi-codepoint named reference reaches layout", page_contains(page, c"≂̸"))
+	asserts(c"legacy longest match reaches layout", page_contains(page, c"¬it;"))
+	asserts(c"numeric Windows-1252 recovery reaches layout", page_contains(page, c"€"))
+	int found = 0
+	for i in range(page.runs.length):
+		win_run* run = page.runs[i]
+		if (strcmp(run.text, c"link") == 0):
+			assert_strings_equal(c"next.html?x=&notit;", win_page_hit(page, run.x + 1.0, run.y + 1.0))
+			found = 1
+	asserts(c"attribute legacy-reference exception preserves link", found)
+	win_page_free(page)
+
 void test_addresses():
 	char* target = win_resolve(c"https://example.com/docs/a.html", c"../b.html#part")
 	assert_strings_equal(c"https://example.com/b.html#part", target)
@@ -358,6 +376,7 @@ int main(int argc, int argv):
 		return 0
 	asserts(c"test arguments", argc == 3)
 	test_document()
+	test_character_references()
 	test_addresses()
 	test_navigation(args_get(1), args_get(2))
 	test_interactive_page(args_get(1), args_get(2))

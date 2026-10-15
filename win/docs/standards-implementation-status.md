@@ -4,7 +4,9 @@ The W dependency includes the bounded Promise/microtask runtime and standalone
 module foundation from [W #657](https://github.com/reardan/w/pull/657), on top of
 the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation and
 [W #652](https://github.com/reardan/w/pull/652) labelled JavaScript implementation.
-The Git submodule entry records the exact reproducible dependency revision.
+The Git submodule pins merged commit
+`343a124b22e1a39cd577e34e0b7ab13ee5191387`. Its tree matches the validated
+runtime branch, and all 27 W PR checks passed before merge.
 
 Win's CSS, flexbox, native rendering, and WPT work remain in the application.
 The earlier foundation and its validation are recorded below; the newer async,
@@ -138,7 +140,7 @@ See the [CSS contract](css-compatibility.md), [JavaScript contract](javascript-c
 The validation counts earlier in this file describe the preceding checkpoint.
 Current increment validation:
 
-- `env -u NO_COLOR ./wbuild -j 8 tests`: **1,202 targets passed**, including
+- `env -u NO_COLOR ./wbuild -j 8 tests`: **1,205 targets passed** on current W main, including
   the module foundation, Promise runtime and compiler/toolchain regression gates.
 - The pinned Test262 profile now reports **37 PASS, 16 UNSUPPORTED, 0 FAIL,
   0 ERROR**, with 28 execution passes and 164 assertions. Twelve adapter contract

@@ -180,8 +180,8 @@ void win_page_refresh_styles(win_page* page):
 	page.width = 0
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
-	win_css_specified[29] winners
-	for i in range(29): winners[i].present = 0
+	win_css_specified[33] winners
+	for i in range(33): winners[i].present = 0
 	int order = 0
 	for i in range(page.stylesheets.length):
 		css_document* css = page.stylesheets[i].css
@@ -550,6 +550,9 @@ list[win_layout_item*] win_layout_items(win_page* page, html_node* container, wi
 				item.end = child
 				item.anonymous = 1
 				item.style = style
+				# Anonymous items inherit text properties, not flex factors.
+				item.style.flex_grow = 0.0
+				item.style.flex_shrink = 1.0
 				item.intrinsic = win_intrinsic_text(text.data, text.length, style)
 				items.push(item)
 			string_free(text)
@@ -652,6 +655,36 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			if (flex_row): win_flex_sizes(items, row_right - row_left, style.gap)
 			int column = 0
 			float32 cursor = row_left
+			float32 item_gap = style.gap
+			if (flex_row):
+				float32 free_space = row_right - row_left
+				if (items.length > 1): free_space = free_space - style.gap * cast(float32, items.length - 1)
+				int auto_margins = 0
+				for i in range(items.length):
+					win_layout_item* item = items[i]
+					free_space = free_space - item.main_size
+					if (item.anonymous == 0):
+						free_space = free_space - win_box_horizontal_extras(item.style) - item.style.margin_left - item.style.margin_right
+						auto_margins = auto_margins + item.style.margin_left_auto + item.style.margin_right_auto
+				if (auto_margins > 0 && free_space > 0.0):
+					for i in range(items.length):
+						win_layout_item* item = items[i]
+						if (item.anonymous): continue
+						if (item.style.margin_left_auto): item.style.margin_left = free_space / cast(float32, auto_margins)
+						if (item.style.margin_right_auto): item.style.margin_right = free_space / cast(float32, auto_margins)
+					free_space = 0.0
+				if (style.justify == 1): cursor = cursor + free_space
+				if (style.justify == 2): cursor = cursor + free_space / 2.0
+				if (free_space > 0.0 && items.length > 0):
+					if (style.justify == 3 && items.length > 1): item_gap = item_gap + free_space / cast(float32, items.length - 1)
+					if (style.justify == 4):
+						float32 spacing = free_space / cast(float32, items.length)
+						cursor = cursor + spacing / 2.0
+						item_gap = item_gap + spacing
+					if (style.justify == 5):
+						float32 spacing = free_space / cast(float32, items.length + 1)
+						cursor = cursor + spacing
+						item_gap = item_gap + spacing
 			for i in range(items.length):
 				win_layout_item* item = items[i]
 				float32 width = cell_width
@@ -678,7 +711,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 					win_layout_node_style(page, item.first, item_style, href, used_width)
 				win_line_end(page, 0)
 				if (page.y > row_bottom): row_bottom = page.y
-				cursor = cursor + width + style.gap
+				cursor = cursor + width + item_gap
 				column = column + 1
 				if (column == columns):
 					column = 0

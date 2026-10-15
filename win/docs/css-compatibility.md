@@ -57,7 +57,8 @@ Supported properties are:
   constrained block boxes.
 - Solid `background`/`background-color`, `border`, `border-width`, `border-style`, and
   `border-color` for block boxes.
-- `gap`, `column-gap`, `flex-direction`, and `grid-template-columns` for the
+- `gap`, `column-gap`, `flex-direction`, `flex`, `flex-grow`, `flex-shrink`,
+  `flex-basis`, `justify-content`, and `grid-template-columns` for the
   limited flex/grid layouts described below.
 
 Lengths accept px, em, and rem values, including fractional and exponent numeric
@@ -75,7 +76,10 @@ unitless degrees, `deg`, `grad`, `rad`, and `turn`, including wrapping negative
 angles. Alpha accepts numbers and percentages. RGB and alpha channels are clamped
 to their valid ranges. HSL saturation and lightness accept percentages, or numbers
 in space-separated syntax, and are clamped to 0–100 before conversion. Color math
-uses float32; out-of-gamut Color 4 mapping is not implemented. Colors also accept
+uses float32; the native 8-bit canvas rounds RGB channels at the paint boundary
+to avoid half-byte GL interpolation differences, while preserving computed
+values and alpha; this can differ by a channel level from float RGB composition
+for translucent or antialiased paint. Out-of-gamut Color 4 mapping is not implemented. Colors also accept
 3/4/6/8-digit hex, transparent, and the classic CSS palette (black,
 white, gray/grey, silver, red, green, blue, yellow, orange, purple, navy, teal,
 maroon, olive, lime, aqua/cyan, and fuchsia/magenta). Invalid color declarations
@@ -107,10 +111,29 @@ aspect ratio unless both dimensions are specified, accept HTML dimensions and
 CSS width/height/max-width, and share line baseline placement with text. Forms
 receive document boxes used by the browser's interactive widgets.
 
-`display:flex` in row direction uses specified widths or intrinsic content sizes,
-with the initial flex behavior (grow 0, shrink 1, basis auto). When items exceed the
-available width, weighted shrinking freezes items at their supported content
-minimums. Controls and decoded images contribute their own intrinsic dimensions;
+`display:flex` in row direction supports nonnegative `flex-grow`/`flex-shrink`
+factors and `flex-basis` lengths (px/em/rem), percentages, `auto`, and `content`.
+The `flex` shorthand accepts one to three components, `none`, and CSS-wide
+keywords; omitted grow/shrink factors are 1 and omitted basis is zero. Initial
+values remain 0 1 auto. Invalid shorthand values preserve earlier declarations
+atomically; each expanded longhand participates in the cascade and inline CSSOM.
+Basis percentages resolve against the container, `auto` uses a specified width
+or content, and `content` ignores the item's specified width. Basis sizing
+respects `box-sizing`.
+
+The single-row allocation follows the flexible-length resolution algorithm:
+choose growth or shrinkage from hypothetical sizes, preserve original bases,
+distribute with grow or scaled shrink factors, clamp to content minimums and
+max-width, and freeze min/max violations according to the total violation.
+Factor sums below one can leave unused space or overflow. Negative inner
+border-box bases survive until the clamping step. Large finite factors are
+normalized for allocation to avoid overflow in scaled weights.
+
+Horizontal auto margins consume remaining positive space before
+`justify-content`. Row alignment supports `flex-start`, `flex-end`, `center`,
+`space-between`, `space-around`, and `space-evenly`, with gaps included and safe
+start fallback for distributed alignment on overflow. Controls and decoded
+images contribute their own intrinsic dimensions;
 failed or missing images use alt-text sizing. Descendant text measurement is approximate,
 rather than a complete CSS min/max-content algorithm.
 Percentage widths and max-widths resolve against the flex container once. Column
@@ -121,9 +144,11 @@ Flex and grid generate anonymous items for non-whitespace text runs. Hidden
 nodes and `display:none` children do not consume items or gaps; `visibility:hidden`
 items retain geometry. `display:grid` creates equal tracks based on the number of
 column tokens or `repeat(N, ...)`, wrapping later children into rows. Gap separates
-rows/tracks. Declared flex factors, flex wrapping/alignment, proportional/fixed
-grid track sizes, grid placement, and complete intrinsic sizing algorithms remain
-unsupported.
+rows/tracks. Flex wrapping, reverse directions, cross-axis alignment, explicit
+min-width, intrinsic sizing keywords in flex-basis, proportional/fixed grid track
+sizes, grid placement, and complete intrinsic sizing algorithms remain unsupported.
+Flex factors and justify-content currently affect row flex only; grid alignment
+and the column flex sizing/alignment algorithm are not implemented.
 
 Explicit block heights determine the box and following sibling position, while
 visible overflowing content contributes to the page's scroll extent. This does
@@ -154,6 +179,10 @@ The behavior targets the supported portions of
 do not establish full conformance to either specification.
 
 `win/tests/layout_test.w` covers anonymous text, hidden items, intrinsic
-control/image sizes, flex shrinking, percentage max-width, and fixed-height visible
-overflow. These cases qualify the supported foundation; full flex/grid and
+control/image sizes, flex grow/shrink factors, shorthand and percentage/auto/content
+bases, fractional factors, minimum/maximum freezing and redistribution, row
+alignment/auto margins, percentage max-width, and fixed-height visible overflow.
+`css_foundation_test.w` and `cssom_test.w` cover flex validation, independent
+component priorities, CSS-wide resets, shorthand mutation and relayout. The row
+algorithm targets [CSS Flexbox 1 §9.7](https://www.w3.org/TR/css-flexbox-1/#resolve-flexible-lengths). These cases qualify the supported foundation; full flex/grid and
 independent inline-block formatting contexts remain deferred.

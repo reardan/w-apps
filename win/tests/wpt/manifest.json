@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "upstream": {
+    "repository": "https://github.com/web-platform-tests/wpt",
+    "revision": "6d4552a8b1057e42a180119d70273f563e53a264"
+  },
+  "files": {
+    "LICENSE.md": "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570",
+    "css/css-color/background-color-rgb-001.html": "94e170fda2adcddc98c45b4965e7bcabe049d03d41f4da877dce561c8d13e7ee",
+    "css/css-color/background-color-rgb-001-ref.html": "f85b66c2be796735ad60311ee30e335ccc3b9ae815c59fd7ffd4df89cc1e9459",
+    "css/css-color/background-color-rgb-002.html": "56b9a288236bf11dfcb7afff78df7b13c53571b6920ef4cb7b4e9b35ab3f2db2",
+    "css/css-color/background-color-rgb-002-ref.html": "99da2e7cc20ce501f3d6337650b7ebc9189716ac85db766ae6fc125ba468ab69",
+    "css/css-color/background-color-rgb-003.html": "0b16ffcae2a1011c199a20ffc7523ca67ffb4a77c0b3599f4f77ecf85bc42f04",
+    "css/css-color/background-color-rgb-003-ref.html": "92d0b06ff5f5b05e656308fa472ec7d82820b5789d98e330b741dc188ae90151",
+    "css/css-color/background-color-hsl-001.html": "214647b7e866138c27ac1b94ad725f9bd2e13404233363d2dfa06e444df8a0ac",
+    "css/css-color/background-color-hsl-001-ref.html": "b501c3a66fc38c715fc70b8310aa4778a2410637f18e3498515214f2bca2c3c8",
+    "css/css-color/background-color-hsl-002.html": "bcd5d64bc6abb494796922030ebcadfa5a8e4279fd11eb0938fecadeeebfe47f",
+    "css/css-color/background-color-hsl-002-ref.html": "cf8809563085d2ff3225f9fc07f2554e161a27669339d6aada63864b1f71a57d",
+    "css/css-color/background-color-hsl-003.html": "e5e72efd578e0d4379943fc24b7c718c8f30d6460d446a748866fbe356a4dfbe",
+    "css/css-color/background-color-hsl-003-ref.html": "3169e0a0bc436188bb8d672ee3f4d7a9a30f36070cb32430260b4d6240c9df32",
+    "css/css-color/background-color-hsl-004.html": "022ccaa5023f96c7aaf89785e60aeb9d9777ca1913fbaca81a15124c5065488c",
+    "css/css-color/background-color-hsl-004-ref.html": "3aa08fc52627bf4fc61b1aff2d70290fa11c1c93426e875244ba5323d3a8ee24",
+    "css/css-color/hex-001.html": "078da6d7cc78f6256410791d480a90377facd86a277a394a6780a50a60bb3ce3",
+    "css/css-color/greensquare-ref.html": "ee5aed0f5b0ad234da0c8c2be8991f6edc8775d11015e9ec33727db4b7e476e5",
+    "css/css-color/rgb-001.html": "ceea9f6c155846abefdab7b1bea6b795d18b34844828fd803233b4e2f68070bd",
+    "css/selectors/nth-child-of-classname.html": "4d14f9015a0979c6a75edf0d600c31e683fd9a86f8fb08876f67a8812e844cca",
+    "css/selectors/nth-child-of-classname-ref.html": "669fb61ef50aeecc087acaeaa93cc97d62ccd75b8d911270eaa162afc99cb8c6",
+    "css/selectors/nth-child-of-compound-selector.html": "c7f979676b238ac945d6379950ffb270eb1bd4c5ab407cff0252158d4f2f1d44",
+    "css/selectors/nth-child-of-compound-selector-ref.html": "af4db26671264000e9c8a9b7c70990e15a02e71cc4d11529cc061047bf1597fe",
+    "css/selectors/nth-child-specificity-1.html": "ded76212ba4d6669602c5cf22f1feffba853e82ca35f3f8e4111dcb010b0527a",
+    "css/selectors/nth-child-specificity-1-ref.html": "bdbd506e489f3f0d45484de025989e69513129e9a40f01a1949a692a1e7a3278"
+  },
+  "cases": [
+    {
+      "path": "css/css-color/background-color-rgb-001.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-rgb-002.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-rgb-003.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-hsl-001.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-hsl-002.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-hsl-003.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/background-color-hsl-004.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/hex-001.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-color/rgb-001.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/selectors/nth-child-of-classname.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/selectors/nth-child-of-compound-selector.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/selectors/nth-child-specificity-1.html",
+      "expected": "PASS"
+    }
+  ]
+}

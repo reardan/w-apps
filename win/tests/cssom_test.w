@@ -55,6 +55,21 @@ void test_cssom_shorthands():
 	win_script_free(script)
 	win_page_free(page)
 
+void test_cssom_flex():
+	char* source = c"<div style='display:flex;width:400px'><div id='box' style='width:100px;margin:0'></div><div id='sibling' style='width:100px;margin:0'></div></div>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_script* script = win_script_new(page)
+	cssom_eval(script, c"const box=document.getElementById('box'); box.style.flex='2'; if(box.style.flexGrow!=='2'||box.style.flexShrink!=='1'||box.style.flexBasis!=='0px'||box.style.flex!=='2 1 0px') throw 'flex expansion'; box.style.flexGrow='3'; if(box.style.flex!=='3 1 0px') throw 'flex longhand split'; box.style.flex='none'; if(box.style.flex!=='0 0 auto') throw 'flex none'; box.style.flex='auto'; if(box.style.flex!=='1 1 auto') throw 'flex auto';")
+	win_page_layout(page, 800)
+	asserts(c"CSSOM flex assignment changes used width", cssom_box(page, c"box").width == 300.0)
+	cssom_eval(script, c"box.style.flexBasis='25%'; box.style.flexGrow='0'; box.style.flex='1 -2 3px'; if(box.style.flex!=='0 1 25%') throw 'invalid shorthand overwrite'; box.style.cssText=box.style.cssText; if(box.style.flexBasis!=='25%') throw 'basis roundtrip';")
+	win_page_layout(page, 800)
+	asserts(c"CSSOM percentage basis relayout", cssom_box(page, c"box").width == 100.0)
+	cssom_eval(script, c"box.style.setProperty('flex-grow','2','important'); if(box.style.flex!==''||box.style.getPropertyPriority('flex')!=='') throw 'mixed flex priority'; box.style.flex='1 0 20px'; if(box.style.getPropertyPriority('flex-grow')!==''||box.style.flex!=='1 0 20px') throw 'flex resets priorities'; if(box.style.removeProperty('flex-shrink')!=='0'||box.style.flex!==''||box.style.flexGrow!=='1'||box.style.flexBasis!=='20px') throw 'partial flex remove'; box.style.flex='inherit'; if(box.style.flex!=='inherit') throw 'flex wide'; box.style.flexBasis='auto'; if(box.style.flex!=='') throw 'mixed flex wide'; box.style.removeProperty('flex'); if(box.style.flexGrow!==''||box.style.flexBasis!=='') throw 'flex remove'; box.style.justifyContent='center'; if(box.style.getPropertyValue('justify-content')!=='center') throw 'justify host property';")
+	assert_equal(0, script.failures)
+	win_script_free(script)
+	win_page_free(page)
+
 void test_stylesheet_mutation():
 	char* source = c"<style id='sheet'>p{color:red}</style><p id='p'>word</p>"
 	win_page* page = win_page_parse(source, strlen(source))
@@ -103,6 +118,7 @@ void test_window_and_lifecycle():
 int main():
 	test_cssom_reflection()
 	test_cssom_shorthands()
+	test_cssom_flex()
 	test_stylesheet_mutation()
 	test_window_and_lifecycle()
 	println(c"Win synchronous DOM, CSSOM, stylesheet mutation and lifecycle: OK")

@@ -13,7 +13,7 @@ struct win_css_specified:
 	int first
 	int last
 	int wide
-	# Shorthand resets have no token; their values come from initial style.
+	# Synthetic shorthand values: 1 initial, 2 one, 3 zero (0px for basis).
 	int reset
 
 int win_cascade_compare(win_cascade_key a, win_cascade_key b):
@@ -135,8 +135,56 @@ int win_css_longhand_valid(int property, css_document* css, int first, int last)
 	if (property == 23): return win_css_ident(token, c"visible") || win_css_ident(token, c"hidden") || win_css_ident(token, c"collapse")
 	if (property == 25): return win_css_ident(token, c"row") || win_css_ident(token, c"column")
 	if (property == 27): return win_css_ident(token, c"normal") || n.value >= 0.0 && (length || n.unit == 1 || n.unit == 5)
+	if (property == 32): return win_css_ident(token, c"flex-start") || win_css_ident(token, c"flex-end") || win_css_ident(token, c"center") || win_css_ident(token, c"space-between") || win_css_ident(token, c"space-around") || win_css_ident(token, c"space-evenly")
+	if (property == 29 || property == 30): return n.unit == 1 && n.value >= 0.0
+	if (property == 31): return n.value >= 0.0 && (length || n.unit == 5) || win_css_ident(token, c"auto") || win_css_ident(token, c"content")
 	if (property == 28): return win_css_ident(token, c"none") || win_css_ident(token, c"hidden") || win_css_ident(token, c"solid")
 	return 0
+
+# flex: none | [ <grow> <shrink>? || <basis> ]. The factors must
+# remain adjacent; a bare zero is a factor until both factors are present.
+int win_css_flex(css_document* css, int first, int last, win_cascade_key key, win_css_specified* winners):
+	int single = css_skip(css, first + 1, last) == last
+	css_token* token = css.tokens[first]
+	if (single && win_css_wide(token)):
+		if (winners != 0):
+			for p in range(29, 32): win_css_store(winners, p, css, first, last, key, 0)
+		return 1
+	if (single && win_css_ident(token, c"none")):
+		if (winners != 0):
+			win_css_store(winners, 29, css, first, last, key, 3)
+			win_css_store(winners, 30, css, first, last, key, 3)
+			win_css_store(winners, 31, css, first, last, key, 1)
+		return 1
+	int grow = -1
+	int shrink = -1
+	int basis = -1
+	int after_basis = 0
+	int pos = first
+	while (pos < last):
+		css_token* value = css.tokens[pos]
+		if (win_css_wide(value)): return 0
+		win_css_numeric n = win_css_number(value)
+		if (n.unit == 1 && (grow < 0 || shrink < 0)):
+			if (n.value < 0.0 || after_basis): return 0
+			if (grow < 0): grow = pos
+			else: shrink = pos
+		else:
+			if (basis >= 0 || win_css_longhand_valid(31, css, pos, pos + 1) == 0): return 0
+			basis = pos
+			if (grow >= 0): after_basis = 1
+		pos = css_skip(css, pos + 1, last)
+	if (winners != 0):
+		int reset = 0
+		if (grow < 0): reset = 2
+		win_css_store(winners, 29, css, grow, grow + 1, key, reset)
+		reset = 0
+		if (shrink < 0): reset = 2
+		win_css_store(winners, 30, css, shrink, shrink + 1, key, reset)
+		reset = 0
+		if (basis < 0): reset = 3
+		win_css_store(winners, 31, css, basis, basis + 1, key, reset)
+	return 1
 
 # Validates the whole declaration before any longhand can become a winner.
 # A null winners pointer is the public validation-only path for CSSOM.
@@ -149,6 +197,7 @@ int win_css_collect(css_document* css, css_node* d, win_cascade_key key, win_css
 		if (win_css_longhand_valid(property, css, first, last) == 0): return 0
 		if (winners != 0): win_css_store(winners, property, css, first, last, key, 0)
 		return 1
+	if (css_ascii_equal(d.name, c"flex")): return win_css_flex(css, first, last, key, winners)
 	int base = -1
 	if (css_ascii_equal(d.name, c"margin")): base = 12
 	if (css_ascii_equal(d.name, c"padding")): base = 16
@@ -249,9 +298,24 @@ void win_css_copy(win_style* s, win_style from, int property):
 		s.line_height = from.line_height
 		s.line_height_factor = from.line_height_factor
 	if (property == 28): s.border_style = from.border_style
+	if (property == 32): s.justify = from.justify
+	if (property == 29): s.flex_grow = from.flex_grow
+	if (property == 30): s.flex_shrink = from.flex_shrink
+	if (property == 31):
+		s.flex_basis = from.flex_basis
+		s.flex_basis_percent = from.flex_basis_percent
 
 void win_css_compute_value(win_css_specified* slot, int property, win_style* s, win_style inherited):
 	if (slot.present == 0): return
+	if (slot.reset > 1):
+		float32 value = 0.0
+		if (slot.reset == 2): value = 1.0
+		if (property == 29): s.flex_grow = value
+		if (property == 30): s.flex_shrink = value
+		if (property == 31):
+			s.flex_basis = value
+			s.flex_basis_percent = 0
+		return
 	if (slot.wide || slot.reset):
 		win_style from = win_default_style()
 		# Initial display is inline; -1 is exclusively the HTML default marker.
@@ -348,6 +412,20 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 			s.line_height = 0.0
 		if (number.unit == 5): s.line_height = number.value * cast(float32, s.size) / 100.0
 	else if (property == 28): s.border_style = win_css_ident(token, c"solid")
+	else if (property == 32):
+		s.justify = 0
+		if (win_css_ident(token, c"flex-end")): s.justify = 1
+		if (win_css_ident(token, c"center")): s.justify = 2
+		if (win_css_ident(token, c"space-between")): s.justify = 3
+		if (win_css_ident(token, c"space-around")): s.justify = 4
+		if (win_css_ident(token, c"space-evenly")): s.justify = 5
+	else if (property == 29): s.flex_grow = number.value
+	else if (property == 30): s.flex_shrink = number.value
+	else if (property == 31):
+		s.flex_basis = n
+		s.flex_basis_percent = number.unit == 5
+		if (win_css_ident(token, c"auto")): s.flex_basis = -1.0
+		if (win_css_ident(token, c"content")): s.flex_basis = -2.0
 
 void win_css_resolve_border(win_style* style):
 	style.border = 0.0
@@ -358,7 +436,7 @@ void win_css_compute(win_css_specified* winners, win_style* style, win_style inh
 	win_css_compute_value(&winners[1], 1, style, inherited)
 	if (root): style.root_size = style.size
 	# Color precedes background/currentColor; all lengths see the winning size.
-	for property in range(29):
+	for property in range(33):
 		if (property != 1): win_css_compute_value(&winners[property], property, style, inherited)
 	win_css_resolve_border(style)
 

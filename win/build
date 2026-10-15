@@ -10,8 +10,8 @@ if [[ ! -x "$w_root/wbuild" ]]; then
   exit 1
 fi
 case "$action" in
-  build|run|check|test) ;;
-  *) echo 'Usage: win/build [build|run|check|test] [browser arguments]' >&2; exit 2 ;;
+  build|run|check|test|standards) ;;
+  *) echo 'Usage: win/build [build|run|check|test|standards] [browser arguments]' >&2; exit 2 ;;
 esac
 (cd "$w_root" && ./wbuild build javascript_parser)
 mkdir -p "$win_root/bin"
@@ -30,7 +30,24 @@ if [[ "$action" == test ]]; then
     "${compiler[@]}" --strict "${imports[@]}" "$source" -o "$win_root/bin/$name"
     "$win_root/bin/$name" "$win_root/bin/win" "$win_root/fixtures/start.html"
   done
+  python3 "$win_root/tests/wpt_runner_test.py"
   for test in "$win_root"/tests/*integration.py; do
     python3 "$test" "$win_root/bin/win" "$win_root/fixtures/start.html"
   done
+fi
+
+if [[ "$action" == standards ]]; then
+  (cd "$w_root" && ./wbuild javascript_test262)
+  python3 "$win_root/tests/wpt_runner_test.py"
+  display=()
+  if [[ -z "${DISPLAY:-}" ]]; then
+    if command -v xvfb-run >/dev/null 2>&1; then
+      display=(xvfb-run -a)
+    else
+      echo 'Native WPT rendering requires X11/OpenGL or xvfb-run.' >&2
+      exit 1
+    fi
+  fi
+  "${display[@]}" python3 "$win_root/tests/wpt_capture_test.py" "$win_root/bin/win"
+  "${display[@]}" python3 "$win_root/tests/wpt_reftests.py"
 fi

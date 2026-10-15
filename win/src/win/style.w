@@ -39,6 +39,12 @@ struct win_style:
 	int border_current_color
 	float32 gap
 	int flex_column
+	int justify
+	float32 flex_grow
+	float32 flex_shrink
+	# Basis: -1 auto, -2 content, otherwise length or percentage.
+	float32 flex_basis
+	int flex_basis_percent
 	int columns
 	int box_sizing
 	ui_color background
@@ -78,11 +84,16 @@ win_style win_default_style():
 	s.border_current_color = 1
 	s.gap = 0
 	s.flex_column = 0
+	s.justify = 0
+	s.flex_grow = 0.0
+	s.flex_shrink = 1.0
+	s.flex_basis = -1.0
+	s.flex_basis_percent = 0
 	s.columns = 1
 	s.box_sizing = 0
 	s.background = ui_color_new(0.0, 0.0, 0.0, 0.0)
 	s.border_color = ui_gray(0.0)
-	s.color = ui_color_new(0.12, 0.16, 0.20, 1.0)
+	s.color = ui_gray(0.0)
 	return s
 
 int win_hex(int c):
@@ -169,6 +180,10 @@ int win_css_property(char* name):
 	if (css_ascii_equal(name, c"grid-template-columns")): return 26
 	if (css_ascii_equal(name, c"line-height")): return 27
 	if (css_ascii_equal(name, c"border-style")): return 28
+	if (css_ascii_equal(name, c"flex-grow")): return 29
+	if (css_ascii_equal(name, c"flex-shrink")): return 30
+	if (css_ascii_equal(name, c"flex-basis")): return 31
+	if (css_ascii_equal(name, c"justify-content")): return 32
 	return -1
 
 float32 win_css_color_clamp(float32 value):

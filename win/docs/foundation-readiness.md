@@ -2,7 +2,21 @@
 
 Win now integrates native tabs, bounded asynchronous document and resource loading, author stylesheet cascade, box layout, PNG/JPEG images, forms, and a mutable DOM with page JavaScript. Run `./win/build run --page win/fixtures/interactive.html` for the combined demo.
 
-The W dependency is pinned to merged main `a5a54fd77eb049d7126db6ce7f1a68e823fa5aca`, containing [W #647](https://github.com/reardan/w/pull/647) and [W #650](https://github.com/reardan/w/pull/650). The application consumes those upstream changes without local W source edits. W supplies HTML/CSS parsing, fonts/widgets/rendering, image codecs, HTTP/TLS, and the generated JavaScript parser/subset interpreter.
+The W submodule pins [W #654](https://github.com/reardan/w/pull/654) at
+`b56052296f8add56a14a672828282ac7722dbc2e`, stacked on
+[W #652](https://github.com/reardan/w/pull/652) at
+`968950d8c1055cff0f6d9a5ea2463b18a6362c66`. Both PRs were open when this
+integration was published. It builds on
+[W #647](https://github.com/reardan/w/pull/647) and
+[W #650](https://github.com/reardan/w/pull/650). W #654 adds the
+Test262 adapter, immutable error identity for its runtime negatives, and extra
+regressions. W supplies HTML/CSS parsing, fonts/widgets/rendering, image codecs,
+HTTP/TLS, and the generated JavaScript parser/subset interpreter.
+
+#652's labelled-control-flow implementation replaces the duplicate local
+implementation. Its opt-in FriBidi paragraph adapter and wasm accessibility
+bridge are retained as upstream components; Win's native page layout and
+accessibility do not automatically consume those APIs.
 
 ## Implemented integration
 

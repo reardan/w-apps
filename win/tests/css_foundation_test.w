@@ -5,8 +5,8 @@ import win.document
 
 win_style foundation_style(char* source, win_style inherited, int root):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[29] winners
-	for i in range(29): winners[i].present = 0
+	win_css_specified[33] winners
+	for i in range(33): winners[i].present = 0
 	for i in range(css.nodes.length):
 		css_node* d = css.nodes[i]
 		win_css_collect(css, d, win_cascade_author(d.important, 0, win_specificity_zero(), i), &winners[0])
@@ -122,7 +122,34 @@ void test_media_grammar():
 	media_expect(c"screen and (min-width:.5)", 0)
 	media_expect(c"screen and (min-width:400.5px)", 0)
 
+void test_flex_values():
+	win_style parent = win_default_style()
+	win_style s = foundation_style(c"flex:2", parent, 0)
+	asserts(c"numeric shorthand supplies shrink and zero basis", s.flex_grow == 2.0 && s.flex_shrink == 1.0 && s.flex_basis == 0.0)
+	s = foundation_style(c"flex:3 2 25%", parent, 0)
+	asserts(c"three component flex preserves percent basis", s.flex_grow == 3.0 && s.flex_shrink == 2.0 && s.flex_basis == 25.0 && s.flex_basis_percent)
+	s = foundation_style(c"flex:2em 3 4;font-size:20px", parent, 0)
+	asserts(c"basis first and deferred font relative basis", s.flex_grow == 3.0 && s.flex_shrink == 4.0 && s.flex_basis == 40.0 && s.flex_basis_percent == 0)
+	s = foundation_style(c"flex:2 0", parent, 0)
+	asserts(c"unitless second zero is shrink", s.flex_grow == 2.0 && s.flex_shrink == 0.0 && s.flex_basis == 0.0)
+	s = foundation_style(c"flex:none", parent, 0)
+	asserts(c"none is zero zero auto", s.flex_grow == 0.0 && s.flex_shrink == 0.0 && s.flex_basis == -1.0)
+	s = foundation_style(c"flex:auto", parent, 0)
+	asserts(c"auto is one one auto", s.flex_grow == 1.0 && s.flex_shrink == 1.0 && s.flex_basis == -1.0)
+	s = foundation_style(c"flex:content", parent, 0)
+	asserts(c"content is explicit content basis", s.flex_grow == 1.0 && s.flex_shrink == 1.0 && s.flex_basis == -2.0)
+	s = foundation_style(c"flex:2 3 40px;flex:1 -2 5px;flex:1 2px 3;flex:inherit 2;flex:1 2 3;flex:1 2 3px 4px;flex-grow:-1;flex-shrink:3px;flex-basis:-1px", parent, 0)
+	asserts(c"invalid flex declarations preserve all earlier components", s.flex_grow == 2.0 && s.flex_shrink == 3.0 && s.flex_basis == 40.0)
+	s = foundation_style(c"flex-grow:4!important;flex:2 3 50%;flex-basis:auto", parent, 0)
+	asserts(c"shorthand components independently compete with longhands", s.flex_grow == 4.0 && s.flex_shrink == 3.0 && s.flex_basis == -1.0 && s.flex_basis_percent == 0)
+	parent = s
+	s = foundation_style(c"flex:inherit;justify-content:space-evenly;justify-content:garbage", parent, 0)
+	asserts(c"flex inherit copies all components", s.flex_grow == 4.0 && s.flex_shrink == 3.0 && s.flex_basis == -1.0 && s.justify == 5)
+	s = foundation_style(c"flex:2 3 40px;flex:unset", parent, 0)
+	asserts(c"flex unset restores noninherited defaults", s.flex_grow == 0.0 && s.flex_shrink == 1.0 && s.flex_basis == -1.0)
+
 int main():
+	test_flex_values()
 	test_deferred_lengths()
 	test_wide_keywords()
 	test_cascade_keys()

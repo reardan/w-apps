@@ -322,6 +322,38 @@ int win_address_editor(win_browser* b, ui_context* ctx, ui_rect area):
 	ui_textarea(ctx, area, &b.input)
 	return submitted
 
+# The native canvas has 8-bit RGB channels. Round solid paint colors here,
+# preserving float computed values and alpha until paint. Sending half-byte
+# RGB values directly through interpolated GL varyings can round differently
+# across triangles/drivers (for example 50% green versus #008000).
+float32 win_paint_channel(float32 value):
+	value = win_css_color_clamp(value)
+	return cast(float32, cast(int, value * 255.0 + 0.5)) / 255.0
+
+ui_color win_paint_color(ui_color color):
+	return ui_color_new(win_paint_channel(color.r), win_paint_channel(color.g), win_paint_channel(color.b), color.a)
+
+# Shared page painting for the interactive viewport and native reftests.
+void win_browser_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float32 y_offset):
+	for i in range(b.page.boxes.length):
+		win_box* box = b.page.boxes[i]
+		if (box.hidden): continue
+		ui_rect rect = ui_rect_new(viewport.x + box.x, y_offset + box.y, box.width, box.height)
+		ui_render_rect(ctx.rndr, rect, win_paint_color(box.color))
+		if (box.border > 0.0):
+			float32 edge = box.border
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, rect.w, edge), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y + rect.h - edge, rect.w, edge), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, edge, rect.h), win_paint_color(box.border_color))
+			ui_render_rect(ctx.rndr, ui_rect_new(rect.x + rect.w - edge, rect.y, edge, rect.h), win_paint_color(box.border_color))
+	for i in range(b.page.runs.length):
+		win_run* run = b.page.runs[i]
+		if (run.hidden): continue
+		float32 y = y_offset + run.y
+		if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
+		if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
+		else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, win_paint_color(run.color))
+
 void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	if (width < 360 || height < 240):
 		ui_draw_text(ctx.rndr, 12.0, 12.0, c"Enlarge the window to browse", 2, ctx.theme.text)
@@ -364,24 +396,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		if (ctx.input.mouse_pressed && cast(float32, ctx.input.press_x) >= viewport.x + viewport.w - 16.0 && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))): b.restore_pending = 0
 		ui_scroll_begin(ctx, viewport, &b.scroll)
 		float32 y_offset = viewport.y - b.scroll.offset_y
-		for i in range(b.page.boxes.length):
-			win_box* box = b.page.boxes[i]
-			if (box.hidden): continue
-			ui_rect rect = ui_rect_new(viewport.x + box.x, y_offset + box.y, box.width, box.height)
-			ui_render_rect(ctx.rndr, rect, box.color)
-			if (box.border > 0.0):
-				float32 edge = box.border
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, rect.w, edge), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y + rect.h - edge, rect.w, edge), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x, rect.y, edge, rect.h), box.border_color)
-				ui_render_rect(ctx.rndr, ui_rect_new(rect.x + rect.w - edge, rect.y, edge, rect.h), box.border_color)
-		for i in range(b.page.runs.length):
-			win_run* run = b.page.runs[i]
-			if (run.hidden): continue
-			float32 y = y_offset + run.y
-			if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
-			if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
-			else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, run.color)
+		win_browser_paint(b, ctx, viewport, y_offset)
 		ui_region_claim(ctx, ui_rect_new(viewport.x, y_offset, cast(float32, b.width), b.page.height))
 		float32 mx = cast(float32, ctx.input.mouse_x)
 		float32 my = cast(float32, ctx.input.mouse_y)

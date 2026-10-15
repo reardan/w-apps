@@ -4,7 +4,11 @@ Win now applies embedded and linked author stylesheets and inline declarations.
 Stylesheet order follows document order even when external requests finish in a
 different order. Each declaration competes by `!important`, selector specificity,
 and source order; inline declarations outrank normal stylesheet declarations.
-Inherited text properties flow to descendants. The implementation uses W's owned,
+Specificity is compared as a tuple rather than a packed integer. Declarations
+are validated before competing, so an invalid later value does not erase a valid
+winner. Font-relative lengths resolve after the cascade selects the final font
+size. Inherited text properties flow to descendants, and supported properties
+accept `inherit`, `initial`, and `unset`. The implementation uses W's owned,
 bounded CSS tokenizer/parser; unsupported selectors and conditional at-rules are
 ignored rather than matching every element.
 
@@ -37,8 +41,9 @@ Ordinary selector lists, `:not()` arguments, and nth-child filters are strict:
 one invalid branch rejects the entire list, including a whole stylesheet rule.
 
 Pseudo-elements, interaction pseudo-classes such as `:hover`, namespaces and CSS nesting are not
-implemented. `@media` supports screen/all and conjunctions of pixel `min-width`
-and `max-width`; unsupported queries (including print) do not apply. Media queries
+implemented. `@media` supports screen/all and conjunctions of `min-width`
+and `max-width` lengths in px/em/rem (media em/rem use the initial 18px size);
+unsupported queries (including print) do not apply. Media queries
 are re-evaluated on layout, including viewport resize.
 
 ## Properties
@@ -53,13 +58,17 @@ Supported properties are:
 - Solid `background`/`background-color`, `border`, `border-width`, `border-style`, and
   `border-color` for block boxes.
 - `gap`, `column-gap`, `flex-direction`, and `grid-template-columns` for the
-  simplified column layouts described below.
+  limited flex/grid layouts described below.
 
-Lengths accept pixel values and integer em/rem values, with rounding to whole
-pixels. Width and max-width also accept percentages. Font-size percentages are
+Lengths accept px, em, and rem values, including fractional and exponent numeric
+syntax and case-insensitive units. Box geometry retains floating-point lengths;
+font rasterization and some image/text placement still use integer metrics.
+Width and max-width also accept percentages. Font-size percentages are
 relative to the inherited font size. Line height accepts pixels, em/rem,
-unitless inherited multipliers, normal, and inherit; values smaller than the font
-metrics currently keep the natural line height. Font sizes are limited to 8–144 pixels.
+percentages, unitless inherited multipliers, normal, and inherit; values smaller
+than the font metrics currently keep the natural line height. Used lengths are
+bounded to a magnitude of 1,000,000 pixels; font rasterization uses bounded strike
+sizes.
 Colors accept `rgb()`/`rgba()` and `hsl()`/`hsla()` in comma-separated and
 space-separated forms, with slash alpha in space-separated forms. Hues accept
 unitless degrees, `deg`, `grad`, `rad`, and `turn`, including wrapping negative
@@ -79,15 +88,15 @@ reject it. Missing-component preservation for interpolation and computed color
 serialization is not implemented.
 
 Uniform borders support `solid`, `none`, and `hidden` styles, pixel/em/rem widths
-(rounded down to whole pixels), and `thin`/`medium`/`thick` (1/3/5 pixels).
+with fractional layout geometry, and `thin`/`medium`/`thick` (1/3/5 pixels).
+Border painting currently uses whole-pixel widths.
 Width and style cascade independently: a width alone does not enable painting.
 The shorthand accepts supported components in any order and resets omitted
 components to medium width, none style, and `currentColor`. Invalid or duplicate
 components reject the whole declaration. Each component competes independently
 with longhands and `!important`. Omitted border colors and explicit `currentColor`
 in `border`/`border-color` follow the final computed text color. Per-side borders,
-multiple longhand values, other line styles, and CSS-wide border keywords remain
-unsupported.
+multiple longhand values and other line styles remain unsupported.
 
 ## Layout and painting
 
@@ -98,13 +107,27 @@ aspect ratio unless both dimensions are specified, accept HTML dimensions and
 CSS width/height/max-width, and share line baseline placement with text. Forms
 receive document boxes used by the browser's interactive widgets.
 
-`display:flex` lays element children into equally sized columns; column direction
-uses ordinary vertical flow. `display:grid` creates equal tracks based on the
-number of column tokens or `repeat(N, ...)`, wrapping later children into rows.
-Gap separates rows/tracks. These are intentionally simplified layouts: flex
-sizing, proportional/fixed grid track sizes, wrapping, item alignment, placement,
-and min-content algorithms are not implemented. Non-element children of these
-column containers do not generate anonymous items.
+`display:flex` in row direction uses specified widths or intrinsic content sizes,
+with the initial flex behavior (grow 0, shrink 1, basis auto). When items exceed the
+available width, weighted shrinking freezes items at their supported content
+minimums. Controls and decoded images contribute their own intrinsic dimensions;
+failed or missing images use alt-text sizing. Descendant text measurement is approximate,
+rather than a complete CSS min/max-content algorithm.
+Percentage widths and max-widths resolve against the flex container once. Column
+direction uses vertical rows; it does not implement the column flex sizing
+algorithm.
+
+Flex and grid generate anonymous items for non-whitespace text runs. Hidden
+nodes and `display:none` children do not consume items or gaps; `visibility:hidden`
+items retain geometry. `display:grid` creates equal tracks based on the number of
+column tokens or `repeat(N, ...)`, wrapping later children into rows. Gap separates
+rows/tracks. Declared flex factors, flex wrapping/alignment, proportional/fixed
+grid track sizes, grid placement, and complete intrinsic sizing algorithms remain
+unsupported.
+
+Explicit block heights determine the box and following sibling position, while
+visible overflowing content contributes to the page's scroll extent. This does
+not implement clipping or scrolling through the CSS `overflow` property.
 
 Inline backgrounds/borders, margin collapsing, floats, positioned layout,
 transforms, animations, generated content, table layout, vertical writing and
@@ -115,8 +138,8 @@ not an independent formatting context. This is a substantial CSS implementation,
 not browser-engine standards conformance.
 
 The focused `win/tests/css_test.w` suite checks selector relationships, cascade
-and inheritance, media resizing, box geometry and alignment, basic flex/grid
-columns, and stylesheet order independent of request completion. The existing
+and inheritance, media resizing, box geometry and alignment, the supported flex/grid
+layouts, and stylesheet order independent of request completion. The existing
 browser regression suite also checks narrow viewport wrapping, oversized words,
 preformatted text and clickable link geometry.
 
@@ -129,3 +152,8 @@ The behavior targets the supported portions of
 [Selectors Level 4](https://www.w3.org/TR/selectors-4/) and
 [CSS Color Level 4](https://www.w3.org/TR/css-color-4/); these focused regressions
 do not establish full conformance to either specification.
+
+`win/tests/layout_test.w` covers anonymous text, hidden items, intrinsic
+control/image sizes, flex shrinking, percentage max-width, and fixed-height visible
+overflow. These cases qualify the supported foundation; full flex/grid and
+independent inline-block formatting contexts remain deferred.

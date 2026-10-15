@@ -120,7 +120,8 @@ void test_structural_pseudos():
 
 void selector_score(html_node* node, char* selector, int expected):
 	css_document* css = css_parse_selectors_n(selector, strlen(selector), 0)
-	asserts(selector, win_selector_list_match(css, 0, css.tokens.length, node) == expected)
+	win_specificity score = win_selector_specificity(css, 0, css.tokens.length)
+	asserts(selector, win_selector_list_match(css, 0, css.tokens.length, node) >= 0 && score.ids == expected / 10000 && score.classes == expected / 100 % 100 && score.types == expected % 100)
 	css_document_free(css)
 
 void test_selector_lists_and_filters():

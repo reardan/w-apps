@@ -1,15 +1,15 @@
-# Per-page bounded JavaScript realm and owned DOM bridge. Property mutations
-# commit before host calls and at evaluation boundaries; wrappers keep identity.
+# Per-page bounded JavaScript realm with synchronous host properties and stable
+# DOM wrapper identity. Native mutation owns data until document teardown.
 import win.document
 import win.resources
+import win.cssom
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
 	html_node* node
 	js_value* object
-	list[js_value*] snapshots
+	void* context
 	js_value* style
-	list[js_value*] styles
 
 struct win_script_listener:
 	html_node* node
@@ -27,7 +27,10 @@ struct win_script:
 	list[html_node*] scripts
 	int next_script
 	int ready
+	int dom_ready
+	html_node* window_node
 	int dirty
+	int styles_dirty
 	int prevented
 	int stopped
 	int immediate
@@ -35,7 +38,6 @@ struct win_script:
 	int cancelable
 	int failures
 	char* error
-	js_value* title
 	js_value* event
 	int dom_bytes
 	list[char*] console
@@ -143,6 +145,7 @@ void win_dom_set_text(win_script* script, html_node* node, char* text):
 		node.first_child = replacement
 		node.last_child = replacement
 	script.dirty = 1
+	script.styles_dirty = 1
 
 js_value* win_js_string(js_runtime* rt, char* text):
 	js_text* units = js_runtime_key(text)
@@ -201,70 +204,128 @@ char* win_style_attribute(int index):
 	if (index == 5): return c"font-weight"
 	return win_style_property(index)
 
-void win_script_sync(win_script* script):
-	js_runtime* rt = script.runtime
-	for i in range(script.bindings.length):
-		win_dom_binding* binding = script.bindings[i]
-		for k in range(6):
-			js_value* value = js_runtime_get(rt, binding.object, win_dom_property(k))
-			if (value == binding.snapshots[k]): continue
+# All listed properties operate on native state at the property access itself.
+# Unknown properties fall back to the runtime's ordinary object semantics.
+js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, b.context)
+	if (receiver != b.object): return 0
+	if (js_runtime_key_is(key, c"style")): return b.style
+	if (b.node == script.page.html.root):
+		if (js_runtime_key_is(key, c"title")): return win_js_string(rt, script.page.title)
+		if (js_runtime_key_is(key, c"readyState")):
+			if (script.ready): return win_js_string(rt, c"complete")
+			if (script.dom_ready): return win_js_string(rt, c"interactive")
+			return win_js_string(rt, c"loading")
+	for k in range(6):
+		if (js_runtime_key_is(key, win_dom_property(k))):
+			if (k >= 4): return js_runtime_boolean(rt, html_attribute_find(b.node.attributes, win_dom_attribute(k)) != 0)
+			if (k == 0):
+				if (b.node.kind == HTML_DOCUMENT): return js_runtime_alloc(rt, 1)
+				char* text = win_dom_text(b.node)
+				js_value* value = win_js_string(rt, text)
+				free(text)
+				return value
+			return win_js_string(rt, win_attr(b.node, win_dom_attribute(k)))
+	return 0
+
+int win_style_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value);
+
+int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, b.context)
+	if (receiver != b.object): return 0
+	if (js_runtime_key_is(key, c"style")):
+		js_text* css_text = js_runtime_key(c"cssText")
+		int result = win_style_set(rt, context, b.style, css_text, value)
+		js_text_free(css_text)
+		return result
+	if (b.node == script.page.html.root):
+		if (js_runtime_key_is(key, c"readyState")): return 1
+		if (js_runtime_key_is(key, c"title")):
+			char* text = win_js_text(value)
+			if (strlen(text) > 65536 || script.dom_bytes > 4194304 - strlen(text)):
+				free(text)
+				js_runtime_fail(rt, 5, c"DOM title allocation limit")
+				return -1
+			script.dom_bytes = script.dom_bytes + strlen(text)
+			free(script.page.title)
+			script.page.title = text
+			script.dirty = 1
+			return 1
+	for k in range(6):
+		if (js_runtime_key_is(key, win_dom_property(k))):
 			if (k >= 4):
-				if (js_runtime_truth(value)): win_dom_set_attr(binding.node, win_dom_attribute(k), c"")
-				else: win_dom_remove_attr(binding.node, win_dom_attribute(k))
+				if (js_runtime_truth(value)): win_dom_set_attr(b.node, win_dom_attribute(k), c"")
+				else: win_dom_remove_attr(b.node, win_dom_attribute(k))
 			else:
 				char* text = win_js_text(value)
-				if (k == 0): win_dom_set_text(script, binding.node, text)
-				else if (script.dom_bytes <= 4194304 - strlen(text)):
+				if (k == 0):
+					if (value.kind == 1): text[0] = 0
+					if (b.node.kind != HTML_DOCUMENT): win_dom_set_text(script, b.node, text)
+				else if (strlen(text) <= 65536 && script.dom_bytes <= 4194304 - strlen(text)):
 					script.dom_bytes = script.dom_bytes + strlen(text)
-					win_dom_set_attr(binding.node, win_dom_attribute(k), text)
+					win_dom_set_attr(b.node, win_dom_attribute(k), text)
 				else: js_runtime_fail(rt, 5, c"DOM mutation allocation limit")
 				free(text)
-			binding.snapshots[k] = value
 			script.dirty = 1
-		for k in range(11):
-			js_value* value = js_runtime_get(rt, binding.style, win_style_property(k))
-			if (value == binding.styles[k]): continue
-			char* text = win_js_text(value)
-			string_builder* css = string_new()
-			if (k != 0):
-				string_append(css, win_attr(binding.node, c"style"))
-				string_append_char(css, ';')
-				string_append(css, win_style_attribute(k))
-				string_append_char(css, ':')
-			string_append(css, text)
-			if (css.length <= 65536 && script.dom_bytes <= 4194304 - css.length):
-				win_dom_set_attr(binding.node, c"style", css.data)
-				script.dom_bytes = script.dom_bytes + css.length
-				script.dirty = 1
-			else: js_runtime_fail(rt, 5, c"DOM style allocation limit")
-			binding.styles[k] = value
-			free(text)
-			string_free(css)
-	js_value* document = js_runtime_get(rt, rt.global, c"document")
-	js_value* title = js_runtime_get(rt, document, c"title")
-	if (title != script.title):
-		free(script.page.title)
-		script.page.title = win_js_text(title)
-		script.title = title
-		script.dirty = 1
+			if (rt.completion.status != 0): return -1
+			return 1
+	return 0
 
-void win_script_refresh_binding(win_script* script, win_dom_binding* b):
-	js_runtime* rt = script.runtime
-	for k in range(6):
-		js_value* value = rt.undefined_value
-		if (k >= 4): value = js_runtime_boolean(rt, html_attribute_find(b.node.attributes, win_dom_attribute(k)) != 0)
-		else:
+int win_style_store(win_dom_binding* b, char* text):
+	win_script* script = cast(win_script*, b.context)
+	if (text == 0): return 1
+	int length = strlen(text)
+	if (length > 65536 || script.dom_bytes > 4194304 - length):
+		free(text)
+		js_runtime_fail(script.runtime, 5, c"DOM style allocation limit")
+		return -1
+	win_dom_set_attr(b.node, c"style", text)
+	script.dom_bytes = script.dom_bytes + length
+	script.dirty = 1
+	free(text)
+	return 1
+
+js_value* win_style_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.style): return 0
+	for k in range(11):
+		if (js_runtime_key_is(key, win_style_property(k))):
 			char* text = 0
-			if (k == 0): text = win_dom_text(b.node)
-			else: text = strclone(win_attr(b.node, win_dom_attribute(k)))
-			value = win_js_string(rt, text)
+			if (k == 0): text = win_cssom_edit(win_attr(b.node, c"style"), 0, c"", c"")
+			else: text = win_cssom_get(win_attr(b.node, c"style"), win_style_attribute(k), 0)
+			js_value* result = win_js_string(rt, text)
 			free(text)
-		js_runtime_set(rt, b.object, win_dom_property(k), value)
-		b.snapshots[k] = value
+			return result
+	return 0
 
-void win_script_refresh(win_script* script):
-	if (script == 0 || script.runtime.completion.status != 0): return
-	for i in range(script.bindings.length): win_script_refresh_binding(script, script.bindings[i])
+int win_style_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.style): return 0
+	for k in range(11):
+		if (js_runtime_key_is(key, win_style_property(k))):
+			char* text = win_js_text(value)
+			if (strlen(text) > 65536):
+				free(text)
+				js_runtime_fail(rt, 5, c"DOM style input limit")
+				return -1
+			char* updated = 0
+			if (k == 0): updated = win_cssom_edit(text, 0, c"", c"")
+			else: updated = win_cssom_edit(win_attr(b.node, c"style"), win_style_attribute(k), text, c"")
+			free(text)
+			return win_style_store(b, updated)
+	return 0
+
+# Retained compatibility entry points: properties no longer need synchronization.
+void win_script_sync(win_script* script):
+	if (script != 0 && script.styles_dirty):
+		win_page_refresh_styles(script.page)
+		script.styles_dirty = 0
 
 js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime* rt = script.runtime
@@ -282,15 +343,12 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	win_dom_binding* b = new win_dom_binding()
 	b.node = node
 	b.object = object
-	b.snapshots = new list[js_value*]
-	b.style = js_runtime_alloc(rt, 5)
-	b.styles = new list[js_value*]
-	js_runtime_set(rt, object, c"style", b.style)
-	for k in range(11): b.styles.push(rt.undefined_value)
-	for k in range(6): b.snapshots.push(rt.undefined_value)
+	b.context = script
+	b.style = js_runtime_get(rt, object, c"style")
 	script.bindings.push(b)
 	js_runtime_root(rt, object)
-	win_script_refresh_binding(script, b)
+	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)
+	js_runtime_set_host_hooks(rt, b.style, b, win_style_get, win_style_set)
 	char* name = node.name
 	if (name == 0): name = c"#document"
 	js_runtime_set(rt, object, c"tagName", win_js_string(rt, name))
@@ -438,10 +496,12 @@ js_value* win_script_host(void* context, list[js_value*] args):
 			script.dom_bytes = script.dom_bytes + strlen(text) + strlen(value)
 			win_dom_set_attr(node, text, value)
 			script.dirty = 1
+			if (win_tag(node, c"link") || win_tag(node, c"style")): script.styles_dirty = 1
 		free(value)
 	else if (strcmp(operation, c"removeAttr") == 0):
 		win_dom_remove_attr(node, text)
 		script.dirty = 1
+		if (win_tag(node, c"link") || win_tag(node, c"style")): script.styles_dirty = 1
 	else if (strcmp(operation, c"create") == 0 || strcmp(operation, c"text") == 0):
 		int kind = HTML_START
 		if (strcmp(operation, c"text") == 0): kind = HTML_TEXT
@@ -465,10 +525,12 @@ js_value* win_script_host(void* context, list[js_value*] args):
 			else: node.first_child = child
 			node.last_child = child
 			script.dirty = 1
+			script.styles_dirty = 1
 			result = args[2]
 	else if (strcmp(operation, c"remove") == 0):
 		if (node != script.page.html.root): win_dom_detach(node)
 		script.dirty = 1
+		script.styles_dirty = 1
 	else if (strcmp(operation, c"listen") == 0 && args.length > 3 && (args[3].kind == 7 || args[3].kind == 9)):
 		int capture = win_script_capture(rt, args)
 		int duplicate = 0
@@ -522,6 +584,21 @@ js_value* win_script_host(void* context, list[js_value*] args):
 				script.dirty = 1
 			result = js_runtime_boolean(rt, enabled)
 		string_free(kept)
+	else if (strcmp(operation, c"styleGet") == 0 || strcmp(operation, c"stylePriority") == 0 || strcmp(operation, c"styleRemove") == 0):
+		char* value = win_cssom_get(win_attr(node, c"style"), text, strcmp(operation, c"stylePriority") == 0)
+		result = win_js_string(rt, value)
+		free(value)
+		if (strcmp(operation, c"styleRemove") == 0): win_style_store(script.bindings[index], win_cssom_edit(win_attr(node, c"style"), text, c"", c""))
+	else if (strcmp(operation, c"styleSet") == 0 && args.length > 3):
+		char* value = win_js_text(args[3])
+		char* priority = strclone(c"")
+		if (args.length > 4 && args[4].kind != 0):
+			free(priority)
+			priority = win_js_text(args[4])
+		if (strlen(text) <= 256 && strlen(value) <= 65536 && strlen(priority) <= 16): win_style_store(script.bindings[index], win_cssom_edit(win_attr(node, c"style"), text, value, priority))
+		else: js_runtime_fail(rt, 5, c"DOM style input limit")
+		free(value)
+		free(priority)
 	else if (strcmp(operation, c"console") == 0):
 		if (script.console.length == 32):
 			free(script.console[0])
@@ -540,7 +617,6 @@ js_value* win_script_host(void* context, list[js_value*] args):
 			if (strcmp(operation, c"stopImmediate") == 0): script.immediate = 1
 	free(operation)
 	free(text)
-	win_script_refresh(script)
 	return result
 
 void win_script_result(win_script* script, js_completion* completion):
@@ -583,18 +659,20 @@ win_script* win_script_new(win_page* page):
 	script.error = strclone(c"")
 	script.console = new list[char*]
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
-	char* bootstrap = c"function __winNode(id) { return {classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
+	char* bootstrap = c"function __winNode(id) { return {style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
 	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 100000)
 	win_script_result(script, completion)
 	script.runtime.remaining = 100000
 	js_value* document = win_script_wrap(script, page.html.root)
 	js_runtime_set(script.runtime, script.runtime.global, c"document", document)
 	js_runtime_set(script.runtime, document, c"document", document)
-	js_runtime_set(script.runtime, script.runtime.global, c"window", document)
-	js_runtime_set(script.runtime, script.runtime.global, c"globalThis", document)
-	script.title = win_js_string(script.runtime, page.title)
-	js_runtime_set(script.runtime, document, c"title", script.title)
-	js_runtime_set(script.runtime, document, c"readyState", win_js_string(script.runtime, c"loading"))
+	script.window_node = win_dom_create(script, HTML_DOCUMENT, c"window")
+	js_value* window = win_script_wrap(script, script.window_node)
+	js_runtime_set(script.runtime, window, c"document", document)
+	js_runtime_set(script.runtime, window, c"window", window)
+	js_runtime_set(script.runtime, window, c"globalThis", window)
+	js_runtime_set(script.runtime, script.runtime.global, c"window", window)
+	js_runtime_set(script.runtime, script.runtime.global, c"globalThis", window)
 	list[html_node*] bodies = new list[html_node*]
 	win_dom_query(script, page.html.root, c"body", 0, bodies)
 	if (bodies.length > 0): js_runtime_set(script.runtime, document, c"body", win_script_wrap(script, bodies[0]))
@@ -620,7 +698,7 @@ int win_script_invoke_listeners(win_script* script, html_node* node, char* name,
 		if (listener.node != node || listener.capture != capture || strcmp(listener.event, name) != 0): continue
 		if (listener.once): listener.node = 0
 		script.passive = listener.passive
-		js_completion* result = js_runtime_invoke(rt, listener.callback, args, budget)
+		js_completion* result = js_runtime_invoke_receiver(rt, listener.callback, win_script_wrap(script, node), args, budget)
 		win_script_sync(script)
 		budget = rt.remaining
 		win_script_result(script, result)
@@ -648,7 +726,7 @@ int win_script_invoke_listeners(win_script* script, html_node* node, char* name,
 		string_free(source)
 	string_free(property_text)
 	if ((callback.kind == 7 || callback.kind == 9) && budget > 0):
-		js_completion* result = js_runtime_invoke(rt, callback, args, budget)
+		js_completion* result = js_runtime_invoke_receiver(rt, callback, receiver, args, budget)
 		if (script.cancelable && result.status == 0 && result.value.kind == 2 && result.value.number == 0.0): script.prevented = 1
 		win_script_sync(script)
 		win_script_result(script, result)
@@ -665,7 +743,6 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	win_active_script = script
 	js_runtime_collect(rt)
 	js_runtime_begin(rt, 100000)
-	win_script_refresh(script)
 	script.prevented = 0
 	script.stopped = 0
 	script.immediate = 0
@@ -688,6 +765,7 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	while (current != 0):
 		path.push(current)
 		current = current.parent
+	if (path.length > 0 && path[path.length - 1] == script.page.html.root && strcmp(name, c"load") != 0): path.push(script.window_node)
 	int budget = rt.remaining
 	if (rt.completion.status != 0):
 		win_script_result(script, rt.completion)
@@ -717,15 +795,16 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	win_active_script = previous
 	return script.prevented == 0
 
+void win_script_dom_ready(win_script* script):
+	if (script.dom_ready): return
+	script.dom_ready = 1
+	win_script_dispatch(script, script.page.html.root, c"DOMContentLoaded")
+
 void win_script_ready(win_script* script):
 	if (script.ready): return
+	win_script_dom_ready(script)
 	script.ready = 1
-	js_runtime* rt = script.runtime
-	js_value* document = js_runtime_get(rt, rt.global, c"document")
-	js_runtime_set(rt, document, c"readyState", win_js_string(rt, c"interactive"))
-	win_script_dispatch(script, script.page.html.root, c"DOMContentLoaded")
-	js_runtime_set(rt, document, c"readyState", win_js_string(rt, c"complete"))
-	win_script_dispatch(script, script.page.html.root, c"load")
+	win_script_dispatch(script, script.window_node, c"load")
 
 int win_script_run_pending(win_script* script, win_resources* resources):
 	if (script == 0 || script.ready): return 0
@@ -758,14 +837,14 @@ int win_script_run_pending(win_script* script, win_resources* resources):
 			win_script_eval(script, source.data, source.length)
 			string_free(source)
 		script.next_script = script.next_script + 1
-	if (script.next_script == script.scripts.length && (resources == 0 || win_resources_done(resources))): win_script_ready(script)
+	if (script.next_script == script.scripts.length):
+		win_script_dom_ready(script)
+		if (resources == 0 || win_resources_done(resources)): win_script_ready(script)
 	return script.next_script != before || script.dirty
 
 void win_script_free(win_script* script):
 	if (script == 0): return
 	for i in range(script.bindings.length):
-		__w_list_free(cast(__w_list*, script.bindings[i].styles))
-		__w_list_free(cast(__w_list*, script.bindings[i].snapshots))
 		free(script.bindings[i])
 	for i in range(script.listeners.length):
 		free(script.listeners[i].event)

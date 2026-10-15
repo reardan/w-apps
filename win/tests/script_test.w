@@ -123,7 +123,7 @@ void main():
 	assert_strings_equal(c"changed", win_attr(script_node(script, c"message"), c"class"))
 	asserts(c"selectors and wrapper identity", script_eval(script, c"if(document.querySelector('#parent > .changed') !== message) throw 'identity'; if(document.querySelectorAll('input').length !== 1) throw 'query'; message.setAttribute('data-test','yes'); if(message.getAttribute('data-test') !== 'yes') throw 'attribute';"))
 	asserts(c"style and classes", script_eval(script, c"message.style.color='red'; message.style.fontSize='24px'; message.classList.add('active'); if(!message.classList.contains('active')) throw 'class add'; message.classList.toggle('active'); if(message.classList.contains('active')) throw 'class toggle';"))
-	asserts(c"style attributes applied", ends_with(win_attr(script_node(script, c"message"), c"style"), c"font-size:24px"))
+	asserts(c"style properties applied", script_eval(script, c"if(message.style.color!=='red'||message.style.fontSize!=='24px') throw 'inline style';"))
 	asserts(c"node insertion", script_eval(script, c"const added=document.createElement('p'); added.id='added'; added.textContent='new node'; document.body.appendChild(added);"))
 	asserts(c"inserted discoverable", script_node(script, c"added") != 0)
 	asserts(c"event binding", script_eval(script, c"let clicks=0; const button=document.getElementById('button'); button.addEventListener('click',function(event){clicks=clicks+1; message.textContent='clicked'; event.preventDefault();}); document.getElementById('parent').addEventListener('click',function(event){message.setAttribute('data-bubble','yes');});"))

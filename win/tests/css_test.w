@@ -75,7 +75,7 @@ void test_columns():
 	char* source = c"<style>.flex {display:flex;gap:20px} .grid {display:grid;grid-template-columns:repeat(2,1fr);gap:10px} p {margin:0}</style><div class='flex'><p>left</p><p>right</p></div><div class='grid'><p>one</p><p>two</p><p>three</p></div>"
 	win_page* page = win_page_parse(source, strlen(source))
 	win_page_layout(page, 600)
-	asserts(c"flex equal columns", css_find(page, c"left").y == css_find(page, c"right").y && css_find(page, c"right").x > css_find(page, c"left").x + 200.0)
+	asserts(c"default flex items use intrinsic widths and gap", css_find(page, c"left").y == css_find(page, c"right").y && css_find(page, c"right").x == css_find(page, c"left").x + css_find(page, c"left").width + 20.0)
 	asserts(c"grid first row", css_find(page, c"one").y == css_find(page, c"two").y)
 	asserts(c"grid second row", css_find(page, c"three").y > css_find(page, c"one").y && css_find(page, c"three").x == css_find(page, c"one").x)
 	win_page_free(page)

@@ -1,6 +1,7 @@
 import lib.args
 import lib.stream
 import win.app
+import win.script_worker
 
 int win_screenshot(char* path, int width, int height):
 	if (width <= 0 || height <= 0 || width > 4096 || height > 4096): return 0
@@ -29,12 +30,15 @@ int win_screenshot(char* path, int width, int height):
 	return ok
 
 int main(int argc, int argv):
+	if (win_script_worker_parent_guard() == 0): return 1
 	args_init(argc, argv)
 	args_declare_bool(c"dump")
+	args_declare_bool(c"isolated-dump")
+	args_declare_bool(c"script-worker")
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump] [--frames N --screenshot FILE.ppm] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--frames N --screenshot FILE.ppm] [--reftest]")
 		return 0
 	char* fetch = args_value(c"fetch")
 	if (fetch != 0):
@@ -52,6 +56,24 @@ int main(int argc, int argv):
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
+	if (args_has_flag(c"script-worker")):
+		char* limit = args_value(c"worker-limit")
+		if (limit == 0): return 1
+		return win_script_worker_execute(args_program(), start, home, atoi(limit))
+	if (args_has_flag(c"isolated-dump")):
+		int timeout = 30000
+		char* configured = args_value(c"worker-timeout")
+		if (configured != 0): timeout = atoi(configured)
+		win_script_worker* worker = win_script_worker_start(args_program(), start, home, timeout, WIN_SCRIPT_WORKER_LIMIT)
+		while (win_script_worker_poll(worker) == 0): sleep_ms(2)
+		int code = 1
+		if (worker.status == 1):
+			print(worker.text)
+			if (worker.script_failures == 0 && worker.resource_failures == 0): code = 0
+			else: println2(c"Isolated page completed with script or resource errors")
+		else: println2(worker.error)
+		win_script_worker_free(worker)
+		return code
 	win_app app
 	win_app_init(&app, args_program(), home)
 	win_app_open(&app, start, c"")
@@ -73,6 +95,7 @@ int main(int argc, int argv):
 				print(c" ")
 			println(c"")
 		win_app_free(&app)
+		win_network_state_clear()
 		return code
 	# Reftests capture an 800x600 content viewport, excluding browser chrome.
 	int reftest = args_has_flag(c"reftest")
@@ -86,11 +109,13 @@ int main(int argc, int argv):
 	if (window == 0):
 		println2(c"Win needs an X11 display. Use --dump for headless document checks.")
 		win_app_free(&app)
+		win_network_state_clear()
 		return 1
 	ui_renderer renderer
 	if (ui_render_init(&renderer) == 0):
 		gfx_window_destroy(window)
 		win_app_free(&app)
+		win_network_state_clear()
 		return 1
 	ui_theme theme
 	ui_theme_light(&theme)
@@ -148,6 +173,7 @@ int main(int argc, int argv):
 		sleep_ms(16)
 	if (reftest && captured == 0): code = 1
 	win_app_free(&app)
+	win_network_state_clear()
 	ui_render_destroy(&renderer)
 	gfx_window_destroy(window)
 	return code

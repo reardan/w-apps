@@ -18,6 +18,14 @@ struct win_layout_item:
 	float32 hypothetical
 	float32 violation
 	int frozen
+	int box_first
+	int box_end
+	int run_first
+	int run_end
+	int anchor_first
+	int anchor_end
+	float32 cross_size
+	int line_index
 
 float32 win_box_horizontal_extras(win_style style):
 	return style.padding_left + style.padding_right + style.border * 2.0
@@ -173,3 +181,33 @@ void win_flex_sizes(list[win_layout_item*] items, float32 available, float32 gap
 		for i in range(items.length):
 			win_layout_item* item = items[i]
 			if (total_violation == 0.0 || total_violation > 0.0 && item.violation > 0.0 || total_violation < 0.0 && item.violation < 0.0): item.frozen = 1
+
+# Line collection uses outer hypothetical sizes before flexing. Always admit
+# the first item, including an oversized item, and retain exact-fit items.
+int win_flex_line_end(list[win_layout_item*] items, int first, float32 available, float32 gap):
+	float32 occupied = 0.0
+	int end = first
+	while (end < items.length):
+		win_layout_item* item = items[end]
+		float32 size = item.hypothetical
+		if (item.anonymous == 0): size = size + win_box_horizontal_extras(item.style) + item.style.margin_left + item.style.margin_right
+		if (end > first): size = size + gap
+		if (end > first && occupied + size > available): break
+		occupied = occupied + size
+		end = end + 1
+	return end
+
+float32 win_flex_offset(int justify, float32 free_space, int count):
+	if (justify == 1): return free_space
+	if (justify == 2): return free_space / 2.0
+	if (free_space <= 0.0 || count == 0): return 0.0
+	if (justify == 4): return free_space / cast(float32, count) / 2.0
+	if (justify == 5): return free_space / cast(float32, count + 1)
+	return 0.0
+
+float32 win_flex_spacing(int justify, float32 free_space, int count):
+	if (free_space <= 0.0): return 0.0
+	if (justify == 3 && count > 1): return free_space / cast(float32, count - 1)
+	if (justify == 4 && count > 0): return free_space / cast(float32, count)
+	if (justify == 5 && count > 0): return free_space / cast(float32, count + 1)
+	return 0.0

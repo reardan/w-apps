@@ -133,6 +133,8 @@ int win_css_longhand_valid(int property, css_document* css, int first, int last)
 	if (property == 20): return length && n.value >= 0.0 || win_css_ident(token, c"thin") || win_css_ident(token, c"medium") || win_css_ident(token, c"thick")
 	if (property == 22): return win_css_ident(token, c"border-box") || win_css_ident(token, c"content-box")
 	if (property == 23): return win_css_ident(token, c"visible") || win_css_ident(token, c"hidden") || win_css_ident(token, c"collapse")
+	if (property == 33): return win_css_ident(token, c"nowrap") || win_css_ident(token, c"wrap")
+	if (property == 34 || property == 35): return win_css_ident(token, c"stretch") || win_css_ident(token, c"flex-start") || win_css_ident(token, c"flex-end") || win_css_ident(token, c"center") || property == 35 && win_css_ident(token, c"auto")
 	if (property == 25): return win_css_ident(token, c"row") || win_css_ident(token, c"column")
 	if (property == 27): return win_css_ident(token, c"normal") || n.value >= 0.0 && (length || n.unit == 1 || n.unit == 5)
 	if (property == 32): return win_css_ident(token, c"flex-start") || win_css_ident(token, c"flex-end") || win_css_ident(token, c"center") || win_css_ident(token, c"space-between") || win_css_ident(token, c"space-around") || win_css_ident(token, c"space-evenly")
@@ -292,6 +294,9 @@ void win_css_copy(win_style* s, win_style from, int property):
 	if (property == 22): s.box_sizing = from.box_sizing
 	if (property == 23): s.hidden = from.hidden
 	if (property == 24): s.gap = from.gap
+	if (property == 33): s.flex_wrap = from.flex_wrap
+	if (property == 34): s.align_items = from.align_items
+	if (property == 35): s.align_self = from.align_self
 	if (property == 25): s.flex_column = from.flex_column
 	if (property == 26): s.columns = from.columns
 	if (property == 27):
@@ -402,6 +407,15 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 	else if (property == 22): s.box_sizing = win_css_ident(token, c"border-box")
 	else if (property == 23): s.hidden = win_css_ident(token, c"hidden") || win_css_ident(token, c"collapse")
 	else if (property == 24): s.gap = n
+	else if (property == 33): s.flex_wrap = win_css_ident(token, c"wrap")
+	else if (property == 34 || property == 35):
+		int alignment = 0
+		if (win_css_ident(token, c"auto")): alignment = -1
+		if (win_css_ident(token, c"flex-start")): alignment = 1
+		if (win_css_ident(token, c"flex-end")): alignment = 2
+		if (win_css_ident(token, c"center")): alignment = 3
+		if (property == 34): s.align_items = alignment
+		else: s.align_self = alignment
 	else if (property == 25): s.flex_column = win_css_ident(token, c"column")
 	else if (property == 26): s.columns = win_css_grid_columns(css, slot.first, slot.last)
 	else if (property == 27):
@@ -436,7 +450,7 @@ void win_css_compute(win_css_specified* winners, win_style* style, win_style inh
 	win_css_compute_value(&winners[1], 1, style, inherited)
 	if (root): style.root_size = style.size
 	# Color precedes background/currentColor; all lengths see the winning size.
-	for property in range(33):
+	for property in range(WIN_CSS_PROPERTY_COUNT):
 		if (property != 1): win_css_compute_value(&winners[property], property, style, inherited)
 	win_css_resolve_border(style)
 

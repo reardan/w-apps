@@ -1,22 +1,16 @@
 # Standards implementation status
 
-The W submodule pins [W #654](https://github.com/reardan/w/pull/654) commit
-`b56052296f8add56a14a672828282ac7722dbc2e`, stacked on
-[W #652](https://github.com/reardan/w/pull/652) head
-`968950d8c1055cff0f6d9a5ea2463b18a6362c66`. Both PRs were open when this
-integration was published. This replaces the previous base
-`a5a54fd77eb049d7126db6ce7f1a68e823fa5aca` and retains #652's labelled
-JavaScript, opt-in paragraph bidi, and wasm accessibility work.
+The W dependency includes the bounded Promise/microtask runtime and standalone
+module foundation from [W #657](https://github.com/reardan/w/pull/657), on top of
+the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation and
+[W #652](https://github.com/reardan/w/pull/652) labelled JavaScript implementation.
+The Git submodule entry records the exact reproducible dependency revision.
 
-The duplicate local label implementation was removed in favor of #652's
-implementation. W #654 adds the Test262 adapter, immutable error
-identity used by runtime-negative checks, and additional combined regressions.
-The native ledger preserves all 31 #652 cases and adds five additional cases under
-distinct names; the separate Test262 corpus remains pinned and
-tracked by the repository ignore rules.
 Win's CSS, flexbox, native rendering, and WPT work remain in the application.
+The earlier foundation and its validation are recorded below; the newer async,
+network, storage and headless-isolation increment follows in its own section.
 The broader [standards implementation plan](standards-gap-analysis.md) remains
-open; this is a bounded browser foundation, not full standards conformance.
+open. These are bounded implementations, not full standards conformance.
 
 ## Implemented foundation
 
@@ -110,17 +104,67 @@ These are selected conformance slices. They do not execute the whole WPT or
 Test262 suites, and passing the regression gates does not mean every web
 standard is implemented.
 
+## Next implementation increment
+
+The browser now adds wrapped flex rows, column flow, cross-axis alignment and
+stretch, with translated descendant geometry preserving links and anchors.
+Column grow/shrink/basis and full grid sizing remain outside this increment.
+
+W adds native `new Promise(executor)`, `Promise.resolve/reject`, `then/catch`, and
+an explicitly drained, rooted FIFO microtask queue. A standalone
+[module foundation](../../w/docs/projects/javascript_modules.md) parses, links
+and evaluates acyclic static named imports and immutable exports with separate
+strict environments, cached execution/failures and a host resolver. Browser
+module graph loading is not yet connected. Win runs checkpoints at
+script/event/timer boundaries and polls bounded timers in every live tab.
+Origin-scoped memory storage survives navigation: local storage shares an app
+owner, while session storage belongs to its tab. Same-origin GET `fetch` resolves
+status-bearing response objects with single-use Promise-based `text()`; rejected
+cross-origin redirects never make the foreign request.
+
+Resource discovery now reconciles connected DOM mutations, cancels stale loads,
+and preserves lifetime request/byte budgets. Dynamic classic scripts execute
+once per node, including insertion after the initial load completes.
+Cookies and explicitly fresh HTTP response cache entries live in bounded process
+memory; their conservative supported policies are documented separately.
+
+`--isolated-dump` moves complete headless page loading and execution into a fresh
+child process. The parent validates bounded framed output and enforces a total
+watchdog; cancellation also terminates loader descendants. Interactive tabs
+retain their in-process interpreter. This is not an OS sandbox.
+
+See the [CSS contract](css-compatibility.md), [JavaScript contract](javascript-compatibility.md),
+[network contract](network-compatibility.md), and [process boundary](script-isolation.md).
+The validation counts earlier in this file describe the preceding checkpoint.
+Current increment validation:
+
+- `env -u NO_COLOR ./wbuild -j 8 tests`: **1,202 targets passed**, including
+  the module foundation, Promise runtime and compiler/toolchain regression gates.
+- The pinned Test262 profile now reports **37 PASS, 16 UNSUPPORTED, 0 FAIL,
+  0 ERROR**, with 28 execution passes and 164 assertions. Twelve adapter contract
+  tests pass. Two short-circuit variants now execute successfully; explicit
+  manifest capability requirements identify absent `eval`, `Number` and `isNaN`
+  without downgrading unexpected ReferenceErrors or assertion failures.
+- Focused native rendering checks pass after the layout additions.
+- `./win/build test`: structured checks and strict compilation, all **14 W
+  browser test programs**, all **five Python integration suites**, and eight
+  display-free WPT adapter contract tests passed. The added suites cover Fetch
+  allocation/settlement recovery, navigation/tab cancellation, origin boundaries,
+  cookie/cache worker state, and isolated worker/descendant termination.
+- `./win/build standards`: **12/12 pinned native WPT reftests passed**, with no
+  failures, unsupported cases, harness errors or unexpected results. Capture
+  readiness/error contracts and the Test262 profile above also passed.
+
 ## Remaining work
 
-Full flex/grid sizing and alignment (including column flex, wrapping, and
-cross-axis alignment), independent inline-block formatting contexts,
-complete intrinsic/inline layout, and broader CSS remain deferred. CSSOM exposes
-only the documented properties and methods, with no computed-style or stylesheet
-rule API. Resource discovery is static: DOM changes do not start external
-stylesheet/script/image fetches or execute inserted scripts.
+Complete flex/grid and inline formatting, column flex factors, reverse/wrapped
+columns, baseline alignment and broader CSS remain deferred. CSSOM still lacks
+computed-style and stylesheet rule APIs. Resource bases remain fixed after the
+initial load, and parser-blocking/async/defer script scheduling is not modeled.
 
-W's runtime remains a language subset. Complete ECMAScript environments and
-built-ins, asynchronous scheduling, timers, promises, modules, fetch/XHR, browser
-storage, native DOM interfaces, accessibility, cookies/cache, and content-process
-isolation remain future work. See the [CSS contract](css-compatibility.md) and
-[JavaScript contract](javascript-compatibility.md) for the supported surface.
+Complete ECMAScript and built-ins, generic thenable assimilation, async/await,
+Promise combinators, browser module graph loading, XHR, full Fetch/CORS/streaming,
+persistent storage/cache, storage events, complete cookie policies, native DOM
+interfaces, accessibility, and interactive content-process isolation remain
+future work. These increments are bounded implementations, not general modern
+website compatibility or full standards conformance.

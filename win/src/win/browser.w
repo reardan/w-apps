@@ -3,6 +3,7 @@ import win.loader
 import win.resources
 import win.forms
 import win.script
+import win.fetch
 import graphics.ui.widgets
 
 struct win_history_entry:
@@ -14,6 +15,10 @@ struct win_browser:
 	win_resources* resources
 	win_forms* forms
 	win_script* script
+	win_fetch_context* fetches
+	win_storage_context* local_storage
+	win_storage_context* session_storage
+	int owns_local_storage
 	int script_failures
 	int resource_failures
 	int restore_pending
@@ -41,6 +46,10 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.resources = 0
 	b.forms = 0
 	b.script = 0
+	b.fetches = 0
+	b.local_storage = win_storage_new()
+	b.session_storage = win_storage_new()
+	b.owns_local_storage = 1
 	b.script_failures = 0
 	b.resource_failures = 0
 	b.restore_pending = 0
@@ -62,7 +71,10 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 void win_browser_free(win_browser* b):
 	win_load_free(b.load)
 	free(b.new_tab)
+	win_fetch_free(b.fetches)
 	win_script_free(b.script)
+	if (b.owns_local_storage): win_storage_free(b.local_storage)
+	win_storage_free(b.session_storage)
 	win_resources_free(b.resources)
 	win_forms_free(b.forms)
 	win_page_free(b.page)
@@ -77,9 +89,9 @@ void win_browser_free(win_browser* b):
 	free(b.status)
 
 void win_stop(win_browser* b):
-	if (b.load == 0 && win_resources_done(b.resources) && (b.script == 0 || b.script.ready)): return
+	win_fetch_stop(b.fetches)
 	win_resources_stop(b.resources)
-	if (b.script != 0): b.script.ready = 1
+	win_script_stop(b.script)
 	win_load_free(b.load)
 	b.load = 0
 	win_status(b, c"Loading stopped")
@@ -163,6 +175,8 @@ void win_browser_poll_document(win_browser* b):
 		win_page* page = win_page_parse(b.load.source, b.load.length)
 		if (page == 0): win_status(b, c"Invalid UTF-8 or HTML document exceeds parser limits")
 		else:
+			win_fetch_free(b.fetches)
+			b.fetches = 0
 			win_script_free(b.script)
 			win_resources_free(b.resources)
 			win_forms_free(b.forms)
@@ -171,6 +185,8 @@ void win_browser_poll_document(win_browser* b):
 			b.forms = win_forms_new(page)
 			b.resources = win_resources_start(b.executable, page, b.load.address)
 			b.script = win_script_new(page)
+			win_script_bind_storage(b.script, b.local_storage, b.session_storage, b.load.address)
+			b.fetches = win_fetch_new(b.script.runtime, b.executable, b.load.address)
 			b.script_failures = 0
 			b.resource_failures = 0
 			win_page_layout(page, b.width)
@@ -186,12 +202,15 @@ void win_browser_poll_document(win_browser* b):
 	b.load = 0
 
 int win_browser_loading(win_browser* b):
-	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0)
+	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0) || win_fetch_pending(b.fetches) != 0
 
 void win_browser_poll(win_browser* b):
 	win_browser_poll_document(b)
 	int changed = win_resources_poll(b.resources)
 	win_script_run_pending(b.script, b.resources)
+	if (win_fetch_poll(b.fetches) && b.script != 0): win_script_result(b.script, b.script.runtime.completion)
+	win_script_poll(b.script)
+	if (win_resources_refresh(b.resources)): changed = 1
 	if (b.script != 0):
 		if (b.script.dirty): changed = 1
 		b.script.dirty = 0

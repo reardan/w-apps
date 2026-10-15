@@ -5,8 +5,8 @@ import win.document
 
 win_style foundation_style(char* source, win_style inherited, int root):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[33] winners
-	for i in range(33): winners[i].present = 0
+	win_css_specified[36] winners
+	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	for i in range(css.nodes.length):
 		css_node* d = css.nodes[i]
 		win_css_collect(css, d, win_cascade_author(d.important, 0, win_specificity_zero(), i), &winners[0])
@@ -148,7 +148,18 @@ void test_flex_values():
 	s = foundation_style(c"flex:2 3 40px;flex:unset", parent, 0)
 	asserts(c"flex unset restores noninherited defaults", s.flex_grow == 0.0 && s.flex_shrink == 1.0 && s.flex_basis == -1.0)
 
+void test_cross_alignment_values():
+	win_style parent = win_default_style()
+	win_style s = foundation_style(c"flex-wrap:wrap;align-items:center;align-self:flex-end;flex-wrap:wrap-reverse;align-items:baseline;align-self:garbage", parent, 0)
+	asserts(c"unsupported alignment leaves earlier declarations intact", s.flex_wrap == 1 && s.align_items == 3 && s.align_self == 2)
+	parent = s
+	s = foundation_style(c"flex-wrap:inherit;align-items:inherit;align-self:inherit", parent, 0)
+	asserts(c"explicit alignment inheritance", s.flex_wrap == 1 && s.align_items == 3 && s.align_self == 2)
+	s = foundation_style(c"flex-wrap:unset;align-items:initial;align-self:auto", parent, 0)
+	asserts(c"alignment defaults are not inherited", s.flex_wrap == 0 && s.align_items == 0 && s.align_self == -1)
+
 int main():
+	test_cross_alignment_values()
 	test_flex_values()
 	test_deferred_lengths()
 	test_wide_keywords()

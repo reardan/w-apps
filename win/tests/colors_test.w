@@ -6,8 +6,8 @@ win_style colors_style(char* declarations):
 	win_style style = win_default_style()
 	style.color = ui_color_new(0.0, 0.0, 1.0, 1.0)
 	win_style inherited = style
-	win_css_specified[33] winners
-	for i in range(33): winners[i].present = 0
+	win_css_specified[36] winners
+	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	for i in range(css.nodes.length):
 		win_css_collect(css, css.nodes[i], win_cascade_author(css.nodes[i].important, 0, win_specificity_zero(), i), &winners[0])
 	win_css_compute(&winners[0], &style, inherited, 0)

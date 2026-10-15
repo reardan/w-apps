@@ -115,7 +115,41 @@ void test_window_and_lifecycle():
 	win_script_free(script)
 	win_page_free(page)
 
+void test_cssom_flex_alignment():
+	char* source = c"<div id='row' style='margin:0;display:flex;width:210px;height:100px;gap:10px'><div id='a' style='margin:0;width:100px;height:20px;flex:none'></div><div id='b' style='margin:0;width:100px;height:20px;flex:none'></div><div id='c' style='margin:0;width:100px;height:20px;flex:none'></div></div>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_script* script = win_script_new(page)
+	cssom_eval(script, c"const row=document.getElementById('row'); row.style.setProperty('flex-wrap','wrap'); row.style.setProperty('align-items','flex-end'); document.getElementById('a').style.setProperty('align-self','center'); if(row.style.getPropertyValue('flex-wrap')!=='wrap') throw 'wrap reflection'; row.style.setProperty('flex-wrap','wrap-reverse'); if(row.style.getPropertyValue('flex-wrap')!=='wrap') throw 'invalid wrap overwrite';")
+	win_page_layout(page, 800)
+	asserts(c"CSSOM wrapping changes line placement", cssom_box(page, c"c").y > cssom_box(page, c"b").y)
+	asserts(c"CSSOM align-self overrides line alignment", cssom_box(page, c"a").y < cssom_box(page, c"b").y)
+	cssom_eval(script, c"if(row.style.removeProperty('flex-wrap')!=='wrap') throw 'wrap removal';")
+	win_page_layout(page, 800)
+	asserts(c"removing wrap restores a single row", cssom_box(page, c"c").y == cssom_box(page, c"b").y)
+	win_script_free(script)
+	win_page_free(page)
+
+void test_dynamic_scripts():
+	char* source = c"<body></body>"
+	win_page* page = win_page_parse(source, strlen(source))
+	win_script* script = win_script_new(page)
+	win_script_run_pending(script, 0)
+	assert_equal(1, script.ready)
+	cssom_eval(script, c"let runs=0; const dynamic=document.createElement('script'); dynamic.textContent='runs+=1;'; document.body.appendChild(dynamic);")
+	win_script_run_pending(script, 0)
+	cssom_eval(script, c"if(runs!==1) throw 'insert'; dynamic.remove(); document.body.appendChild(dynamic);")
+	win_script_run_pending(script, 0)
+	cssom_eval(script, c"if(runs!==1) throw 'reexecute'; const removed=document.createElement('script'); removed.textContent='runs+=100;'; document.body.appendChild(removed);")
+	win_script_collect_nodes(script, page.html.root)
+	cssom_eval(script, c"removed.remove();")
+	win_script_run_pending(script, 0)
+	cssom_eval(script, c"if(runs!==1) throw 'detached';")
+	win_script_free(script)
+	win_page_free(page)
+
 int main():
+	test_dynamic_scripts()
+	test_cssom_flex_alignment()
 	test_cssom_reflection()
 	test_cssom_shorthands()
 	test_cssom_flex()

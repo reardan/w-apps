@@ -7,6 +7,8 @@ import lib.fmath
 import win.selectors
 import win.css_values
 
+const int WIN_CSS_PROPERTY_COUNT = 36
+
 struct win_style:
 	float32 size
 	float32 root_size
@@ -39,6 +41,10 @@ struct win_style:
 	int border_current_color
 	float32 gap
 	int flex_column
+	int flex_wrap
+	# Cross alignment: 0 stretch, 1 start, 2 end, 3 center; self -1 auto.
+	int align_items
+	int align_self
 	int justify
 	float32 flex_grow
 	float32 flex_shrink
@@ -84,6 +90,9 @@ win_style win_default_style():
 	s.border_current_color = 1
 	s.gap = 0
 	s.flex_column = 0
+	s.flex_wrap = 0
+	s.align_items = 0
+	s.align_self = -1
 	s.justify = 0
 	s.flex_grow = 0.0
 	s.flex_shrink = 1.0
@@ -176,6 +185,9 @@ int win_css_property(char* name):
 	if (css_ascii_equal(name, c"box-sizing")): return 22
 	if (css_ascii_equal(name, c"visibility")): return 23
 	if (css_ascii_equal(name, c"gap") || css_ascii_equal(name, c"column-gap")): return 24
+	if (css_ascii_equal(name, c"flex-wrap")): return 33
+	if (css_ascii_equal(name, c"align-items")): return 34
+	if (css_ascii_equal(name, c"align-self")): return 35
 	if (css_ascii_equal(name, c"flex-direction")): return 25
 	if (css_ascii_equal(name, c"grid-template-columns")): return 26
 	if (css_ascii_equal(name, c"line-height")): return 27

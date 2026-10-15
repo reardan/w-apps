@@ -33,7 +33,7 @@ char* win_cssom_value(css_document* css, css_node* declaration):
 # specified token ranges here, rather than computing lengths or comparing only
 # declaration names (which would lose shorthand/longhand relationships).
 void win_cssom_collect(css_document* css, win_css_specified* winners):
-	for i in range(33): winners[i].present = 0
+	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	if (css.failed): return
 	for i in range(css.nodes.length):
 		css_node* d = css.nodes[i]
@@ -89,7 +89,7 @@ void win_cssom_append(string_builder* out, char* name, char* value, int importan
 # the same priority. A mixture of CSS-wide and ordinary values has no shorthand.
 char* win_cssom_get(char* source, char* name, int priority):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[33] winners
+	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
 	int[4] properties
 	int count = 0
@@ -98,7 +98,7 @@ char* win_cssom_get(char* source, char* name, int priority):
 		properties[0] = property
 		count = 1
 	else:
-		for p in range(33):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			if (win_cssom_contains(name, p)):
 				properties[count] = p
 				count = count + 1
@@ -145,7 +145,7 @@ char* win_cssom_get(char* source, char* name, int priority):
 void win_cssom_serialize(string_builder* out, css_document* css, css_node* d, int order, win_css_specified* winners):
 	int complete = 1
 	int matches = 0
-	for p in range(33):
+	for p in range(WIN_CSS_PROPERTY_COUNT):
 		if (win_cssom_contains(d.name, p)):
 			win_css_specified* slot = &winners[p]
 			if (slot.present && slot.css == css && slot.key.order == order): matches = matches + 1
@@ -156,7 +156,7 @@ void win_cssom_serialize(string_builder* out, css_document* css, css_node* d, in
 		win_cssom_append(out, d.name, value, d.important)
 		free(value)
 	else:
-		for p in range(33):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			win_css_specified* slot = &winners[p]
 			if (slot.present && slot.css == css && slot.key.order == order):
 				char* value = win_cssom_specified(slot, p)
@@ -183,10 +183,10 @@ char* win_cssom_edit(char* source, char* name, char* value, char* priority):
 			css_document_free(parsed)
 			return 0
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[33] winners
+	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
 	if (name != 0):
-		for p in range(33):
+		for p in range(WIN_CSS_PROPERTY_COUNT):
 			if (win_cssom_contains(name, p)): winners[p].present = 0
 	if (parsed != 0):
 		parsed.nodes[0].important = important

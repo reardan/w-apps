@@ -192,7 +192,72 @@ void test_flex_alignment():
 	layout_close(c"space evenly falls back safely on overflow", layout_box(page, c"safeeven").x, layout_box(page, c"evenchild").x)
 	win_page_free(page)
 
+void test_wrapped_flex_lines():
+	win_page* page = layout_page(c"<div id='row' style='margin:0;display:flex;flex-wrap:wrap;width:210px;gap:10px;margin:0;align-items:flex-start'><div id='a' style='margin:0;width:100px;height:20px'></div><div id='b' style='margin:0;width:100px;height:30px'></div><div id='c' style='margin:0;width:100px;height:15px'></div></div><div id='next' style='margin:0;height:5px'></div>")
+	win_box* row = layout_box(page, c"row")
+	layout_close(c"exact fit stays on first flex line", row.y, layout_box(page, c"b").y)
+	layout_close(c"line collection includes gap", row.x + 110.0, layout_box(page, c"b").x)
+	layout_close(c"next line follows tallest item plus gap", row.y + 40.0, layout_box(page, c"c").y)
+	layout_close(c"wrapped container includes final line without trailing gap", 55.0, row.height)
+	layout_close(c"following block starts after wrapped lines", row.y + 55.0, layout_box(page, c"next").y)
+	win_page_layout(page, 800)
+	layout_close(c"repeated layout retains line positions", layout_box(page, c"row").y + 40.0, layout_box(page, c"c").y)
+	win_page_free(page)
+	page = layout_page(c"<div id='row' style='margin:0;display:flex;flex-wrap:wrap;width:250px;gap:10px'><div id='a' style='margin:0;flex:1 1 100px;height:10px'></div><div id='b' style='margin:0;flex:1 1 100px;height:10px'></div><div id='c' style='margin:0;flex:1 1 100px;height:10px'></div></div>")
+	layout_close(c"first line flexes independently", 120.0, layout_box(page, c"a").width)
+	layout_close(c"last line gets all its own free space", 250.0, layout_box(page, c"c").width)
+	win_page_free(page)
+	page = layout_page(c"<div id='row' style='margin:0;display:flex;flex-wrap:wrap;width:210px;gap:10px;justify-content:flex-end'><div id='big' style='margin:0;width:300px;flex:none;height:10px'></div><div id='small' style='margin:0;width:100px;height:10px'></div></div>")
+	layout_close(c"oversized item occupies a line and keeps end overflow", layout_box(page, c"row").x - 90.0, layout_box(page, c"big").x)
+	layout_close(c"last line is justified separately", layout_box(page, c"row").x + 110.0, layout_box(page, c"small").x)
+	layout_close(c"oversized first item does not create an empty line", layout_box(page, c"row").y, layout_box(page, c"big").y)
+	win_page_free(page)
+
+void test_flex_cross_alignment():
+	win_page* page = layout_page(c"<div id='row' style='margin:0;display:flex;width:400px;height:100px;align-items:center'><div id='center' style='margin:0;width:80px;height:20px;margin-top:10px;margin-bottom:10px'><a id='link' href='#target'>hit</a></div><div id='end' style='margin:0;width:80px;height:20px;align-self:flex-end'></div><div id='stretch' style='margin:0;width:80px;align-self:stretch;padding:5px;border:1px solid'></div><div id='start' style='margin:0;width:80px;height:20px;align-self:flex-start'></div></div>")
+	win_box* row = layout_box(page, c"row")
+	layout_close(c"center aligns outer margin box", row.y + 40.0, layout_box(page, c"center").y)
+	layout_close(c"self end overrides parent center", row.y + 80.0, layout_box(page, c"end").y)
+	layout_close(c"stretch fills cross dimension including extras", 100.0, layout_box(page, c"stretch").height)
+	layout_close(c"self start stays at cross start", row.y, layout_box(page, c"start").y)
+	layout_close(c"fragment anchor follows aligned child", layout_box(page, c"center").y, win_page_anchor(page, c"link"))
+	for i in range(page.runs.length):
+		win_run* run = page.runs[i]
+		if (strcmp(run.text, c"hit") == 0):
+			asserts(c"aligned link run remains inside child", run.y >= layout_box(page, c"center").y)
+			asserts(c"hit testing follows translated run", strcmp(win_page_hit(page, run.x + 1.0, run.y + 1.0), c"#target") == 0)
+	win_page_free(page)
+	page = layout_page(c"<div id='row' style='margin:0;display:flex;flex-wrap:wrap;width:210px;gap:10px;align-items:flex-end'><div id='a' style='margin:0;width:100px;height:10px'></div><div id='b' style='margin:0;width:100px;height:30px'></div><div id='c' style='margin:0;width:100px;height:15px'></div></div>")
+	layout_close(c"cross alignment uses each wrapped line height", layout_box(page, c"row").y + 20.0, layout_box(page, c"a").y)
+	layout_close(c"second line has independent cross size", layout_box(page, c"row").y + 40.0, layout_box(page, c"c").y)
+	win_page_free(page)
+
+void test_wrapped_cross_stretch():
+	win_page* page = layout_page(c"<div id='row' style='margin:0;display:flex;flex-wrap:wrap;width:210px;height:100px;gap:10px;align-items:flex-end'><div id='a' style='margin:0;width:100px;height:10px'></div><div id='b' style='margin:0;width:100px;height:30px'></div><div id='c' style='margin:0;width:100px;height:20px'></div></div>")
+	win_box* row = layout_box(page, c"row")
+	layout_close(c"definite wrapped cross size stretches first line", row.y + 40.0, layout_box(page, c"a").y)
+	layout_close(c"wrapped stretch includes line translation", row.y + 80.0, layout_box(page, c"c").y)
+	win_page_free(page)
+
+void test_column_alignment():
+	win_page* page = layout_page(c"<div id='col' style='margin:0;display:flex;flex-direction:column;width:200px;height:200px;gap:10px;justify-content:space-between;align-items:center'><div id='a' style='margin:0;width:50px;height:20px'><div id='nested' style='margin:0;height:5px'></div></div><div id='b' style='margin:0;width:80px;height:30px;align-self:flex-end'></div></div>")
+	win_box* col = layout_box(page, c"col")
+	layout_close(c"column cross center", col.x + 75.0, layout_box(page, c"a").x)
+	layout_close(c"column alignment translates nested boxes", col.x + 75.0, layout_box(page, c"nested").x)
+	layout_close(c"column self end", col.x + 120.0, layout_box(page, c"b").x)
+	layout_close(c"column distributes vertical free space", col.y + 170.0, layout_box(page, c"b").y)
+	win_page_free(page)
+	page = layout_page(c"<div id='col' style='margin:0;display:flex;flex-direction:column;width:200px;height:100px;justify-content:center'><div id='a' style='margin:0;height:20px'></div><div id='b' style='margin:0;width:50px;height:20px;margin-left:auto'></div></div>")
+	layout_close(c"column auto cross size stretches", 200.0, layout_box(page, c"a").width)
+	layout_close(c"column center uses fixed height", layout_box(page, c"col").y + 30.0, layout_box(page, c"a").y)
+	layout_close(c"column auto margin consumes cross space", layout_box(page, c"col").x + 150.0, layout_box(page, c"b").x)
+	win_page_free(page)
+
 int main():
+	test_wrapped_flex_lines()
+	test_flex_cross_alignment()
+	test_column_alignment()
+	test_wrapped_cross_stretch()
 	test_declared_flex_sizes()
 	test_flex_alignment()
 	test_flex_redistribution()

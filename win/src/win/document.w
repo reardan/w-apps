@@ -180,8 +180,8 @@ void win_page_refresh_styles(win_page* page):
 	page.width = 0
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
-	win_css_specified[33] winners
-	for i in range(33): winners[i].present = 0
+	win_css_specified[36] winners
+	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	int order = 0
 	for i in range(page.stylesheets.length):
 		css_document* css = page.stylesheets[i].css
@@ -558,6 +558,159 @@ list[win_layout_item*] win_layout_items(win_page* page, html_node* container, wi
 			string_free(text)
 	return items
 
+# Translate all geometry emitted by an item together, preserving descendant
+# painting, hit testing, form boxes and fragment anchors after alignment.
+void win_flex_translate(win_page* page, win_layout_item* item, float32 dx, float32 dy):
+	for i in range(item.box_first, item.box_end):
+		page.boxes[i].x = page.boxes[i].x + dx
+		page.boxes[i].y = page.boxes[i].y + dy
+	for i in range(item.run_first, item.run_end):
+		page.runs[i].x = page.runs[i].x + dx
+		page.runs[i].y = page.runs[i].y + dy
+	for i in range(item.anchor_first, item.anchor_end): page.anchors[i].y = page.anchors[i].y + dy
+
+void win_layout_flex(win_page* page, html_node* node, win_style style, char* href):
+	list[win_layout_item*] items = win_layout_items(page, node, style)
+	float32 left = page.left
+	float32 right = page.right
+	float32 top = page.y
+	float32 available = right - left
+	int vertical = style.flex_column
+	if (vertical == 0): win_flex_sizes(items, available, style.gap)
+	int first = 0
+	int line_count = 0
+	float32 line_top = top
+	while (first < items.length):
+		int end = items.length
+		if (vertical == 0 && style.flex_wrap): end = win_flex_line_end(items, first, available, style.gap)
+		list[win_layout_item*] line = new list[win_layout_item*]
+		for i in range(first, end): line.push(items[i])
+		if (vertical == 0): win_flex_sizes(line, available, style.gap)
+		float32 remaining = available - style.gap * cast(float32, line.length - 1)
+		int auto_margins = 0
+		if (vertical == 0):
+			for i in range(line.length):
+				win_layout_item* item = line[i]
+				remaining = remaining - item.main_size
+				if (item.anonymous == 0):
+					remaining = remaining - win_box_horizontal_extras(item.style) - item.style.margin_left - item.style.margin_right
+					auto_margins = auto_margins + item.style.margin_left_auto + item.style.margin_right_auto
+			if (remaining > 0.0 && auto_margins > 0):
+				for i in range(line.length):
+					win_layout_item* item = line[i]
+					if (item.anonymous): continue
+					if (item.style.margin_left_auto): item.style.margin_left = remaining / cast(float32, auto_margins)
+					if (item.style.margin_right_auto): item.style.margin_right = remaining / cast(float32, auto_margins)
+				remaining = 0.0
+		float32 cursor = left
+		float32 spacing = style.gap
+		if (vertical == 0):
+			cursor = cursor + win_flex_offset(style.justify, remaining, line.length)
+			spacing = spacing + win_flex_spacing(style.justify, remaining, line.length)
+		else: cursor = line_top
+		float32 cross = 0.0
+		for i in range(line.length):
+			win_layout_item* item = line[i]
+			win_style used = item.style
+			int alignment = used.align_self
+			if (alignment < 0 || item.anonymous): alignment = style.align_items
+			float32 width = item.main_size
+			if (vertical):
+				width = available
+				if (item.anonymous == 0):
+					width = win_box_border_width(used, available) - win_box_horizontal_extras(used)
+					if (used.width < 0.0 && (alignment != 0 || used.margin_left_auto || used.margin_right_auto)):
+						if (width > item.intrinsic.max_content): width = item.intrinsic.max_content
+				else if (alignment != 0 && width > item.intrinsic.max_content): width = item.intrinsic.max_content
+			float32 outer_width = width
+			if (item.anonymous == 0): outer_width = outer_width + win_box_horizontal_extras(used) + used.margin_left + used.margin_right
+			page.left = cursor
+			page.y = line_top
+			if (vertical):
+				page.left = left
+				page.y = cursor
+			page.right = page.left + outer_width
+			page.x = page.left
+			item.line_index = line_count
+			item.box_first = page.boxes.length
+			item.run_first = page.runs.length
+			item.anchor_first = page.anchors.length
+			if (item.anonymous):
+				html_node* text = item.first
+				while (text != item.end):
+					if (text.kind == HTML_TEXT): win_layout_node(page, text, style, href)
+					text = text.next_sibling
+			else:
+				if (used.display == 2): used.display = 1
+				# Margins were allocated by the flex container, not block flow.
+				used.margin_left_auto = 0
+				used.margin_right_auto = 0
+				win_layout_node_style(page, item.first, used, href, width)
+			win_line_end(page, 0)
+			item.box_end = page.boxes.length
+			item.run_end = page.runs.length
+			item.anchor_end = page.anchors.length
+			item.cross_size = page.y - line_top
+			if (vertical): item.cross_size = outer_width
+			if (item.cross_size > cross): cross = item.cross_size
+			if (vertical): cursor = page.y + spacing
+			else: cursor = cursor + outer_width + spacing
+		if (vertical): cross = available
+		else if (style.flex_wrap == 0 && style.height >= 0.0): cross = win_box_content_height(style)
+		float32 main_offset = 0.0
+		float32 main_spacing = 0.0
+		if (vertical && style.height >= 0.0):
+			float32 free_space = win_box_content_height(style) - (cursor - spacing - top)
+			main_offset = win_flex_offset(style.justify, free_space, line.length)
+			main_spacing = win_flex_spacing(style.justify, free_space, line.length)
+		for i in range(line.length):
+			win_layout_item* item = line[i]
+			int alignment = item.style.align_self
+			if (alignment < 0 || item.anonymous): alignment = style.align_items
+			float32 free_cross = cross - item.cross_size
+			float32 offset = 0.0
+			if (alignment == 2): offset = free_cross
+			if (alignment == 3): offset = free_cross / 2.0
+			if (vertical && item.anonymous == 0 && (item.style.margin_left_auto || item.style.margin_right_auto)):
+				offset = 0.0
+				if (free_cross > 0.0 && item.style.margin_left_auto):
+					offset = free_cross
+					if (item.style.margin_right_auto): offset = free_cross / 2.0
+			if (vertical): win_flex_translate(page, item, offset, main_offset + main_spacing * cast(float32, i))
+			else:
+				if (alignment == 0 && item.anonymous == 0 && item.style.height < 0.0 && item.box_first < item.box_end):
+					win_box* box = page.boxes[item.box_first]
+					box.height = cross - item.style.margin_top - item.style.margin_bottom
+					if (box.height < win_box_vertical_extras(item.style)): box.height = win_box_vertical_extras(item.style)
+				win_flex_translate(page, item, 0.0, offset)
+		__w_list_free(cast(__w_list*, line))
+		if (vertical): line_top = cursor
+		else: line_top = line_top + cross + style.gap
+		first = end
+		line_count = line_count + 1
+	# The initial align-content value stretches wrapped lines equally when
+	# the definite container cross size leaves positive space.
+	if (vertical == 0 && style.flex_wrap && style.height >= 0.0 && line_count > 0):
+		float32 extra = win_box_content_height(style) - (line_top - top - style.gap)
+		if (extra > 0.0):
+			extra = extra / cast(float32, line_count)
+			for i in range(items.length):
+				win_layout_item* item = items[i]
+				int alignment = item.style.align_self
+				if (alignment < 0 || item.anonymous): alignment = style.align_items
+				float32 dy = extra * cast(float32, item.line_index)
+				if (alignment == 2): dy = dy + extra
+				if (alignment == 3): dy = dy + extra / 2.0
+				if (alignment == 0 && item.anonymous == 0 && item.style.height < 0.0 && item.box_first < item.box_end): page.boxes[item.box_first].height = page.boxes[item.box_first].height + extra
+				win_flex_translate(page, item, 0.0, dy)
+	for i in range(items.length): free(items[i])
+	__w_list_free(cast(__w_list*, items))
+	page.left = left
+	page.right = right
+	page.x = left
+	page.y = top
+	if (first > 0): page.y = line_top - style.gap
+
 void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width):
 	if (page.truncated || style.display == 0): return
 	int block = style.display == 1 || style.display == 3 || style.display == 4
@@ -639,11 +792,11 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			win_word(page, c"•", style, c"")
 			page.space = 1
 		html_node* child = node.first_child
-		if (style.display == 4 || style.display == 3):
+		if (style.display == 3):
+			win_layout_flex(page, node, style, href)
+		else if (style.display == 4):
 			list[win_layout_item*] items = win_layout_items(page, node, style)
 			int columns = style.columns
-			if (style.display == 3): columns = items.length
-			if (style.display == 3 && style.flex_column): columns = 1
 			if (columns < 1): columns = 1
 			float32 row_left = page.left
 			float32 row_right = page.right
@@ -651,46 +804,12 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			float32 row_bottom = row_top
 			float32 cell_width = (row_right - row_left - style.gap * cast(float32, columns - 1)) / cast(float32, columns)
 			if (cell_width < 0.0): cell_width = 0.0
-			int flex_row = style.display == 3 && style.flex_column == 0
-			if (flex_row): win_flex_sizes(items, row_right - row_left, style.gap)
 			int column = 0
 			float32 cursor = row_left
 			float32 item_gap = style.gap
-			if (flex_row):
-				float32 free_space = row_right - row_left
-				if (items.length > 1): free_space = free_space - style.gap * cast(float32, items.length - 1)
-				int auto_margins = 0
-				for i in range(items.length):
-					win_layout_item* item = items[i]
-					free_space = free_space - item.main_size
-					if (item.anonymous == 0):
-						free_space = free_space - win_box_horizontal_extras(item.style) - item.style.margin_left - item.style.margin_right
-						auto_margins = auto_margins + item.style.margin_left_auto + item.style.margin_right_auto
-				if (auto_margins > 0 && free_space > 0.0):
-					for i in range(items.length):
-						win_layout_item* item = items[i]
-						if (item.anonymous): continue
-						if (item.style.margin_left_auto): item.style.margin_left = free_space / cast(float32, auto_margins)
-						if (item.style.margin_right_auto): item.style.margin_right = free_space / cast(float32, auto_margins)
-					free_space = 0.0
-				if (style.justify == 1): cursor = cursor + free_space
-				if (style.justify == 2): cursor = cursor + free_space / 2.0
-				if (free_space > 0.0 && items.length > 0):
-					if (style.justify == 3 && items.length > 1): item_gap = item_gap + free_space / cast(float32, items.length - 1)
-					if (style.justify == 4):
-						float32 spacing = free_space / cast(float32, items.length)
-						cursor = cursor + spacing / 2.0
-						item_gap = item_gap + spacing
-					if (style.justify == 5):
-						float32 spacing = free_space / cast(float32, items.length + 1)
-						cursor = cursor + spacing
-						item_gap = item_gap + spacing
 			for i in range(items.length):
 				win_layout_item* item = items[i]
 				float32 width = cell_width
-				if (flex_row):
-					width = item.main_size
-					if (item.anonymous == 0): width = width + win_box_horizontal_extras(item.style) + item.style.margin_left + item.style.margin_right
 				page.left = cursor
 				page.right = page.left + width
 				page.x = page.left
@@ -702,13 +821,8 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 						text = text.next_sibling
 				else:
 					win_style item_style = item.style
-					# Flex/grid items are blockified. Row-flex sizing already
-					# resolved percentages and constraints against its container;
-					# keep the original style for height and box sizing.
 					if (item_style.display == 2): item_style.display = 1
-					float32 used_width = -1.0
-					if (flex_row): used_width = item.main_size
-					win_layout_node_style(page, item.first, item_style, href, used_width)
+					win_layout_node_style(page, item.first, item_style, href, -1.0)
 				win_line_end(page, 0)
 				if (page.y > row_bottom): row_bottom = page.y
 				cursor = cursor + width + item_gap

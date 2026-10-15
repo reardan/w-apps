@@ -1,6 +1,7 @@
 # Linux loader process. Network/file reads never block the UI thread. The
 # parent polls a bounded pipe and destroys the old child on stop/navigation.
 import win.images
+import win.network_state
 import lib.process
 import lib.poll
 import lib.path
@@ -110,7 +111,14 @@ int win_resource_redirect(void* context, URL* before, URL* after, int status):
 # GET, as on 303; 307/308 replay the original method and encoded body.
 # Keep redirect handling here so the foundation's general client is unchanged.
 http_stream* win_form_http_open(http_req* req):
-	if (strcmp(req.method, c"POST") != 0): return http_open(req)
+	# Redirects are manual for every method: cookie scope is recomputed per hop.
+	char* fetch_origin = env_get(c"WIN_FETCH_ORIGIN")
+	URL* origin = 0
+	if (fetch_origin != 0 && fetch_origin[0] != 0): origin = url_parse(fetch_origin)
+	list[http_header*] original_headers = req.headers
+	char* initial_cookie = win_cookie_header(req.url)
+	int credentialed = initial_cookie[0] != 0
+	free(initial_cookie)
 	char* original_url = req.url
 	char* original_method = req.method
 	char* original_body = req.body
@@ -129,7 +137,39 @@ http_stream* win_form_http_open(http_req* req):
 			stream = http_stream_new()
 			http_stream_fail(stream, http_error_timeout)
 			break
+		URL* target = url_parse(address)
+		int same_origin = origin == 0 || url_same_origin(origin, target)
+		if (target != 0): url_free(target)
+		if (same_origin == 0):
+			stream = http_stream_new()
+			http_stream_fail(stream, http_error_bad_url)
+			break
+		req.headers = new list[http_header*]
+		for http_header* h in original_headers:
+			# Never replay caller credentials; browser cookies are scoped below.
+			if (win_net_equal(h.name, c"cookie") || win_net_equal(h.name, c"authorization") || win_net_equal(h.name, c"proxy-authorization")): continue
+			http_req_add_header(req, h.name, h.value)
+		char* cookie = win_cookie_header(address)
+		if (cookie[0] != 0):
+			http_req_add_header(req, c"Cookie", cookie)
+			credentialed = 1
+		free(cookie)
 		stream = http_open(req)
+		for http_header* h in req.headers:
+			free(h.name)
+			free(h.value)
+			free(h)
+		list_free[http_header*](req.headers)
+		req.headers = original_headers
+		char* set_cookie = http_response_header(stream.resp, c"set-cookie")
+		if (set_cookie != 0 && strlen(set_cookie) <= WIN_COOKIE_LIMIT):
+			win_cookie_set_many(address, set_cookie)
+			if (env_get(c"WIN_COOKIE_SNAPSHOT") != 0):
+				win_write(c"COOKIE\n", 7)
+				win_write(address, strlen(address))
+				win_write(c"\n", 1)
+				win_write(set_cookie, strlen(set_cookie))
+				win_write(c"\n", 1)
 		int status = stream.resp.status
 		if (stream.error != 0 || http_status_is_redirect(status) == 0): break
 		char* location = http_response_header(stream.resp, c"location")
@@ -144,6 +184,7 @@ http_stream* win_form_http_open(http_req* req):
 			http_stream_fail(stream, http_error_bad_url)
 			break
 		int allowed = http_validate_url(after) == 0 && win_resource_redirect(0, before, after, status)
+		if (origin != 0 && url_same_origin(origin, after) == 0): allowed = 0
 		url_free(before)
 		if (allowed == 0):
 			url_free(after)
@@ -160,6 +201,18 @@ http_stream* win_form_http_open(http_req* req):
 		address = next
 		redirects = redirects + 1
 	stream.resp.redirect_count = redirects
+	if (origin != 0): url_free(origin)
+	if (stream.error == 0 && env_get(c"WIN_COOKIE_SNAPSHOT") != 0):
+		string_builder* metadata = string_new()
+		string_append(metadata, c"STATUS\n")
+		string_append_int(metadata, stream.resp.status)
+		string_append(metadata, c"\nCACHE\n")
+		int lifetime = 0
+		if (strcmp(original_method, c"GET") == 0): lifetime = win_cache_lifetime(stream.resp, credentialed)
+		string_append_int(metadata, lifetime)
+		string_append(metadata, c"\n")
+		win_write(metadata.data, metadata.length)
+		string_free(metadata)
 	free(address)
 	req.url = original_url
 	req.method = original_method
@@ -187,6 +240,7 @@ int win_fetch_payload(char* address, char* source, int length, char* kind):
 	return ok
 
 int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
+	win_cookie_restore(env_get(c"WIN_COOKIE_SNAPSHOT"))
 	int limit = WIN_SOURCE_LIMIT
 	if (strcmp(kind, c"image") == 0): limit = WIN_IMAGE_INPUT_LIMIT
 	if (strlen(body) > 65536): return win_worker_error(c"Form body exceeds 64 KiB.")
@@ -214,7 +268,7 @@ int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
 		if (content.status != content_decode_done):
 			if (stream.resp.error != 0): code = win_worker_error(stream.resp.error_message)
 			else: code = win_worker_error(c"Unsupported, invalid or oversized content encoding.")
-		else if (stream.resp.status < 200 || stream.resp.status >= 300): code = win_worker_error(c"Server returned an unsuccessful HTTP status.")
+		else if (strcmp(kind, c"fetch") != 0 && (stream.resp.status < 200 || stream.resp.status >= 300)): code = win_worker_error(c"Server returned an unsuccessful HTTP status.")
 		else:
 			char* mime = http_response_header(stream.resp, c"content-type")
 			if (strcmp(kind, c"document") == 0 && mime != 0 && win_mime_is(mime, c"text/html") == 0): code = win_worker_error(c"This version opens HTML documents only.")
@@ -226,6 +280,7 @@ int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
 		http_req_free(req)
 		http_client_free(client)
 		return code
+	if (strcmp(kind, c"fetch") == 0): return win_worker_error(c"Fetch requires HTTP(S).")
 	if (strcmp(method, c"GET") != 0): return win_worker_error(c"Form POST requires an HTTP address.")
 	char* filename = win_without_fragment(address)
 	int fd = open(filename, 0, 0)
@@ -272,16 +327,22 @@ struct win_load:
 	char* source
 	int length
 	int limit
+	int status
+	int cache_expires
+	char* request_address
+	char* kind
 
 void win_load_free(win_load* load):
 	if (load == 0): return
 	if (load.child != 0): process_free(load.child)
 	string_free(load.output)
+	free(load.request_address)
+	free(load.kind)
 	if (load.error != 0): free(load.error)
 	if (load.address != 0): free(load.address)
 	free(load)
 
-win_load* win_load_start_kind(char* executable, char* address, char* kind, char* method, char* body):
+win_load* win_load_start_network(char* executable, char* address, char* kind, char* method, char* body, char* origin):
 	win_load* load = new win_load()
 	load.output = string_new()
 	load.started = time_monotonic_ms()
@@ -292,6 +353,32 @@ win_load* win_load_start_kind(char* executable, char* address, char* kind, char*
 	load.source = 0
 	load.length = 0
 	load.limit = WIN_SOURCE_LIMIT
+	load.status = 0
+	load.cache_expires = 0
+	load.request_address = win_without_fragment(address)
+	load.kind = strclone(kind)
+	load.child = 0
+	if (strcmp(method, c"GET") != 0): win_cache_clear()
+	if (strcmp(kind, c"fetch") == 0):
+		URL* from = url_parse(origin)
+		URL* to = url_parse(address)
+		int allowed = from != 0 && to != 0 && url_same_origin(from, to) && strcmp(method, c"GET") == 0
+		if (from != 0): url_free(from)
+		if (to != 0): url_free(to)
+		if (allowed == 0):
+			load.error = strclone(c"Fetch requires a same-origin HTTP(S) GET.")
+			load.finished = 1
+			return load
+	win_cache_entry* cached = 0
+	if (strcmp(method, c"GET") == 0): cached = win_cache_find(load.request_address, kind)
+	if (cached != 0):
+		string_append_bytes(load.output, cached.source, cached.length)
+		load.source = load.output.data
+		load.length = cached.length
+		load.address = strclone(address)
+		load.status = 200
+		load.finished = 1
+		return load
 	if (strcmp(kind, c"image") == 0): load.limit = WIN_IMAGE_RGBA_LIMIT + 8
 	spawn_options* opts = spawn_options_new()
 	opts.stdin_mode = process_null
@@ -309,12 +396,32 @@ win_load* win_load_start_kind(char* executable, char* address, char* kind, char*
 	argv[7] = c"--body"
 	argv[8] = body
 	argv[9] = 0
+	char* snapshot = win_cookie_snapshot()
+	char** cookie_env = env_copy_with(env_current(), c"WIN_COOKIE_SNAPSHOT", snapshot)
+	char** worker_env = env_copy_with(cookie_env, c"WIN_FETCH_ORIGIN", origin)
+	opts.env = worker_env
 	load.child = process_spawn(executable, &argv[0], opts)
+	for i in range(env_vector_count(worker_env)):
+		char* entry = env_entry_at(worker_env, i)
+		if (env_match_name(entry, c"WIN_FETCH_ORIGIN") >= 0): free(entry)
+	for i in range(env_vector_count(cookie_env)):
+		char* entry = env_entry_at(cookie_env, i)
+		if (env_match_name(entry, c"WIN_COOKIE_SNAPSHOT") >= 0): free(entry)
+	free(cast(void*, worker_env))
+	free(cast(void*, cookie_env))
+	free(snapshot)
 	free(opts)
 	if (load.child == 0):
 		load.error = strclone(c"Cannot start resource loader.")
 		load.finished = 1
 	return load
+
+win_load* win_load_start_kind(char* executable, char* address, char* kind, char* method, char* body):
+	return win_load_start_network(executable, address, kind, method, body, c"")
+
+# No main-worker flag changes: origin and cookie snapshot are exec environment.
+win_load* win_load_start_fetch(char* executable, char* address, char* origin, char* method, char* body):
+	return win_load_start_network(executable, address, c"fetch", method, body, origin)
 
 win_load* win_load_start(char* executable, char* address):
 	return win_load_start_kind(executable, address, c"document", c"GET", c"")
@@ -352,7 +459,7 @@ int win_load_poll(win_load* load):
 		if (count == 0):
 			load.eof = 1
 			break
-		if (load.output.length + count > load.limit + WIN_ADDRESS_LIMIT + 16):
+		if (load.output.length + count > load.limit + WIN_ADDRESS_LIMIT + 65536):
 			win_load_fail(load, c"Document exceeds the loading limit.")
 			return 1
 		string_append_bytes(load.output, &chunk[0], count)
@@ -361,14 +468,57 @@ int win_load_poll(win_load* load):
 	if (status == process_status_running): return 0
 	load.finished = 1
 	char* data = load.output.data
+	int metadata_bytes = 0
+	char*[6] cookie_urls
+	char*[6] cookie_headers
+	int cookie_count = 0
+	# Metadata precedes the existing OK/ERROR envelope, including redirect
+	# cookies. Only complete, bounded lines are accepted after child exit.
+	while (starts_with(data, c"COOKIE\n") || starts_with(data, c"STATUS\n") || starts_with(data, c"CACHE\n")):
+		int cookie_record = starts_with(data, c"COOKIE\n")
+		int status_record = starts_with(data, c"STATUS\n")
+		int start = 6
+		if (cookie_record || status_record): start = 7
+		int end = start
+		while (data[end] != 0 && data[end] != 10): end = end + 1
+		if (data[end] != 10): break
+		char* value = substring(data, start, end)
+		int consumed = end + 1
+		if (cookie_record):
+			start = consumed
+			end = start
+			while (data[end] != 0 && data[end] != 10): end = end + 1
+			if (data[end] != 10):
+				free(value)
+				break
+			char* header = substring(data, start, end)
+			if (cookie_count < 6):
+				cookie_urls[cookie_count] = strclone(value)
+				cookie_headers[cookie_count] = header
+				cookie_count = cookie_count + 1
+			else: free(header)
+			consumed = end + 1
+		else if (status_record): load.status = win_net_decimal(value, 599)
+		else:
+			int lifetime = win_net_decimal(value, 86400)
+			if (lifetime > 0): load.cache_expires = time_now() + lifetime - (time_monotonic_ms() - load.started + 999) / 1000
+		free(value)
+		data = data + consumed
+		metadata_bytes = metadata_bytes + consumed
 	if (starts_with(data, c"ERROR\n")): load.error = strclone(data + 6)
 	else if (status != 0 || starts_with(data, c"OK\n") == 0): load.error = strclone(c"Resource loader exited unsuccessfully.")
 	else:
 		int end = 3
-		while (end < load.output.length && data[end] != 10): end = end + 1
-		if (end >= load.output.length || end - 3 > WIN_ADDRESS_LIMIT): load.error = strclone(c"Invalid loader response.")
+		while (end < load.output.length - metadata_bytes && data[end] != 10): end = end + 1
+		if (end >= load.output.length - metadata_bytes || end - 3 > WIN_ADDRESS_LIMIT): load.error = strclone(c"Invalid loader response.")
 		else:
 			load.address = substring(data, 3, end)
 			load.source = data + end + 1
-			load.length = load.output.length - end - 1
+			load.length = load.output.length - metadata_bytes - end - 1
+	int valid_protocol = (status == 0 && load.error == 0) || (status == 1 && starts_with(data, c"ERROR\n"))
+	for i in range(cookie_count):
+		if (valid_protocol): win_cookie_set_many(cookie_urls[i], cookie_headers[i])
+		free(cookie_urls[i])
+		free(cookie_headers[i])
+	if (load.error == 0 && load.cache_expires > 0): win_cache_store(load.request_address, load.kind, load.source, load.length, load.cache_expires)
 	return 1

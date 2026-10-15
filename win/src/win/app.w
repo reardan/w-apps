@@ -9,6 +9,7 @@ struct win_app:
 	ui_tab_state strip
 	char* executable
 	char* home
+	win_storage_context* local_storage
 
 void win_app_init(win_app* app, char* executable, char* home):
 	app.tabs = new list[win_browser*]
@@ -16,11 +17,15 @@ void win_app_init(win_app* app, char* executable, char* home):
 	ui_tab_init(&app.strip)
 	app.executable = strclone(executable)
 	app.home = strclone(home)
+	app.local_storage = win_storage_new()
 
 int win_app_open(win_app* app, char* address, char* base):
 	if (app.tabs.length >= WIN_MAX_TABS): return 0
 	win_browser* tab = new win_browser()
 	win_browser_init(tab, app.executable, app.home)
+	win_storage_free(tab.local_storage)
+	tab.local_storage = app.local_storage
+	tab.owns_local_storage = 0
 	app.tabs.push(tab)
 	app.selected = app.tabs.length - 1
 	win_navigate(tab, address, base, -1)
@@ -44,6 +49,7 @@ void win_app_free(win_app* app):
 		win_browser_free(app.tabs[i])
 		free(app.tabs[i])
 	__w_list_free(cast(__w_list*, app.tabs))
+	win_storage_free(app.local_storage)
 	free(app.executable)
 	free(app.home)
 

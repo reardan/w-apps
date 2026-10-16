@@ -122,7 +122,19 @@ win_module_source* win_modules_add_inline(win_modules* context, char* identifier
 void win_modules_scan(win_modules* context, win_module_source* entry):
 	pg_parse_result* parsed = js_parse_with_limits(entry.source.source, entry.source.length, entry.source.identifier, 1, context.engine.runtime.parse_limits)
 	entry.scanned = 1
-	if (parsed.success == 0): win_modules_fail(context, c"Invalid module syntax or parser limit.")
+	if (parsed.success == 0):
+		string_builder* message = string_from(entry.source.identifier)
+		if (parsed.diagnostics.items.length > 0):
+			pg_diagnostic* first = parsed.diagnostics.items[0]
+			string_append_char(message, ':')
+			string_append_int(message, first.line)
+			string_append_char(message, ':')
+			string_append_int(message, first.column)
+			string_append(message, c": ")
+			string_append(message, first.message)
+		else: string_append(message, c": Invalid module syntax or parser limit.")
+		win_modules_fail(context, message.data)
+		string_free(message)
 	else:
 		for i in range(parsed.root.children.length):
 			pg_ast_node* node = parsed.root.children[i]

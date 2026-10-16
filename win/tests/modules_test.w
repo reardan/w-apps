@@ -68,6 +68,13 @@ void test_unchanged_hosts():
 	js_runtime_free(rt)
 
 int main():
+	js_runtime* diagnostic_runtime = js_runtime_new()
+	win_modules* diagnostic = win_modules_new(diagnostic_runtime, c"/missing-loader", c"/site/index.html")
+	module_source(diagnostic, c"/site/bad.mjs", c"\nexport const = 1;")
+	assert_equal(1, win_modules_poll(diagnostic))
+	assert1(diagnostic.error != 0 && starts_with(diagnostic.error, c"/site/bad.mjs:2:"))
+	win_modules_free(diagnostic)
+	js_runtime_free(diagnostic_runtime)
 	test_module_graph()
 	test_module_limits()
 	test_unchanged_hosts()

@@ -6,6 +6,7 @@ passing this test does not establish support for that host's full JS surface.
 """
 import functools
 import http.server
+import json
 import os
 import pathlib
 import shutil
@@ -32,10 +33,14 @@ thread.start()
 try:
     with tempfile.TemporaryDirectory(prefix='win-wasm-') as directory:
         shot = pathlib.Path(directory) / 'frame.ppm'
+        report = pathlib.Path(directory) / 'report.json'
         result = subprocess.run(display + [WIN, '--page',
             f'http://127.0.0.1:{server.server_port}/win/fixtures/wasm-demo.html',
-            '--frames', '100', '--screenshot', str(shot)], capture_output=True, text=True, timeout=60)
+            '--frames', '100', '--screenshot', str(shot), '--report', str(report)], capture_output=True, text=True, timeout=60)
         assert result.returncode == 0, (result.stdout, result.stderr)
+        diagnostics = json.loads(report.read_text())
+        assert diagnostics['script_failures'] == 0 and diagnostics['resource_failures'] == 0, diagnostics
+        assert diagnostics['title'] == 'W wasm frame 3', diagnostics
         magic, dimensions, maximum, pixels = shot.read_bytes().split(b'\n', 3)
         assert magic == b'P6' and maximum == b'255', (magic, maximum)
         width, height = map(int, dimensions.split())

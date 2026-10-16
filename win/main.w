@@ -1,7 +1,27 @@
 import lib.args
 import lib.stream
+import lib.file
+import structures.json
 import win.app
 import win.script_worker
+
+# Optional machine-readable native-run diagnostics for acceptance tests.
+int win_report(win_browser* browser, char* path):
+	if (path == 0): return 1
+	json_value* report = json_object()
+	json_object_set(report, c"title", json_string(c""))
+	if (browser.page != 0): json_object_set(report, c"title", json_string(browser.page.title))
+	json_object_set(report, c"status", json_string(browser.status))
+	int failures = browser.script_failures
+	if (browser.script != 0): failures = browser.script.failures
+	json_object_set(report, c"script_failures", json_int(failures))
+	json_object_set(report, c"resource_failures", json_int(browser.resource_failures))
+	if (browser.script != 0 && browser.script.error != 0): json_object_set(report, c"script_error", json_string(browser.script.error))
+	char* text = json_stringify(report)
+	int ok = file_write_text(path, text)
+	free(text)
+	json_free(report)
+	return ok
 
 int win_screenshot(char* path, int width, int height):
 	if (width <= 0 || height <= 0 || width > 4096 || height > 4096): return 0
@@ -40,8 +60,11 @@ int main(int argc, int argv):
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--reftest]")
 		return 0
+	if (args_value(c"storage") != 0 && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive"))):
+		println2(c"Persistent storage is not yet shared with isolated workers")
+		return 1
 	char* fetch = args_value(c"fetch")
 	if (fetch != 0):
 		char* method = args_value(c"method")
@@ -83,6 +106,12 @@ int main(int argc, int argv):
 	win_app app
 	win_app_init(&app, args_program(), home)
 	app.isolated = args_has_flag(c"isolated-interactive")
+	char* storage_path = args_value(c"storage")
+	if (storage_path != 0):
+		if (app.isolated || win_storage_open(app.local_storage, storage_path) == 0):
+			println2(c"Cannot open persistent storage (invalid, locked or unavailable in isolated mode)")
+			win_app_free(&app)
+			return 1
 	win_app_open(&app, start, c"")
 	win_browser* browser = app.tabs[0]
 	if (args_has_flag(c"dump")):
@@ -101,6 +130,7 @@ int main(int argc, int argv):
 				print(browser.page.runs[i].text)
 				print(c" ")
 			println(c"")
+		if (win_report(browser, args_value(c"report")) == 0): code = 1
 		win_app_free(&app)
 		win_network_state_clear()
 		return code
@@ -187,6 +217,7 @@ int main(int argc, int argv):
 		if (last): break
 		sleep_ms(16)
 	if (reftest && captured == 0): code = 1
+	if (win_report(app.tabs[app.selected], args_value(c"report")) == 0): code = 1
 	win_app_free(&app)
 	win_network_state_clear()
 	win_script_graphics_available = 0

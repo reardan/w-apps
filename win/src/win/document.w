@@ -61,6 +61,7 @@ struct win_page:
 	int width
 	int viewport_width
 	int viewport_height
+	int viewport_explicit
 	float32 height
 	float32 x
 	float32 y
@@ -995,6 +996,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 
 void win_page_set_viewport(win_page* page, int width, int height):
 	if (page == 0): return
+	page.viewport_explicit = 1
 	if (width < 0): width = 0
 	if (height < 0): height = 0
 	if (page.viewport_width != width || page.viewport_height != height): page.width = 0
@@ -1006,7 +1008,7 @@ void win_page_layout(win_page* page, int width):
 	win_runs_clear(page)
 	win_height_measures_clear(page)
 	page.width = width
-	page.viewport_width = width
+	if (page.viewport_explicit == 0): page.viewport_width = width
 	page.left = 28.0
 	page.right = cast(float32, width) - 28.0
 	page.x = page.left

@@ -45,6 +45,20 @@ void test_browser_initial_viewport():
 	win_browser_free(&browser)
 
 int main():
+	win_browser viewport_browser
+	win_browser_init(&viewport_browser, c"", c"")
+	char* viewport_html = c"<div id='units' style='width:50vw;height:50vh'></div>"
+	viewport_browser.page = win_page_parse(viewport_html, strlen(viewport_html))
+	viewport_browser.script = win_script_new(viewport_browser.page)
+	win_browser_set_viewport(&viewport_browser, 800, 600)
+	win_browser_poll(&viewport_browser)
+	web_script_eval(viewport_browser.script, c"let units=document.getElementById('units');let initial=units.getBoundingClientRect();if(initial.width!==400||initial.height!==300)throw 'CSS viewport uses content layout width';")
+	int layout_width = viewport_browser.page.width
+	win_browser_sync_viewport(&viewport_browser)
+	assert_equal(layout_width, viewport_browser.page.width)
+	win_browser_set_viewport(&viewport_browser, 800, 400)
+	web_script_eval(viewport_browser.script, c"if(units.getBoundingClientRect().height!==200)throw 'height-only resize did not invalidate CSS';")
+	win_browser_free(&viewport_browser)
 	test_web_script()
 	test_browser_initial_viewport()
 	println(c"Win JS location, URLSearchParams, viewport, computed style, canvas and geometry APIs: OK")

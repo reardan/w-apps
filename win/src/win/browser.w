@@ -296,6 +296,7 @@ int win_browser_interactive_event(win_browser* b, html_node* node, int kind, cha
 # Native X11 UI coordinates and framebuffer pixels are 1:1. Headless callers
 # use the explicit initial 920x600 viewport; a GUI realm waits for its surface.
 void win_browser_sync_viewport(win_browser* b):
+	if (b.page != 0): win_page_set_viewport(b.page, b.viewport_width, b.viewport_height)
 	win_script_set_viewport(b.script, b.viewport_width, b.viewport_height, 1.0, 0.0, cast(float64, b.scroll.offset_y))
 	if (b.script != 0): b.script.layout_width = b.width
 

@@ -10,6 +10,7 @@ import win.wasm
 import win.web_host
 import win.text_selection
 import win.events
+import win.event_handlers
 import win.pointer
 import win.focus
 import win.abort
@@ -29,6 +30,7 @@ struct win_dom_binding:
 	js_value* style
 
 struct win_script_listener:
+	int handler
 	html_node* node
 	char* event
 	js_value* callback
@@ -398,6 +400,70 @@ int win_dom_selection_key(js_text* key):
 	if (js_runtime_key_is(key, c"selectionDirection")): return 3
 	return 0
 
+int win_dom_handler_supported(win_dom_binding* binding, int index):
+	if (index < 0): return 0
+	win_script* script = cast(win_script*, binding.context)
+	if (binding.node.kind != HTML_START && binding.node.kind != HTML_DOCUMENT): return 0
+	char* name = win_event_handler_property(index)
+	if (strcmp(name, c"onpopstate") == 0): return binding.node == script.window_node
+	if (strcmp(name, c"onvisibilitychange") == 0): return binding.node == script.page.html.root
+	return 1
+
+# Handler slots participate in registration order; their callback stays on the
+# rooted wrapper so changing it does not disturb shared listener callback roots.
+void win_dom_handler_register(win_dom_binding* binding, int index, int enabled):
+	win_script* script = cast(win_script*, binding.context)
+	char* property = win_event_handler_property(index)
+	char* name = property + 2
+	for i in range(script.listeners.length):
+		win_script_listener* listener = script.listeners[i]
+		if (listener.handler && listener.node == binding.node && strcmp(listener.event, name) == 0):
+			if (enabled == 0): listener.node = 0
+			return
+	if (enabled == 0): return
+	if (script.listeners.length >= 1024):
+		js_runtime_fail(script.runtime, 5, c"DOM handler listener limit")
+		return
+	win_script_listener* listener = new win_script_listener()
+	listener.node = binding.node
+	listener.event = strclone(name)
+	listener.callback = script.runtime.undefined_value
+	listener.handler = 1
+	script.listeners.push(listener)
+
+js_value* win_dom_handler_get(js_runtime* rt, win_dom_binding* binding, js_text* key, int index):
+	js_value* property = js_runtime_property(binding.object, key)
+	if (property != 0): return property.value
+	char* name = win_event_handler_property(index)
+	html_attribute* attr = html_attribute_find(binding.node.attributes, name)
+	if (attr == 0): return js_runtime_alloc(rt, 1)
+	string_builder* source = string_from(c"(function(event){")
+	string_append(source, attr.value)
+	string_append(source, c"});")
+	js_value* callback = js_runtime_compile_function(rt, source.data, source.length)
+	string_free(source)
+	if (rt.completion.status == 0): js_runtime_define_data(rt, binding.object, key, callback, 1, 1, 1)
+	return callback
+
+int win_dom_handler_set(js_runtime* rt, win_dom_binding* binding, js_text* key, js_value* value, int index):
+	int callable = value.kind == 7 || value.kind == 9
+	if (callable == 0): value = js_runtime_alloc(rt, 1)
+	if (js_runtime_define_data(rt, binding.object, key, value, 1, 1, 1) == 0): return -1
+	win_dom_handler_register(binding, index, callable)
+	if (rt.completion.status != 0): return -1
+	return 1
+
+void win_dom_handler_attribute(win_dom_binding* binding, char* name, int present):
+	int index = win_event_handler_attribute(name)
+	if (win_dom_handler_supported(binding, index) == 0): return
+	win_script* script = cast(win_script*, binding.context)
+	js_runtime* rt = script.runtime
+	js_text* key = js_runtime_key(name)
+	if (present): js_runtime_delete(rt, binding.object, key)
+	else: js_runtime_define_data(rt, binding.object, key, js_runtime_alloc(rt, 1), 1, 1, 1)
+	js_text_free(key)
+	win_dom_handler_register(binding, index, present)
+
 # All listed properties operate on native state at the property access itself.
 # Unknown properties fall back to the runtime's ordinary object semantics.
 js_value* win_dom_focus(void* runtime, void* context, js_value* receiver, list[js_value*] args);
@@ -414,6 +480,8 @@ js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text*
 	if (receiver != b.object): return 0
 	js_value* tree_value = win_dom_tree_get(b, key)
 	if (tree_value != 0): return tree_value
+	int handler = win_event_handler_index(key)
+	if (win_dom_handler_supported(b, handler)): return win_dom_handler_get(rt, b, key, handler)
 	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return win_script_wrap(script, win_script_active_element(script))
 	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")): return js_runtime_number(rt, cast(float64, win_focus_tab_index(b.node)))
 	if (win_text_selection_control(b.node) && js_runtime_key_is(key, c"readOnly")): return js_runtime_boolean(rt, win_form_has(b.node, c"readonly"))
@@ -457,6 +525,7 @@ int win_dom_has(void* runtime, void* context, js_value* receiver, js_text* key):
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
 	if (win_dom_tree_key(b, key) != 0): return 1
+	if (win_dom_handler_supported(b, win_event_handler_index(key))): return 1
 	if (b.node == script.window_node): return win_web_viewport_has(key)
 	if (b.node == script.page.html.root):
 		if (js_runtime_key_is(key, c"activeElement") || js_runtime_key_is(key, c"title") || js_runtime_key_is(key, c"readyState")): return 1
@@ -484,6 +553,8 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	if (receiver != b.object): return 0
 	int tree_result = win_dom_tree_set(b, key, value)
 	if (tree_result != 0): return tree_result
+	int handler = win_event_handler_index(key)
+	if (win_dom_handler_supported(b, handler)): return win_dom_handler_set(rt, b, key, value, handler)
 	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return 1
 	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")):
 		if (value.kind != 3):
@@ -679,6 +750,11 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime_set_host_has(rt, b.object, win_dom_has)
 	js_runtime_set_host_hooks(rt, b.style, b, win_style_get, win_style_set)
 	js_runtime_set_host_has(rt, b.style, win_style_has)
+	html_attribute* attr = node.attributes
+	while (attr != 0):
+		int handler = win_event_handler_attribute(attr.name)
+		if (win_dom_handler_supported(b, handler)): win_dom_handler_register(b, handler, 1)
+		attr = attr.next
 	char* name = node.name
 	if (name == 0): name = c"#document"
 	js_runtime_set(rt, object, c"tagName", win_js_string(rt, name))
@@ -862,6 +938,7 @@ js_value* win_script_host(void* context, list[js_value*] args):
 		if (strlen(text) <= 256 && strlen(value) <= 65536 && script.dom_bytes <= 4194304 - strlen(text) - strlen(value)):
 			script.dom_bytes = script.dom_bytes + strlen(text) + strlen(value)
 			win_dom_set_attr(node, text, value)
+			win_dom_handler_attribute(script.bindings[index], text, 1)
 			if (win_tag(node, c"canvas") && (strcmp(text, c"width") == 0 || strcmp(text, c"height") == 0)):
 				win_canvas* canvas = script.bindings[index].canvas
 				if (canvas != 0):
@@ -871,6 +948,7 @@ js_value* win_script_host(void* context, list[js_value*] args):
 		free(value)
 	else if (strcmp(operation, c"removeAttr") == 0):
 		win_dom_remove_attr(node, text)
+		win_dom_handler_attribute(script.bindings[index], text, 0)
 		if (win_tag(node, c"canvas") && (strcmp(text, c"width") == 0 || strcmp(text, c"height") == 0)):
 			win_canvas* canvas = script.bindings[index].canvas
 			if (canvas != 0): win_canvas_resize(canvas, win_dom_canvas_dimension(node, c"width"), win_dom_canvas_dimension(node, c"height"))
@@ -1629,10 +1707,23 @@ void win_script_invoke_listeners(win_script* script, html_node* node, char* name
 		if (listener.node != node || listener.capture != capture || strcmp(listener.event, name) != 0): continue
 		if (listener.once): listener.node = 0
 		win_event_flag_set(event, WIN_EVENT_PASSIVE, listener.passive)
-		js_runtime_call_receiver(rt, listener.callback, receiver, args)
+		js_value* callback = listener.callback
+		if (listener.handler):
+			string_builder* property = string_from(c"on")
+			string_append(property, name)
+			callback = js_runtime_get(rt, receiver, property.data)
+			string_free(property)
+		if (rt.completion.status == 0 && (callback.kind == 7 || callback.kind == 9)):
+			js_value* result = js_runtime_call_receiver(rt, callback, receiver, args)
+			if (listener.handler && rt.completion.status == 0 && result.kind == 2):
+				int cancel = result.number == 0.0
+				if (node == script.window_node && strcmp(name, c"error") == 0): cancel = result.number != 0.0
+				if (cancel): win_event_prevent(rt, event)
 		win_script_sync(script)
 		win_script_event_result(script)
 		win_event_flag_set(event, WIN_EVENT_PASSIVE, 0)
+	for i in range(WIN_EVENT_HANDLER_COUNT):
+		if (strcmp(name, win_event_handler_property(i) + 2) == 0): return
 	if (capture || win_event_flag(event, WIN_EVENT_IMMEDIATE) || rt.remaining <= 0 || rt.completion.status == 5): return
 	string_builder* property_text = string_from(c"on")
 	string_append(property_text, name)

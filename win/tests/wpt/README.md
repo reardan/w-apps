@@ -21,10 +21,13 @@ PPM screenshots and `report.json`, including pixel difference counts and upstrea
 provenance. Python 3.9+, X11/OpenGL (or Xvfb), and the built browser are required.
 Normal runs need no internet access or third-party Python packages.
 
-The manifest pins 12 unmodified HTML tests, their references, and the upstream
+The manifest pins 20 unmodified HTML tests, their references, and the upstream
 BSD license at WPT revision `6d4552a8b1057e42a180119d70273f563e53a264`. Every file
 is SHA-256 verified before execution. Coverage is selected RGB/HSL/hex color
-syntax and filtered nth-child matching/specificity. Reference links are read
+syntax, filtered nth-child matching/specificity, and CSS Variables inheritance,
+invalid computed values, empty/whitespace fallback, and important cascade.
+The eight added variable-reference cases (01–06, 13–14) and their shared green-text
+reference retain their original CC0 notices; no upstream HTML/CSS is adapted. Reference links are read
 from the original HTML. For multiple references, at least one `match` must match
 exactly and all `mismatch` references must differ, following the
 [WPT reftest rules](https://web-platform-tests.org/writing-tests/reftests.html).
@@ -48,7 +51,9 @@ layout or font behavior.
 A reviewed expected `FAIL` can be recorded with a reason. It remains a failure in
 the report's counts; a changed result, including an unexpected pass, fails the
 gate until its expectation is reviewed. The current corpus expects every case
-to pass. Exit codes are 0 for matching expectations, 1 for unexpected outcomes,
+to pass; all 20 have exact native reference matches. The expansion also exposed
+and repaired an existing paragraph/div geometry mismatch through bounded
+[adjacent block margin collapse](../../docs/margin-collapse.md). Exit codes are 0 for matching expectations, 1 for unexpected outcomes,
 and 2 for invalid setup. The report never treats a timeout or harness error as
 an expected rendering failure.
 

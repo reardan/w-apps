@@ -28,7 +28,16 @@
     "css/selectors/nth-child-of-compound-selector.html": "c7f979676b238ac945d6379950ffb270eb1bd4c5ab407cff0252158d4f2f1d44",
     "css/selectors/nth-child-of-compound-selector-ref.html": "af4db26671264000e9c8a9b7c70990e15a02e71cc4d11529cc061047bf1597fe",
     "css/selectors/nth-child-specificity-1.html": "ded76212ba4d6669602c5cf22f1feffba853e82ca35f3f8e4111dcb010b0527a",
-    "css/selectors/nth-child-specificity-1-ref.html": "bdbd506e489f3f0d45484de025989e69513129e9a40f01a1949a692a1e7a3278"
+    "css/selectors/nth-child-specificity-1-ref.html": "bdbd506e489f3f0d45484de025989e69513129e9a40f01a1949a692a1e7a3278",
+    "css/css-variables/variable-reference-01.html": "a8428af734e85f457f82a81f6f75fd3feb6eea9e1a2254df97e6bf75e41e65d7",
+    "css/css-variables/variable-reference-02.html": "f9e04956767dc1107d77339eb2d33f6da283484db89f71dce73bd4a938e20db8",
+    "css/css-variables/variable-reference-03.html": "d3c977f19ec124c2090399646bb751b834375d8821a0bae9e229b66b29e5d123",
+    "css/css-variables/variable-reference-04.html": "eb7c06f94acb10d310c925d966060f0c3a03f0c7c72bb0f1632261e7281c366e",
+    "css/css-variables/variable-reference-05.html": "418ce3e7fbc2b5a9ecc36f881ee7fdc37e3ebc50dfafee8e9f4aa1d651c7d1b0",
+    "css/css-variables/variable-reference-06.html": "27a820dc85afd0584ba153c33ffa12cfd66d291a634de997cd9196d0284ed2dc",
+    "css/css-variables/variable-reference-13.html": "770148d3f2805ac2df97607902d132e75677ec2f2e720ce5b9c2e2ab7fdb4fb9",
+    "css/css-variables/variable-reference-14.html": "cd06bf42a0a1a4a65103a0670dc7444a2f178edfcbac71494cb763688e68d714",
+    "css/css-variables/support/color-green-ref.html": "4326c62090051d7907afd589dd4271f48cd4cee8d9f47cb50adfa2322a299cec"
   },
   "cases": [
     {
@@ -77,6 +86,38 @@
     },
     {
       "path": "css/selectors/nth-child-specificity-1.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-01.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-02.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-03.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-04.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-05.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-06.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-13.html",
+      "expected": "PASS"
+    },
+    {
+      "path": "css/css-variables/variable-reference-14.html",
       "expected": "PASS"
     }
   ]

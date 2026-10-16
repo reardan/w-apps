@@ -271,6 +271,10 @@ win_style win_computed_style(win_page* page, html_node* node, win_style style, w
 	if (winners[0].present): style.author_paint = style.author_paint | WIN_PAINT_TEXT
 	if (winners[8].present): style.author_paint = style.author_paint | WIN_PAINT_BACKGROUND
 	if (winners[20].present || winners[21].present || winners[28].present): style.author_paint = style.author_paint | WIN_PAINT_BORDER
+	# Paragraph UA block margins are 1em of the computed font size.
+	if (win_tag(node, c"p")):
+		if (winners[12].present == 0): style.margin_top = style.size
+		if (winners[14].present == 0): style.margin_bottom = style.size
 	for i in range(expanded.length): css_document_free(expanded[i])
 	__w_list_free(cast(__w_list*, expanded))
 	win_css_custom_free(custom)
@@ -460,7 +464,7 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	style.align = inherited.align
 	style.hidden = inherited.hidden
 	int block = win_block(node) || win_tag(node, c"html") || win_tag(node, c"body") || win_tag(node, c"form") || win_tag(node, c"fieldset") || win_tag(node, c"table") || win_tag(node, c"tr") || win_tag(node, c"hr")
-	if (win_tag(node, c"p") || win_tag(node, c"h1") || win_tag(node, c"h2") || win_tag(node, c"h3") || win_tag(node, c"h4") || win_tag(node, c"h5") || win_tag(node, c"h6") || win_tag(node, c"ul") || win_tag(node, c"ol") || win_tag(node, c"blockquote") || win_tag(node, c"pre")):
+	if (win_tag(node, c"h1") || win_tag(node, c"h2") || win_tag(node, c"h3") || win_tag(node, c"h4") || win_tag(node, c"h5") || win_tag(node, c"h6") || win_tag(node, c"ul") || win_tag(node, c"ol") || win_tag(node, c"blockquote") || win_tag(node, c"pre")):
 		style.margin_top = 10
 		style.margin_bottom = 8
 	# Reader spacing is a UA body default, so author CSS can override it.
@@ -908,6 +912,38 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 	page.y = top
 	if (first > 0): page.y = line_top - style.gap
 
+# Adjacent in-flow block margins share their positive maximum and negative
+# minimum. Parent/child and empty-block-through collapse are separate contracts.
+float32 win_collapsed_margin(float32 before, float32 after):
+	float32 positive = 0.0
+	float32 negative = 0.0
+	if (before > positive): positive = before
+	if (after > positive): positive = after
+	if (before < negative): negative = before
+	if (after < negative): negative = after
+	return positive + negative
+
+void win_layout_normal_children(win_page* page, html_node* parent, win_style inherited, char* href):
+	int adjoining = 0
+	float32 previous_bottom = 0.0
+	html_node* child = parent.first_child
+	while (child != 0 && page.truncated == 0):
+		if (child.kind == HTML_TEXT):
+			int whitespace = inherited.pre == 0
+			for i in range(child.text_length):
+				if (html_space(child.text[i]) == 0): whitespace = 0
+			if (whitespace == 0): adjoining = 0
+			win_layout_node(page, child, inherited, href)
+		else if (win_layout_skipped(child) == 0):
+			win_style style = win_node_style(page, child, inherited)
+			int block = style.display == 1 || style.display == 3 || style.display == 4
+			if (style.display != 0 && style.position == 0):
+				if (block && adjoining): page.y = page.y + win_collapsed_margin(previous_bottom, style.margin_top) - previous_bottom - style.margin_top
+				adjoining = block
+				previous_bottom = style.margin_bottom
+			win_layout_node_style(page, child, style, href, -1.0)
+		child = child.next_sibling
+
 void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width):
 	if (page.truncated || style.display == 0): return
 	if (style.position && node != page.positioned_root):
@@ -1039,10 +1075,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			page.right = row_right
 			page.x = row_left
 			page.y = row_bottom
-		else:
-			while (child != 0 && page.truncated == 0):
-				win_layout_node(page, child, style, href)
-				child = child.next_sibling
+		else: win_layout_normal_children(page, node, style, href)
 
 	if (block):
 		win_line_end(page, 0)

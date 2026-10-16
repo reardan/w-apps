@@ -25,9 +25,9 @@ void wasm_js_test():
 	wasm_eval(rt, c"let asynchronous = 0; WebAssembly.instantiate(bytes).then(function(pair) { asynchronous = pair.instance.exports.f(); });")
 	assert_equal(0, js_runtime_drain_microtasks(rt, 1000000).status)
 	wasm_expect(rt, c"asynchronous === 42;")
-	wasm_eval(rt, c"let streaming = 0; WebAssembly.instantiateStreaming(Promise.resolve({arrayBuffer:function(){return Promise.resolve(bytes.buffer);}})).then(function(pair){streaming=pair.instance.exports.f();});")
+	wasm_eval(rt, c"let streaming = ''; WebAssembly.instantiateStreaming(Promise.resolve({ok:true,status:200,arrayBuffer:function(){return Promise.resolve(bytes.buffer);}})).catch(function(e){streaming=e.name;});")
 	assert_equal(0, js_runtime_drain_microtasks(rt, 1000000).status)
-	wasm_expect(rt, c"streaming === 42;")
+	wasm_expect(rt, c"streaming === 'TypeError';")
 	# Import+export roundtrip of signed i64, preserving precision and type.
 	wasm_expect(rt, c"let wideBytes=new Uint8Array([0,97,115,109,1,0,0,0,1,6,1,96,1,126,1,126,2,7,1,1,101,1,102,0,0,3,2,1,0,7,5,1,1,102,0,1,10,8,1,6,0,32,0,16,0,11]); let wideType=''; let wide=new WebAssembly.Instance(new WebAssembly.Module(wideBytes),{e:{f:function(x){wideType=typeof x;return x;}}}); let huge=BigInt('9007199254740993'); wide.exports.f(huge) === huge && wideType === 'bigint';")
 	wasm_expect(rt, c"let numberRejected=false; try{wide.exports.f(1);}catch(e){numberRejected=e.name==='TypeError';} numberRejected;")
@@ -61,6 +61,12 @@ void wasm_aggregate_test():
 	js_runtime_free(rt)
 
 int main():
+	assert1(win_wasm_mime(c"application/wasm"))
+	assert1(win_wasm_mime(c"\tAPPLICATION/WASM \t"))
+	assert_equal(0, win_wasm_mime(0))
+	assert_equal(0, win_wasm_mime(c"application/wasm;"))
+	assert_equal(0, win_wasm_mime(c"application/wasm; charset=utf-8"))
+	assert_equal(0, win_wasm_mime(c"application/wasm, application/wasm"))
 	wasm_js_test()
 	wasm_allocation_test()
 	wasm_aggregate_test()

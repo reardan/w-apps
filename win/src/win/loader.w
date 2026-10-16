@@ -103,6 +103,15 @@ int win_mime_is(char* header, char* expected):
 	while (header[at] == 32 || header[at] == 9): at = at + 1
 	return header[at] == 0 || header[at] == ';'
 
+# Streaming wasm requires an exact MIME value after HTTP whitespace trimming;
+# parameters (including an empty semicolon) are forbidden by the Web API.
+int win_wasm_mime(char* header):
+	if (header == 0): return 0
+	char* trimmed = http_trimmed_value(header, 0, strlen(header))
+	int valid = win_net_equal(trimmed, c"application/wasm")
+	free(trimmed)
+	return valid
+
 int win_resource_redirect(void* context, URL* before, URL* after, int status):
 	if (strcmp(before.scheme, c"https") == 0 && strcmp(after.scheme, c"https") != 0): return 0
 	return 1
@@ -210,6 +219,8 @@ http_stream* win_form_http_open(http_req* req):
 		int lifetime = 0
 		if (strcmp(original_method, c"GET") == 0): lifetime = win_cache_lifetime(stream.resp, credentialed)
 		string_append_int(metadata, lifetime)
+		string_append(metadata, c"\nWASM-MIME\n")
+		string_append_int(metadata, win_wasm_mime(http_response_header(stream.resp, c"content-type")))
 		string_append(metadata, c"\n")
 		win_write(metadata.data, metadata.length)
 		string_free(metadata)
@@ -328,6 +339,7 @@ struct win_load:
 	int length
 	int limit
 	int status
+	int wasm_mime
 	int cache_expires
 	char* request_address
 	char* kind
@@ -377,6 +389,7 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 		load.length = cached.length
 		load.address = strclone(address)
 		load.status = 200
+		load.wasm_mime = cached.wasm_mime
 		load.finished = 1
 		return load
 	if (strcmp(kind, c"image") == 0): load.limit = WIN_IMAGE_RGBA_LIMIT + 8
@@ -474,11 +487,13 @@ int win_load_poll(win_load* load):
 	int cookie_count = 0
 	# Metadata precedes the existing OK/ERROR envelope, including redirect
 	# cookies. Only complete, bounded lines are accepted after child exit.
-	while (starts_with(data, c"COOKIE\n") || starts_with(data, c"STATUS\n") || starts_with(data, c"CACHE\n")):
+	while (starts_with(data, c"COOKIE\n") || starts_with(data, c"STATUS\n") || starts_with(data, c"CACHE\n") || starts_with(data, c"WASM-MIME\n")):
 		int cookie_record = starts_with(data, c"COOKIE\n")
 		int status_record = starts_with(data, c"STATUS\n")
+		int mime_record = starts_with(data, c"WASM-MIME\n")
 		int start = 6
 		if (cookie_record || status_record): start = 7
+		if (mime_record): start = 10
 		int end = start
 		while (data[end] != 0 && data[end] != 10): end = end + 1
 		if (data[end] != 10): break
@@ -499,6 +514,7 @@ int win_load_poll(win_load* load):
 			else: free(header)
 			consumed = end + 1
 		else if (status_record): load.status = win_net_decimal(value, 599)
+		else if (mime_record): load.wasm_mime = strcmp(value, c"1") == 0
 		else:
 			int lifetime = win_net_decimal(value, 86400)
 			if (lifetime > 0): load.cache_expires = time_now() + lifetime - (time_monotonic_ms() - load.started + 999) / 1000
@@ -520,5 +536,8 @@ int win_load_poll(win_load* load):
 		if (valid_protocol): win_cookie_set_many(cookie_urls[i], cookie_headers[i])
 		free(cookie_urls[i])
 		free(cookie_headers[i])
-	if (load.error == 0 && load.cache_expires > 0): win_cache_store(load.request_address, load.kind, load.source, load.length, load.cache_expires)
+	if (load.error == 0 && load.cache_expires > 0):
+		win_cache_store(load.request_address, load.kind, load.source, load.length, load.cache_expires)
+		win_cache_entry* stored = win_cache_find(load.request_address, load.kind)
+		if (stored != 0): stored.wasm_mime = load.wasm_mime
 	return 1

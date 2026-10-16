@@ -10,7 +10,25 @@ struct win_fetch_request:
 	char* bytes
 	int length
 	int consumed
+	int status
+	int wasm_mime
 	char* failure
+
+# Native response identity and metadata cannot be forged by assigning JS fields.
+js_value* win_fetch_response_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_fetch_request* request = cast(win_fetch_request*, context)
+	if (receiver != request.response): return 0
+	if (js_runtime_key_is(key, c"bodyUsed")): return js_runtime_boolean(rt, request.consumed)
+	if (js_runtime_key_is(key, c"status")): return js_runtime_number(rt, cast(float64, request.status))
+	if (js_runtime_key_is(key, c"ok")): return js_runtime_boolean(rt, request.status >= 200 && request.status < 300)
+	return 0
+
+win_fetch_request* win_fetch_response(js_value* value):
+	if (value == 0 || value.host_get != cast(int, win_fetch_response_get)): return 0
+	win_fetch_request* request = cast(win_fetch_request*, value.host_context)
+	if (request.response != value): return 0
+	return request
 
 struct win_fetch_context:
 	js_runtime* runtime
@@ -135,6 +153,9 @@ int win_fetch_poll(win_fetch_context* context):
 				request.response = js_runtime_alloc(rt, 5)
 				if (request.response != rt.undefined_value): js_runtime_root(rt, request.response)
 				if (rt.completion.status == 0):
+					request.status = load.status
+					request.wasm_mime = load.wasm_mime
+					js_runtime_set_host_hooks(rt, request.response, request, win_fetch_response_get, 0)
 					js_runtime_set(rt, request.response, c"status", js_runtime_number(rt, cast(float64, load.status)))
 					js_runtime_set(rt, request.response, c"ok", js_runtime_boolean(rt, load.status >= 200 && load.status < 300))
 					js_runtime_set(rt, request.response, c"url", win_fetch_string(rt, load.address, strlen(load.address)))

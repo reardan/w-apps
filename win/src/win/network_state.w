@@ -201,6 +201,7 @@ void win_cookie_restore(char* snapshot):
 # Cache only explicitly fresh, unvarying, credential-free 200 GET responses.
 # The parent stores already decoded/validated worker payloads, at most 8 MiB.
 struct win_cache_entry:
+	int wasm_mime
 	char* address
 	char* kind
 	char* source
@@ -316,7 +317,9 @@ void win_cache_store(char* address, char* kind, char* source, int length, int ex
 	win_cache_entry* e = new win_cache_entry()
 	e.address = strclone(address)
 	e.kind = strclone(kind)
-	e.source = substring(source, 0, length)
+	# Resource bodies include wasm and decoded pixels, so embedded NUL bytes
+	# must not truncate the allocation while retaining the original length.
+	e.source = str_copy_range(source, 0, length)
 	e.length = length
 	e.expires = expires
 	win_cache[slot] = e

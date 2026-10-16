@@ -2,6 +2,7 @@
 # Realm owns modules and host contexts; release before js_runtime_free.
 import libs.extras.javascript.runtime
 import libs.extras.wasm.runtime
+import win.fetch
 
 struct win_wasm_object:
 	void* realm
@@ -346,8 +347,7 @@ js_value* win_wasm_dispatch(void* runtime, void* context, js_value* receiver, li
 		else: wwasm_free(m)
 		return value
 	if (action == 8 || action == 9 || action == 30):
-		# Buffered Response compatibility: consume arrayBuffer, then compile.
-		# No MIME verification or incremental compilation is claimed here.
+		# Buffered compilation with native Response/MIME/status validation.
 		js_value* promise = js_runtime_promise_new(rt)
 		js_runtime_promise_settle(rt, promise, first, 0)
 		int next_action = 31
@@ -355,10 +355,15 @@ js_value* win_wasm_dispatch(void* runtime, void* context, js_value* receiver, li
 		js_value* imports = second
 		int operation = action
 		if (action == 30):
+			win_fetch_request* response = win_fetch_response(first)
+			if (response == 0): return win_wasm_error(rt, c"TypeError", c"WebAssembly streaming requires a Response")
+			if (response.wasm_mime == 0): return win_wasm_error(rt, c"TypeError", c"WebAssembly streaming requires application/wasm without parameters")
+			if (response.status < 200 || response.status >= 300): return win_wasm_error(rt, c"TypeError", c"WebAssembly streaming requires a successful response")
+			if (response.consumed): return win_wasm_error(rt, c"TypeError", c"WebAssembly streaming response body already consumed")
 			imports = method.imports
 			operation = method.index
 			list[js_value*] empty = new list[js_value*]
-			js_value* buffer = js_runtime_call_receiver(rt, js_runtime_get(rt, first, c"arrayBuffer"), first, empty)
+			js_value* buffer = win_fetch_array_buffer(rt, response, first, empty)
 			__w_list_free(cast(__w_list*, empty))
 			if (rt.completion.status != 0): return rt.undefined_value
 			promise = js_runtime_promise_new(rt)

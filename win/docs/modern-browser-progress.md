@@ -145,6 +145,13 @@ remains unchanged. Mouse pointer/capture and native focus/UTF-16 selection now h
 Integrated native input acceptance now passes pointer focus, KEY/CHAR and
 CHAR-only Unicode edits (Nativeé🙂), rendered wasm-field changes, sink reset and
 Backspace. Reproduce with `xvfb-run -a python3 win/tests/mobile_native_acceptance.py`.
+The expanded scenario also passes resize from 390×720 to 360×360, wheel
+scrolling inside wasm (61,082 changed canvas pixels without outer scrolling),
+and 30 further frames. `mobile_native_reference.py` repeats this input/resize
+sequence in Chromium 145.0.7632.6. Edited and narrow screenshots were visually
+compared: field text and geometry match, including the application’s stretched
+typography and right-edge field cropping. Native screenshots and source hashes
+are recorded under `win/bin/modern-browser/mobile-native/`.
 The driver uses portable native event records, not synthetic JavaScript events;
 platform key translation and complete IME behavior remain separate gaps. Author body margins now control the page origin
 and root/body backgrounds cover the viewport; see [root layout](root-layout.md). No host or bridge is rewritten.

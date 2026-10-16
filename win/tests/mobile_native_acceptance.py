@@ -5,6 +5,8 @@ Uses the explicit 200M task budget required by this measured application;
 production's default 1M limit is unchanged. No host rewriting or JS injection.
 """
 import functools
+import hashlib
+import json
 import http.server
 import os
 from pathlib import Path
@@ -15,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
+    output = ROOT / 'win/bin/modern-browser/mobile-native'
+    output.mkdir(parents=True, exist_ok=True)
     compiler = ROOT / 'w/bin/wv2'
     imports = ['--import-root', str(ROOT / 'win/src'), '--import-root', str(ROOT / 'w')]
     probe = ROOT / 'win/bin/mobile-native-probe'
@@ -35,7 +39,35 @@ def main():
     display = [] if os.environ.get('DISPLAY') else ['xvfb-run', '-a']
     try:
         page = f'http://127.0.0.1:{server.server_port}/w/tools/web/index.html?module=/w/bin/graphics_ui_mobile.wasm'
-        return subprocess.run(display + [str(probe), '--browser', str(browser), '--page', page], timeout=240).returncode
+        shots = {name: output / f'{name}.ppm' for name in ('edited', 'narrow', 'scrolled')}
+        result = subprocess.run(display + [str(probe), '--browser', str(browser), '--page', page,
+            '--screenshot', str(shots['edited']), '--narrow-screenshot', str(shots['narrow']),
+            '--scrolled-screenshot', str(shots['scrolled'])], timeout=240, check=True)
+        frames = {}
+        sizes = {}
+        for name, path in shots.items():
+            magic, dimensions, maximum, pixels = path.read_bytes().split(b'\n', 3)
+            width, height = map(int, dimensions.split())
+            assert magic == b'P6' and maximum == b'255' and len(pixels) == width * height * 3
+            frames[name] = pixels
+            sizes[name] = [width, height]
+        assert sizes['narrow'] == sizes['scrolled'] == [360, 360], sizes
+        changed = sum(frames['narrow'][i:i+3] != frames['scrolled'][i:i+3]
+                      for i in range(0, len(frames['narrow']), 3))
+        assert changed > 5000, ('inner wasm scroll did not change enough pixels', changed)
+        sources = [*(ROOT / 'w/tools/web').glob('*.mjs'), ROOT / 'w/tools/web/index.html',
+                   ROOT / 'w/graphics/ui/mobile_demo_web.w', ROOT / 'w/graphics/ui/mobile_demo_shared.w',
+                   ROOT / 'w/bin/graphics_ui_mobile.wasm']
+        report = {'status': 'PASS', 'execution_budget': 200000000,
+                  'scope': 'portable native event seam, not platform key translation',
+                  'checks': ['pointer focus', 'Unicode field editing', 'sink reset', 'Backspace',
+                             'viewport resize', 'inner wheel scrolling', '30 sustained frames'],
+                  'sizes': sizes, 'scroll_changed_pixels': changed,
+                  'source_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                    for p in sources},
+                  'w_commit': subprocess.check_output(['git', '-C', str(ROOT / 'w'), 'rev-parse', 'HEAD'], text=True).strip()}
+        (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
+        return result.returncode
     finally:
         server.shutdown()
         server.server_close()

@@ -2,7 +2,10 @@
 # Assertions inspect the rendered Wasm field and memory, never mutate JS state.
 import lib.args
 import lib.assert
+import lib.stream
 import win.app
+
+extern int XResizeWindow(int display, int window, int width, int height)
 
 struct mobile_driver:
 	win_browser browser
@@ -10,11 +13,13 @@ struct mobile_driver:
 	ui_renderer renderer
 	ui_theme theme
 	gfx_window* window
+	int width
+	int height
 
 void mobile_frame(mobile_driver* driver):
 	win_browser_poll(&driver.browser)
-	ui_begin(&driver.ui, 414, 902)
-	win_browser_frame(&driver.browser, &driver.ui, 414, 902)
+	ui_begin(&driver.ui, driver.width, driver.height)
+	win_browser_frame(&driver.browser, &driver.ui, driver.width, driver.height)
 	ui_end(&driver.ui)
 	if (driver.browser.script != 0):
 		if (driver.browser.script.failures): println(driver.browser.script.error)
@@ -73,12 +78,41 @@ int mobile_field_pixels(win_canvas* canvas):
 	win_canvas_leave(canvas)
 	return hash
 
+void mobile_shot(win_canvas* canvas, char* path):
+	if (path == 0): return
+	assert1(win_canvas_enter(canvas))
+	int width = canvas.width
+	int height = canvas.height
+	char* pixels = cast(char*, malloc(width * height * 4))
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels)
+	win_canvas_leave(canvas)
+	wstream* out = stream_open_write(path)
+	assert1(out != 0)
+	stream_write_cstr(out, c"P6\n")
+	stream_write_int(out, width)
+	stream_write_cstr(out, c" ")
+	stream_write_int(out, height)
+	stream_write_cstr(out, c"\n255\n")
+	char* row = cast(char*, malloc(width * 3))
+	int y = height - 1
+	while (y >= 0):
+		for x in range(width):
+			for c in range(3): row[x * 3 + c] = pixels[(y * width + x) * 4 + c]
+		stream_write(out, row, width * 3)
+		y = y - 1
+	io_result result
+	assert_equal(IO_OK, stream_close_checked(out, &result))
+	free(row)
+	free(pixels)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	char* executable = args_value(c"browser")
 	char* address = args_value(c"page")
 	if (executable == 0 || address == 0): return 2
 	mobile_driver driver
+	driver.width = 414
+	driver.height = 902
 	driver.window = gfx_window_open(c"Unchanged mobile native input acceptance", 414, 902)
 	assert1(driver.window != 0)
 	assert1(ui_render_init(&driver.renderer))
@@ -132,11 +166,34 @@ int main(int argc, int argv):
 	mobile_frame(&driver)
 	asserts(c"native Backspace edits Wasm field by a Unicode scalar", mobile_memory_contains(machine, c"Nativeé"))
 	assert_strings_equal(c"​", win_attr(editor, c"value"))
+	mobile_shot(binding.canvas, args_value(c"screenshot"))
+	driver.width = 384
+	driver.height = 542
+	XResizeWindow(driver.window.display, driver.window.window, driver.width, driver.height)
+	XSync(driver.window.display, 0)
+	assert1(gfx_window_poll(driver.window))
+	for i in range(3): mobile_frame(&driver)
+	assert_equal(360, driver.browser.viewport_width)
+	assert_equal(360, driver.browser.viewport_height)
+	assert_equal(360, binding.canvas.width)
+	assert_equal(360, binding.canvas.height)
+	mobile_shot(binding.canvas, args_value(c"narrow-screenshot"))
+	# Wheel delivery must reach the inner wasm scroll region and cancel the
+	# outer page's default scroll. Coordinates remain inside the resized canvas.
+	int outer_scroll = cast(int, driver.browser.scroll.offset_y)
+	ui_rect viewport = ui_rect_new(12.0, 138.0, 360.0, 360.0)
+	asserts(c"wheel coordinate hits native canvas", win_browser_pointer_hit(&driver.browser, viewport, 100, 300) == binding.node)
+	for i in range(10): mobile_event(&driver, GFX_EVENT_SCROLL, -1, 100, 300)
+	for i in range(3): mobile_frame(&driver)
+	assert_equal(outer_scroll, cast(int, driver.browser.scroll.offset_y))
+	mobile_shot(binding.canvas, args_value(c"scrolled-screenshot"))
+	for i in range(30): mobile_frame(&driver)
+	asserts(c"text survives resize and continued rendering", mobile_memory_contains(machine, c"Nativeé"))
 	assert_equal(0, driver.browser.script.failures)
 	win_browser_free(&driver.browser)
 	win_network_state_clear()
 	win_script_graphics_available = 0
 	ui_render_destroy(&driver.renderer)
 	gfx_window_destroy(driver.window)
-	println(c"Unchanged M2 native input: pointer focus, Unicode rendered field, sink reset, Backspace: OK")
+	println(c"Unchanged M2 native input: pointer focus, Unicode rendered field, sink reset, Backspace, resize, scrolling, sustained frames: OK")
 	return 0

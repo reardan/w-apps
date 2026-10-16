@@ -58,6 +58,8 @@ struct win_browser:
 	ui_textarea_state input
 	ui_scroll_state scroll
 
+void win_browser_interactive_input(win_browser* b, ui_context* ctx, ui_rect viewport);
+void win_browser_interactive_cancel(win_browser* b);
 void win_browser_history_install(win_browser* b);
 void win_browser_history_poll(win_browser* b);
 void win_browser_history_address(win_browser* b);
@@ -351,11 +353,17 @@ void win_browser_poll_interactive(win_browser* b):
 			win_commit_address(b, worker.address, target)
 			win_scroll_fragment(b)
 			if (target >= 0): b.scroll.offset_y = b.history[target].scroll
+		b.scroll.offset_y = cast(float32, worker.scroll_y)
 		b.script_failures = worker.script_failures
 		b.resource_failures = worker.resource_failures
 		win_status(b, c"Isolated content · worker canvas frames")
 		if (b.script_failures || b.resource_failures): win_status(b, c"Isolated content completed with script or resource errors")
 	if (win_resources_poll(b.resources) && b.page != 0): win_page_layout(b.page, b.width)
+	while (worker.input_queue.length):
+		int sent = win_interactive_send_input(worker)
+		if (sent > 0): return
+		if (sent == 0): break
+		win_status(b, c"Discarded input for an old document")
 	# Leave a UI frame after each reply for input before scheduling another tick.
 	if (process_monotonic_ms() - b.interactive_tick >= 100):
 		win_interactive_request(worker, 1, 0, c"")
@@ -474,6 +482,7 @@ void win_browser_submit(win_browser* b, html_node* submitter):
 
 void win_browser_form_events(win_browser* b):
 	if (b.forms == 0): return
+	if (b.isolated && b.interactive != 0 && b.interactive.document_generation > 0): return
 	if (b.isolated):
 		if (b.forms.changed != 0): win_browser_interactive_event(b, b.forms.changed, 3, win_attr(b.forms.changed, c"value"))
 		else if (b.forms.clicked != 0): win_browser_interactive_event(b, b.forms.clicked, 2, c"")
@@ -530,7 +539,10 @@ html_node* win_browser_pointer_hit(win_browser* b, ui_rect viewport, int x, int 
 	return node
 
 void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport):
-	if (b.isolated || b.script == 0):
+	if (b.isolated):
+		win_browser_interactive_input(b, ctx, viewport)
+		return
+	if (b.script == 0):
 		win_native_clear(&b.native_input)
 		return
 	if (b.native_input.overflow):
@@ -752,6 +764,8 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		ui_scroll_end(ctx, &b.scroll)
 		win_browser_sync_viewport(b)
 	else:
+		# No document owns these records while initial navigation is pending.
+		win_native_clear(&b.native_input)
 		ui_draw_text(ctx.rndr, 40.0, 174.0, c"Open a document to begin", 3, ctx.theme.text)
 		ui_draw_text(ctx.rndr, 40.0, 212.0, c"Enter a local HTML path or an HTTP/HTTPS address above.", 2, ctx.theme.text_muted)
 	ui_clip_push(ctx.rndr, ui_rect_new(12.0, h - 34.0, w - 24.0, 28.0))
@@ -781,3 +795,5 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		b.script.dirty = 0
 
 import win.browser_history
+
+import win.browser_input

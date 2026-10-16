@@ -7,6 +7,7 @@ import structures.string
 import win.frame_surface
 import win.execution
 import win.sandbox
+import win.interactive_input
 
 const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
@@ -31,6 +32,17 @@ struct win_interactive_worker:
 	int generation
 	int viewport_width
 	int viewport_height
+	int document_generation
+	int focus_node
+	int selection_start
+	int selection_end
+	int selection_direction
+	int scroll_y
+	int input_mouse_x
+	int input_mouse_y
+	int input_mods
+	int input_present
+	list[win_interactive_input*] input_queue
 	int stage
 	int frame_count
 	int frame_index
@@ -67,6 +79,7 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	worker.viewport_height = height
 	worker.surfaces = new list[win_frame_surface*]
 	worker.pending_surfaces = new list[win_frame_surface*]
+	worker.input_queue = new list[win_interactive_input*]
 	if (generation > 0):
 		worker.receiver = win_frame_receiver_new(generation)
 		worker.decoder = win_frame_decoder_new(WIN_INTERACTIVE_PIXELS)
@@ -155,7 +168,7 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	if (socket_set_nonblocking(parent_fd) < 0): win_interactive_fail(worker, 7, c"Cannot configure interactive socket")
 	return worker
 
-# Wire header: WINT0001, payload bytes, sequence, kind, reserved zero (int32).
+# Wire header: WINT0001, payload bytes, sequence, kind, revision (int32).
 # Legacy callers keep text snapshots and do not require an X display.
 win_interactive_worker* win_interactive_start(char* executable, char* address, char* home, int timeout_ms, int max_bytes):
 	return win_interactive_start_config(executable, address, home, timeout_ms, max_bytes, 0, 800, 600, WIN_EXECUTION_DEFAULT)
@@ -201,6 +214,66 @@ int win_interactive_request(win_interactive_worker* worker, int kind, int node_i
 	if (worker.decoder != 0): worker.decoder.limit = WIN_INTERACTIVE_PIXELS
 	return 1
 
+# Queued input is owned by this worker generation. Eight whole UI batches
+# bound memory and latency; overflow terminates visibly rather than losing UP.
+int win_interactive_enqueue(win_interactive_worker* worker, win_interactive_input* batch):
+	if (worker == 0 || worker.child == 0 || batch == 0): return 0
+	if (batch.generation != worker.generation || batch.document != worker.document_generation || win_interactive_input_valid(batch) == 0): return 0
+	if (worker.input_queue.length):
+		win_interactive_input* last = worker.input_queue[worker.input_queue.length - 1]
+		if (last.document == batch.document && last.width == batch.width && last.height == batch.height):
+			# Motion already comes from a coalesced backend snapshot. Retain its
+			# latest value while blocked; never coalesce across a button/key edge.
+			if (last.native.count == 0 && batch.native.count == 0):
+				last.mouse_x = batch.mouse_x
+				last.mouse_y = batch.mouse_y
+				last.mods = batch.mods
+				free(batch)
+				return 1
+			# Adjacent text/key frames at one pointer position share one packet.
+			# This keeps fast typing bounded by records rather than frame rate.
+			int text_only = 1
+			for i in range(last.native.count):
+				int kind = last.native.events[i].kind
+				if ((kind >= GFX_EVENT_MOUSE_DOWN && kind <= GFX_EVENT_SCROLL) || kind == GFX_EVENT_SCROLL_PIXELS || kind == GFX_EVENT_POINTER_CANCEL): text_only = 0
+			for i in range(batch.native.count):
+				int kind = batch.native.events[i].kind
+				if ((kind >= GFX_EVENT_MOUSE_DOWN && kind <= GFX_EVENT_SCROLL) || kind == GFX_EVENT_SCROLL_PIXELS || kind == GFX_EVENT_POINTER_CANCEL): text_only = 0
+			if (text_only && last.mouse_x == batch.mouse_x && last.mouse_y == batch.mouse_y && last.mods == batch.mods && last.native.count + batch.native.count <= 64):
+				for i in range(batch.native.count): win_native_push(&last.native, &batch.native.events[i])
+				free(batch)
+				return 1
+	if (worker.input_queue.length >= WIN_INPUT_BATCHES):
+		win_interactive_fail(worker, 5, c"Isolated input queue overflow; content stopped")
+		return 0
+	worker.input_queue.push(batch)
+	return 1
+
+int win_interactive_send_input(win_interactive_worker* worker):
+	if (worker == 0 || worker.child == 0 || worker.busy || worker.input_queue.length == 0): return 0
+	win_interactive_input* batch = worker.input_queue[0]
+	for i in range(1, worker.input_queue.length): worker.input_queue[i - 1] = worker.input_queue[i]
+	worker.input_queue.pop()
+	if (batch.document != worker.document_generation):
+		free(batch)
+		return -1
+	string_builder* payload = win_interactive_input_encode(batch)
+	free(batch)
+	if (payload == 0 || payload.length > worker.limit - 24):
+		string_free(payload)
+		win_interactive_fail(worker, 5, c"Invalid isolated input batch")
+		return 0
+	# Reuse the single outstanding request and ACK state machine.
+	if (win_interactive_request(worker, 1, 0, c"") == 0):
+		string_free(payload)
+		return 0
+	win_interactive_header(worker.outgoing, worker.sequence, 5)
+	save_int32(worker.outgoing.data + 20, 2)
+	save_int32(worker.outgoing.data + 8, payload.length)
+	string_append_bytes(worker.outgoing, payload.data, payload.length)
+	string_free(payload)
+	return 1
+
 # Snapshot payload: script/resource failures (int32), then address, title,
 # HTML as three NUL-terminated UTF-8 strings. No raw pointers cross IPC.
 int win_interactive_validate(win_interactive_worker* worker):
@@ -212,7 +285,7 @@ int win_interactive_validate(win_interactive_worker* worker):
 	if (scripts < 0 || scripts > 100000 || resources < 0 || resources > 100000): return 0
 	int text_at = 32
 	int kind = load_int32(data + 16)
-	if (kind == 101):
+	if (kind == 101 || kind == 102):
 		if (worker.generation == 0 || size < 39): return 0
 		int count = load_int32(data + 32)
 		if (count < 0 || count > WIN_INTERACTIVE_CANVASES || size < 39 + count * 4): return 0
@@ -225,6 +298,25 @@ int win_interactive_validate(win_interactive_worker* worker):
 				if (worker.frame_nodes[j] == id): return 0
 			worker.frame_nodes[i] = id
 	else if (kind != 100 || worker.generation > 0): return 0
+	if (kind == 102):
+		if (size < text_at + 39 || load_int32(data + 20) != 2): return 0
+		int generation = load_int32(data + text_at)
+		int document = load_int32(data + text_at + 4)
+		int focus = load_int32(data + text_at + 8)
+		int first_unit = load_int32(data + text_at + 12)
+		int last_unit = load_int32(data + text_at + 16)
+		int direction = load_int32(data + text_at + 20)
+		int scroll = load_int32(data + text_at + 24)
+		int width = load_int32(data + text_at + 28)
+		int height = load_int32(data + text_at + 32)
+		if (generation != worker.generation || document < 1 || focus < 0 || focus > 20000 || first_unit < 0 || last_unit < first_unit || last_unit > 65536 || direction < 0 || direction > 2 || scroll < 0 || scroll > 16777216 || width < 1 || width > 4096 || height < 1 || height > 4096): return 0
+		worker.document_generation = document
+		worker.focus_node = focus
+		worker.selection_start = first_unit
+		worker.selection_end = last_unit
+		worker.selection_direction = direction
+		worker.scroll_y = scroll
+		text_at = text_at + 36
 	int first = -1
 	int second = -1
 	int last = -1
@@ -340,7 +432,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 			if (length < 11 || length > worker.limit - 24):
 				win_interactive_fail(worker, 5, c"Interactive declared size exceeds limit")
 				return -1
-			if (starts_with(data, c"WINT0001") == 0 || load_int32(data + 12) != worker.sequence || (load_int32(data + 16) != 100 && load_int32(data + 16) != 101) || load_int32(data + 20) != 0 || worker.incoming.length > length + 24):
+			if (starts_with(data, c"WINT0001") == 0 || load_int32(data + 12) != worker.sequence || (load_int32(data + 16) != 100 && load_int32(data + 16) != 101 && load_int32(data + 16) != 102) || (load_int32(data + 20) != 0 && (load_int32(data + 16) != 102 || load_int32(data + 20) != 2)) || worker.incoming.length > length + 24):
 				win_interactive_fail(worker, 4, c"Invalid interactive response")
 				return -1
 			if (worker.incoming.length == length + 24):
@@ -365,4 +457,6 @@ void win_interactive_free(win_interactive_worker* worker):
 	win_frame_surfaces_clear(worker.pending_surfaces)
 	__w_list_free(cast(__w_list*, worker.surfaces))
 	__w_list_free(cast(__w_list*, worker.pending_surfaces))
+	for win_interactive_input* batch in worker.input_queue: free(batch)
+	__w_list_free(cast(__w_list*, worker.input_queue))
 	free(worker)

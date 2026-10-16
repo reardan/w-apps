@@ -334,6 +334,25 @@ int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes,
 				for i in range(4): string_append_char(output, 0)
 				save_int32(output.data + offset, id)
 		save_int32(output.data + 32, canvases.length)
+		# Revision 2 returns the worker-owned document focus, selection and scroll.
+		save_int32(output.data + 16, 102)
+		save_int32(output.data + 20, 2)
+		int at = output.length
+		for i in range(36): string_append_char(output, 0)
+		save_int32(output.data + at, sender.generation)
+		save_int32(output.data + at + 4, browser.document_generation)
+		if (browser.script != 0):
+			html_node* focused = browser.script.active_focus
+			for i in range(nodes.length):
+				if (nodes[i] == focused): save_int32(output.data + at + 8, i + 1)
+			win_dom_binding* binding = win_input_binding(browser.script, focused)
+			if (binding != 0 && win_text_selection_applies(focused)):
+				save_int32(output.data + at + 12, binding.selection.start)
+				save_int32(output.data + at + 16, binding.selection.end)
+				save_int32(output.data + at + 20, binding.selection.direction)
+		save_int32(output.data + at + 24, cast(int, browser.scroll.offset_y))
+		save_int32(output.data + at + 28, browser.viewport_width)
+		save_int32(output.data + at + 32, browser.viewport_height)
 	if (ok): ok = win_interactive_append(output, browser.address, limit - 3)
 	string_append_char(output, 0)
 	if (ok): ok = win_interactive_append(output, browser.page.title, limit - 2)
@@ -401,6 +420,12 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	win_browser_set_viewport(&browser, width, height)
 	win_navigate(&browser, address, c"", -1)
 	list[html_node*] nodes = new list[html_node*]
+	ui_renderer renderer
+	ui_render_init_headless(&renderer)
+	ui_theme theme
+	ui_theme_light(&theme)
+	ui_context ctx
+	ui_context_init(&ctx, &renderer, &theme)
 	int sequence = 0
 	int running = 1
 	while (running):
@@ -408,7 +433,9 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		while (win_browser_loading(&browser)):
 			win_browser_poll(&browser)
 			sleep_ms(2)
-		win_script_frame_at(browser.script, process_monotonic_ms())
+		ui_begin(&ctx, browser.viewport_width + 24, browser.viewport_height + 182)
+		win_browser_frame(&browser, &ctx, browser.viewport_width + 24, browser.viewport_height + 182)
+		ui_end(&ctx)
 		if (win_interactive_child_snapshot(&browser, nodes, sequence, limit, sender) == 0): break
 		char[24] header
 		if (win_interactive_child_read(&header[0], 24) == 0): break
@@ -424,23 +451,45 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		if (generation > 0):
 			prefix = 12
 			revision = 1
-		if (running == 0 || length < prefix || length > 65536 + prefix || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 4 || load_int32(&header[20]) != revision): break
+		if (kind == 5):
+			prefix = WIN_INPUT_PREFIX
+			revision = 2
+		if (running == 0 || length < prefix || length > 65536 + prefix || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 5 || load_int32(&header[20]) != revision || (kind == 5 && generation == 0)): break
 		char* payload = cast(char*, malloc(length + 1))
 		payload[length] = 0
 		int ok = win_interactive_child_read(payload, length)
-		for i in range(prefix, length):
-			if (payload[i] == 0): ok = 0
-		if (ok && generation > 0):
-			int next_width = load_int32(payload + 4)
-			int next_height = load_int32(payload + 8)
-			if (next_width < 1 || next_width > 4096 || next_height < 1 || next_height > 4096): ok = 0
-			else: win_browser_set_viewport(&browser, next_width, next_height)
-		if (ok && utf8_validate_bytes(payload + prefix, length - prefix)):
-			win_interactive_child_event(&browser, nodes, kind, load_int32(payload), payload + prefix)
-		else: running = 0
+		if (kind == 5 && ok):
+			win_interactive_input* input = win_interactive_input_decode(payload, length, generation, browser.document_generation)
+			if (input == 0): ok = 0
+			else:
+				win_browser_set_viewport(&browser, input.width, input.height)
+				for i in range(input.native.count):
+					gfx_event event = input.native.events[i]
+					if (event.kind == GFX_EVENT_MOUSE_DOWN || event.kind == GFX_EVENT_MOUSE_UP || event.kind == GFX_EVENT_SCROLL || event.kind == GFX_EVENT_SCROLL_PIXELS):
+						event.x = event.x + 12
+						event.y = event.y + 138
+					ui_feed_event(&ctx, &event)
+					win_native_push(&browser.native_input, &event)
+				ctx.input.mouse_x = input.mouse_x + 12
+				ctx.input.mouse_y = input.mouse_y + 138
+				ctx.input.mods = input.mods
+				free(input)
+		else if (ok):
+			for i in range(prefix, length):
+				if (payload[i] == 0): ok = 0
+			if (generation > 0):
+				int next_width = load_int32(payload + 4)
+				int next_height = load_int32(payload + 8)
+				if (next_width < 1 || next_width > 4096 || next_height < 1 || next_height > 4096): ok = 0
+				else: win_browser_set_viewport(&browser, next_width, next_height)
+			if (ok && utf8_validate_bytes(payload + prefix, length - prefix)):
+				win_interactive_child_event(&browser, nodes, kind, load_int32(payload), payload + prefix)
+			else: ok = 0
+		if (ok == 0): running = 0
 		free(payload)
 		sequence = next
 	win_browser_free(&browser)
+	ui_render_destroy(&renderer)
 	win_frame_sender_free(sender)
 	win_script_graphics_available = 0
 	win_worker_graphics_free(graphics)

@@ -42,7 +42,7 @@ def receive(sock, count):
 
 def first_frame(sock):
     magic, size, seq, kind, reserved = struct.unpack('<8siiii', receive(sock, 24))
-    assert (magic, seq, kind, reserved) == (b'WINT0001', 0, 101, 0)
+    assert (magic, seq, kind, reserved) == (b'WINT0001', 0, 102, 2)
     payload = receive(sock, size)
     scripts, resources, count, node = struct.unpack('<4i', payload[:16])
     assert (scripts, resources, count) == (0, 0, 1) and node > 0
@@ -105,7 +105,7 @@ try:
     shot = OUTPUT / 'M1-isolated.ppm'
     diagnostics = OUTPUT / 'M1-window.json'
     result = subprocess.run([WIN, '--isolated-interactive', '--page', url,
-        '--frames', '360', '--screenshot', str(shot), '--report', str(diagnostics)],
+        '--reftest', '--screenshot', str(shot), '--report', str(diagnostics)],
         capture_output=True, text=True, timeout=45)
     assert result.returncode == 0, (result.stdout, result.stderr)
     window = json.loads(diagnostics.read_text())

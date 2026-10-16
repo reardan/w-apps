@@ -70,7 +70,7 @@ than ignored. Loading uses cancellable child processes and existing deadlines.
 The returned native Promise fulfills with `status`, `ok`, `url`, `bodyUsed`, and
 `text()`, and `arrayBuffer()`. HTTP error statuses still fulfill; transport failures reject.
 `text()` and `arrayBuffer()` return Promises and share a single-use body. Bodies
-are limited to 1 MiB each; `text()` additionally requires valid UTF-8 and at most
+are limited to 4 MiB each; `text()` additionally requires valid UTF-8 and at most
 64 KiB. Binary bodies are preserved byte-for-byte. Encoding replacement for text,
 streaming, JSON/blob helpers, headers, AbortSignal, and XHR remain unsupported. A page allows three
 concurrent fetches, 64 requests over its lifetime, and 4 MiB of retained body

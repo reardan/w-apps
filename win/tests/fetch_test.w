@@ -94,7 +94,7 @@ void test_fetch_budgets():
 	win_script* script = fetch_script()
 	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
 	string_builder* text = string_new()
-	for i in range(1048577): string_append_char(text, 'x')
+	for i in range(WIN_FETCH_LIMIT + 1): string_append_char(text, 'x')
 	win_fetch_request* exact = fetch_result(context, text.data, 65536, 200)
 	js_value* exact_promise = exact.promise
 	js_runtime_set(script.runtime, script.runtime.global, c"exact", exact_promise)
@@ -102,7 +102,7 @@ void test_fetch_budgets():
 	assert_equal(2, exact_promise.promise_state)
 	assert_equal(65536, context.bytes)
 	assert_equal(65536, exact.length)
-	win_fetch_request* large = fetch_result(context, text.data, 1048577, 200)
+	win_fetch_request* large = fetch_result(context, text.data, WIN_FETCH_LIMIT + 1, 200)
 	js_value* large_promise = large.promise
 	js_runtime_set(script.runtime, script.runtime.global, c"large", large_promise)
 	win_fetch_poll(context)

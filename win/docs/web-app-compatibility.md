@@ -34,7 +34,7 @@ code at the end of W's generated startup wrapper.
   methods and exact wasm i64 crossings use a distinct bounded BigInt primitive
   covering [-2^63, 2^64-1]; arbitrary-precision arithmetic is not implemented.
 - Fetch: same-origin HTTP(S) GET with single-use `text()` and `arrayBuffer()`.
-  Binary bodies may contain NUL and invalid UTF-8. Bodies are limited to 1 MiB
+  Binary bodies may contain NUL and invalid UTF-8. Bodies are limited to 4 MiB
   each and 4 MiB retained per page; text decoding retains its 64 KiB/valid-UTF-8
   restriction. Options, CORS, XHR, headers, streams, and JSON/blob helpers are
   not implemented.

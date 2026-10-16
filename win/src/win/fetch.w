@@ -147,7 +147,7 @@ int win_fetch_poll(win_fetch_context* context):
 		js_runtime_begin(rt, 100000)
 		if (load.error != 0): win_fetch_reject(rt, request.promise, load.error)
 		else if (request.failure != 0): win_fetch_reject(rt, request.promise, request.failure)
-		else if (load.length > 1048576 || (request.response == 0 && context.bytes > 4194304 - load.length)): win_fetch_reject(rt, request.promise, c"Fetch response byte budget exceeded")
+		else if (load.length > WIN_FETCH_LIMIT || (request.response == 0 && context.bytes > 4194304 - load.length)): win_fetch_reject(rt, request.promise, c"Fetch response byte budget exceeded")
 		else:
 			if (request.response == 0):
 				request.response = js_runtime_alloc(rt, 5)

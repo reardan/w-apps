@@ -11,6 +11,8 @@ import libs.standard.web.content_decode
 import libs.extras.compress.codecs
 
 const int WIN_SOURCE_LIMIT = 1048576
+# The unchanged mobile UI wasm is 1.7 MiB; only Fetch gets the larger limit.
+const int WIN_FETCH_LIMIT = 4194304
 const int WIN_ADDRESS_LIMIT = 4096
 
 int win_remote(char* address):
@@ -253,6 +255,7 @@ int win_fetch_payload(char* address, char* source, int length, char* kind):
 int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
 	win_cookie_restore(env_get(c"WIN_COOKIE_SNAPSHOT"))
 	int limit = WIN_SOURCE_LIMIT
+	if (strcmp(kind, c"fetch") == 0): limit = WIN_FETCH_LIMIT
 	if (strcmp(kind, c"image") == 0): limit = WIN_IMAGE_INPUT_LIMIT
 	if (strlen(body) > 65536): return win_worker_error(c"Form body exceeds 64 KiB.")
 	if (win_remote(address)):
@@ -365,6 +368,7 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 	load.source = 0
 	load.length = 0
 	load.limit = WIN_SOURCE_LIMIT
+	if (strcmp(kind, c"fetch") == 0): load.limit = WIN_FETCH_LIMIT
 	load.status = 0
 	load.cache_expires = 0
 	load.request_address = win_without_fragment(address)

@@ -9,6 +9,8 @@ import threading
 WIN = str(pathlib.Path(sys.argv[1]).resolve())
 REQUESTS = []
 PAGES = {
+    '/large-binary': "fetch('/exact-limit-data').then(function(r){return r.arrayBuffer();}).then(function(b){if(b.byteLength!==4194304) throw 'size';document.title='fetch-limit-complete';});",
+    '/over-binary': "fetch('/over-limit-data').catch(function(){document.title='fetch-limit-rejected';});",
     '/binary': "fetch('/invalid-data').then(function(r){return r.arrayBuffer();}).then(function(b){const v=new Uint8Array(b);if(v.length!==1 || v[0]!==255) throw 'binary';document.title='binary-complete';});",
     '/success': "fetch('/data').then(function(r){if(r.status===200 && r.ok && !r.bodyUsed){return r.text();}throw 'bad response';}).then(function(t){document.title=t;});",
     '/status': "fetch('/missing').then(function(r){if(r.status===404 && !r.ok){return r.text();}throw 'bad status';}).then(function(t){document.title=t;});",
@@ -46,6 +48,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             status, body = 404, b'http-error-body'
         elif self.path == '/invalid-data':
             body = b'\xff'
+        elif self.path == '/exact-limit-data':
+            body = b'x' * 4194304
+        elif self.path == '/over-limit-data':
+            body = b'x' * 4194305
         elif self.path == '/large-data':
             body = b'x' * 65537
         else:
@@ -60,7 +66,8 @@ server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
 thread.start()
 try:
-    cases = [('/binary', 'binary-complete'), ('/success', 'fetch-complete'), ('/status', 'http-error-body'),
+    cases = [('/large-binary', 'fetch-limit-complete'), ('/over-binary', 'fetch-limit-rejected'),
+             ('/binary', 'binary-complete'), ('/success', 'fetch-complete'), ('/status', 'http-error-body'),
              ('/twice', 'body-consumed'), ('/redirect', 'fetch-complete'),
              ('/cross', 'cross-blocked'), ('/redirect-cross', 'redirect-blocked'),
              ('/invalid', 'utf8-rejected'), ('/large', 'size-rejected'),
@@ -75,4 +82,4 @@ finally:
     server.shutdown()
     server.server_close()
     thread.join()
-print('fetch integration passed (11 cases)')
+print('fetch integration passed (13 cases)')

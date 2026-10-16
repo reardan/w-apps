@@ -74,7 +74,7 @@ existing cancellable `win_load`. Poll with `win_load_poll()` and free with
 URL, and `load.source`/`load.length` the decoded body. HTTP 4xx/5xx are successful
 transport responses; network/protocol failures set `load.error`.
 
-This increment supports HTTP(S) GET only, with a 1 MiB decoded body limit, a
+This increment supports HTTP(S) GET only, with a 4 MiB decoded body limit, a
 10-second worker deadline and a 12-second parent watchdog. The initial URL and
 **every redirect** must match the supplied origin's scheme, host and effective
 port. Foreign redirects are rejected before making the next request. MIME is

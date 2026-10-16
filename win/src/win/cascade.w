@@ -119,12 +119,14 @@ int win_css_longhand_valid(int property, css_document* css, int first, int last)
 	if (win_css_calc(css, first, last)):
 		win_css_math math = win_css_math_parse(css, first, last)
 		if (math.kind == 1): return property == 2 || property == 27 || property == 29 || property == 30
-		if (math.kind == 4 || math.kind == 6): return property == 1 || property == 9 || property == 11 || property == 27 || property == 31
-		if (math.kind == 2): return property == 1 || property >= 9 && property <= 20 || property == 24 || property == 27 || property == 31
+		if (math.kind == 4 || math.kind == 6): return property == 1 || property == 9 || property == 11 || property == 27 || property == 31 || property >= 37 && property <= 40
+		if (math.kind == 2): return property == 1 || property >= 9 && property <= 20 || property == 24 || property == 27 || property == 31 || property >= 37 && property <= 40
 		return 0
 	if (single == 0): return 0
 	win_css_numeric n = win_css_number(token)
 	int length = win_css_is_length(n)
+	if (property == 36): return win_css_ident(token, c"static") || win_css_ident(token, c"fixed")
+	if (property >= 37 && property <= 40): return length || n.unit == 5 || win_css_ident(token, c"auto")
 	if (property == 1): return n.value >= 0.0 && (length || n.unit == 5)
 	if (property == 2): return win_css_ident(token, c"normal") || win_css_ident(token, c"bold") || win_css_ident(token, c"bolder") || win_css_ident(token, c"lighter") || n.unit == 1 && n.value >= 1.0 && n.value <= 1000.0
 	if (property == 3): return win_css_ident(token, c"normal") || win_css_ident(token, c"italic") || win_css_ident(token, c"oblique")
@@ -318,7 +320,7 @@ list[css_document*] win_css_pending(win_css_specified* winners, list[win_css_cus
 		string_free(text)
 		documents.push(css)
 		if (css.failed || css.nodes.length != 1): continue
-		win_css_specified[36] resolved
+		win_css_specified[41] resolved
 		for i in range(WIN_CSS_PROPERTY_COUNT): resolved[i].present = 0
 		if (win_css_collect(css, css.nodes[0], slot.key, &resolved[0]) && resolved[p].present && resolved[p].pending == 0): slot[0] = resolved[p]
 	return documents
@@ -330,6 +332,8 @@ int win_css_inherited(int property):
 	return property == 0 || property == 1 || property == 2 || property == 3 || property == 6 || property == 7 || property == 23 || property == 27
 
 void win_css_copy(win_style* s, win_style from, int property):
+	if (property == 36): s.position = from.position
+	if (property >= 37 && property <= 40): s.insets[property - 37] = from.insets[property - 37]
 	if (property == 0): s.color = from.color
 	if (property == 1): s.size = from.size
 	if (property == 2): s.bold = from.bold
@@ -426,11 +430,18 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 				offset = n
 				n = math.terms[5]
 		# Calc range restrictions clamp at computed/used time, after math.
-		if (n < 0.0 && (property < 12 || property > 15) && number.unit != 5): n = 0.0
+		if (n < 0.0 && (property < 12 || property > 15) && property < 37 && number.unit != 5): n = 0.0
 		number.value = n
 	# Keep finite used lengths bounded without float-to-int overflow.
 	if (n > 1000000.0): n = 1000000.0
 	if (n < -1000000.0): n = -1000000.0
+	if (property == 36): s.position = win_css_ident(token, c"fixed")
+	if (property >= 37 && property <= 40):
+		int side = property - 37
+		s.insets[side].specified = win_css_ident(token, c"auto") == 0
+		s.insets[side].percent = number.unit == 5
+		s.insets[side].value = n
+		s.insets[side].offset = offset
 	if (property == 0 || property == 8 || property == 21):
 		ui_color color = s.color
 		if (property == 0 && win_css_ident(token, c"currentcolor")): color = inherited.color

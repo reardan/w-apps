@@ -8,6 +8,7 @@ import graphics.ui.text
 import lib.utf8
 
 struct win_run:
+	int fixed
 	int hidden
 	html_node* node
 	win_image* image
@@ -22,10 +23,12 @@ struct win_run:
 	ui_color color
 
 struct win_anchor:
+	int fixed
 	char* id
 	float32 y
 
 struct win_box:
+	int fixed
 	int hidden
 	html_node* node
 	float32 x
@@ -47,7 +50,21 @@ struct win_height_measure:
 	float32 width
 	float32 height
 
+# Deferred fixed roots are laid out after normal flow. Their children share
+# viewport coordinates, while nested fixed roots get a fresh containing block.
+struct win_fixed_item:
+	html_node* node
+	win_style style
+	char* href
+	float32 x
+	float32 y
+
 struct win_page:
+	list[win_fixed_item*] fixed_items
+	html_node* positioned_root
+	int fixed_context
+	int measuring
+	float32 scroll_y
 	html_node* layout_node
 	list[win_image*] images
 	list[win_height_measure*] height_measures
@@ -75,6 +92,9 @@ struct win_page:
 	int truncated
 
 void win_runs_clear(win_page* page):
+	if (page.fixed_items != 0):
+		for i in range(page.fixed_items.length): free(page.fixed_items[i])
+		while (page.fixed_items.length > 0): page.fixed_items.pop()
 	for i in range(page.runs.length):
 		free(page.runs[i].text)
 		free(page.runs[i])
@@ -91,6 +111,7 @@ void win_height_measures_clear(win_page* page):
 void win_page_free(win_page* page):
 	if (page == 0): return
 	win_runs_clear(page)
+	__w_list_free(cast(__w_list*, page.fixed_items))
 	win_height_measures_clear(page)
 	__w_list_free(cast(__w_list*, page.height_measures))
 	win_images_free(page.images)
@@ -221,7 +242,7 @@ list[win_css_custom*] win_node_custom(win_page* page, html_node* node):
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
 	style.viewport_width = cast(float32, page.viewport_width)
 	style.viewport_height = cast(float32, page.viewport_height)
-	win_css_specified[36] winners
+	win_css_specified[41] winners
 	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	int order = 0
 	for i in range(page.stylesheets.length):
@@ -263,6 +284,7 @@ win_page* win_page_parse(char* source, int length):
 		html_document_free(html)
 		return 0
 	win_page* page = new win_page()
+	page.fixed_items = new list[win_fixed_item*]
 	page.html = html
 	page.images = new list[win_image*]
 	page.height_measures = new list[win_height_measure*]
@@ -351,6 +373,7 @@ void win_word(win_page* page, char* word, win_style style, char* href):
 		free(tail)
 		return
 	win_run* run = new win_run()
+	run.fixed = page.fixed_context
 	run.hidden = style.hidden
 	run.node = page.layout_node
 	run.image = 0
@@ -403,6 +426,7 @@ win_box* win_page_node_box(win_page* page, html_node* node):
 
 win_box* win_box_add(win_page* page, html_node* node, win_style style, float32 x, float32 y, float32 width, float32 height):
 	win_box* box = new win_box()
+	box.fixed = page.fixed_context
 	box.hidden = style.hidden
 	box.node = node
 	box.x = x
@@ -428,7 +452,7 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	style.align = inherited.align
 	style.hidden = inherited.hidden
 	int block = win_block(node) || win_tag(node, c"html") || win_tag(node, c"body") || win_tag(node, c"form") || win_tag(node, c"fieldset") || win_tag(node, c"table") || win_tag(node, c"tr") || win_tag(node, c"hr")
-	if (block && win_tag(node, c"body") == 0 && win_tag(node, c"html") == 0):
+	if (win_tag(node, c"p") || win_tag(node, c"h1") || win_tag(node, c"h2") || win_tag(node, c"h3") || win_tag(node, c"h4") || win_tag(node, c"h5") || win_tag(node, c"h6") || win_tag(node, c"ul") || win_tag(node, c"ol") || win_tag(node, c"blockquote") || win_tag(node, c"pre")):
 		style.margin_top = 10
 		style.margin_bottom = 8
 	# Reader spacing is a UA body default, so author CSS can override it.
@@ -451,6 +475,19 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	return win_computed_style(page, node, style, inherited)
 
 void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width);
+
+void win_fixed_enqueue(win_page* page, html_node* node, win_style style, char* href):
+	if (page.measuring): return
+	if (page.fixed_items.length >= 20000):
+		page.truncated = 1
+		return
+	win_fixed_item* item = new win_fixed_item()
+	item.node = node
+	item.style = style
+	item.href = href
+	item.x = page.x
+	item.y = page.y
+	page.fixed_items.push(item)
 
 int win_layout_skipped(html_node* node):
 	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return 1
@@ -572,7 +609,7 @@ win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style
 		int visible = child.kind == HTML_TEXT
 		if (child.kind == HTML_START && win_layout_skipped(child) == 0):
 			child_style = win_node_style(page, child, style)
-			visible = child_style.display != 0
+			visible = child_style.display != 0 && child_style.position == 0
 		if (visible):
 			win_intrinsic_size size = win_intrinsic_node(page, child, child_style)
 			if (child.kind == HTML_START):
@@ -603,14 +640,15 @@ win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style
 	if (inline_max > result.max_content): result.max_content = inline_max
 	return result
 
-list[win_layout_item*] win_layout_items(win_page* page, html_node* container, win_style style):
+list[win_layout_item*] win_layout_items_link(win_page* page, html_node* container, win_style style, char* href):
 	list[win_layout_item*] items = new list[win_layout_item*]
 	html_node* child = container.first_child
 	while (child != 0):
 		if (child.kind == HTML_START):
 			if (win_layout_skipped(child) == 0):
 				win_style computed = win_node_style(page, child, style)
-				if (computed.display != 0):
+				if (computed.display != 0 && computed.position): win_fixed_enqueue(page, child, computed, href)
+				if (computed.display != 0 && computed.position == 0):
 					win_layout_item* item = new win_layout_item()
 					item.first = child
 					item.end = child.next_sibling
@@ -640,6 +678,9 @@ list[win_layout_item*] win_layout_items(win_page* page, html_node* container, wi
 				items.push(item)
 			string_free(text)
 	return items
+
+list[win_layout_item*] win_layout_items(win_page* page, html_node* container, win_style style):
+	return win_layout_items_link(page, container, style, c"")
 
 # Translate all geometry emitted by an item together, preserving descendant
 # painting, hit testing, form boxes and fragment anchors after alignment.
@@ -673,6 +714,7 @@ float32 win_column_content_height(win_page* page, win_layout_item* item, float32
 	# Measurement owns geometry only; the HTML, images, styles and memo table
 	# remain borrowed. Nothing from this pass enters painting or hit testing.
 	win_page* probe = new win_page()
+	probe.measuring = 1
 	probe.html = page.html
 	probe.images = page.images
 	probe.stylesheets = page.stylesheets
@@ -711,7 +753,7 @@ float32 win_column_content_height(win_page* page, win_layout_item* item, float32
 	return height
 
 void win_layout_flex(win_page* page, html_node* node, win_style style, char* href):
-	list[win_layout_item*] items = win_layout_items(page, node, style)
+	list[win_layout_item*] items = win_layout_items_link(page, node, style, href)
 	float32 left = page.left
 	float32 right = page.right
 	float32 top = page.y
@@ -860,6 +902,9 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 
 void win_layout_node_style(win_page* page, html_node* node, win_style style, char* href, float32 used_width):
 	if (page.truncated || style.display == 0): return
+	if (style.position && node != page.positioned_root):
+		win_fixed_enqueue(page, node, style, href)
+		return
 	int block = style.display == 1 || style.display == 3 || style.display == 4
 	if (win_tag(node, c"a") && html_attribute_find(node.attributes, c"href") != 0): href = win_attr(node, c"href")
 	page.layout_node = node
@@ -895,6 +940,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	char* id = win_attr(node, c"id")
 	if (id[0] != 0):
 		win_anchor* anchor = new win_anchor()
+		anchor.fixed = page.fixed_context
 		anchor.id = id
 		anchor.y = page.y
 		page.anchors.push(anchor)
@@ -914,6 +960,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			float32 ih = dimensions.height
 			if (page.x + iw > page.right && page.x > page.left): win_line_end(page, 0)
 			win_run* run = new win_run()
+			run.fixed = page.fixed_context
 			run.hidden = style.hidden
 			run.node = node
 			run.image = image
@@ -942,7 +989,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 		if (style.display == 3):
 			win_layout_flex(page, node, style, href)
 		else if (style.display == 4):
-			list[win_layout_item*] items = win_layout_items(page, node, style)
+			list[win_layout_item*] items = win_layout_items_link(page, node, style, href)
 			int columns = style.columns
 			if (columns < 1): columns = 1
 			float32 row_left = page.left
@@ -1000,6 +1047,108 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	page.align = align
 	if (block): page.x = left
 
+# Store fixed geometry in document coordinates so existing painting, native
+# hit testing, selection and DOM rectangles all use the same scroll transform.
+void win_page_set_scroll(win_page* page, float32 scroll):
+	if (page == 0): return
+	float32 delta = scroll - page.scroll_y
+	if (delta == 0.0): return
+	for i in range(page.boxes.length):
+		if (page.boxes[i].fixed): page.boxes[i].y = page.boxes[i].y + delta
+	for i in range(page.runs.length):
+		if (page.runs[i].fixed): page.runs[i].y = page.runs[i].y + delta
+	for i in range(page.anchors.length):
+		if (page.anchors[i].fixed): page.anchors[i].y = page.anchors[i].y + delta
+	page.scroll_y = scroll
+
+float32 win_fixed_inset(win_inset inset, float32 extent):
+	if (inset.percent): return win_css_bound_length(cast(float64, inset.value) * cast(float64, extent) / 100.0 + cast(float64, inset.offset))
+	return inset.value
+
+void win_layout_fixed(win_page* page, win_fixed_item* item):
+	win_page saved = page[0]
+	win_style style = item.style
+	float32 width = cast(float32, page.viewport_width)
+	float32 height = cast(float32, page.viewport_height)
+	float32 top = win_fixed_inset(style.insets[0], height)
+	float32 right = win_fixed_inset(style.insets[1], width)
+	float32 bottom = win_fixed_inset(style.insets[2], height)
+	float32 left = win_fixed_inset(style.insets[3], width)
+	int has_top = style.insets[0].specified
+	int has_right = style.insets[1].specified
+	int has_bottom = style.insets[2].specified
+	int has_left = style.insets[3].specified
+	float32 available = width
+	if (has_left): available = available - left
+	if (has_right): available = available - right
+	if (available < 0.0): available = 0.0
+	# Percentages always resolve against the viewport, not the inset-reduced
+	# available space. An auto width stretches only with both sides specified.
+	if (style.width_percent):
+		style.width = win_css_bound_length(cast(float64, style.width) * cast(float64, width) / 100.0 + cast(float64, style.width_offset))
+		if (style.width < 0.0): style.width = 0.0
+		style.width_percent = 0
+		style.width_offset = 0.0
+	if (style.max_width_percent):
+		style.max_width = win_css_bound_length(cast(float64, style.max_width) * cast(float64, width) / 100.0 + cast(float64, style.max_width_offset))
+		if (style.max_width < 0.0): style.max_width = 0.0
+		style.max_width_percent = 0
+		style.max_width_offset = 0.0
+	if (style.width < 0.0 && (has_left == 0 || has_right == 0)):
+		win_intrinsic_size intrinsic = win_intrinsic_node(page, item.node, style)
+		float32 content = available - win_box_horizontal_extras(style) - style.margin_left - style.margin_right
+		if (content < intrinsic.min_content): content = intrinsic.min_content
+		if (content > intrinsic.max_content): content = intrinsic.max_content
+		style.width = content
+		if (style.box_sizing): style.width = style.width + win_box_horizontal_extras(style)
+	int replaced = win_layout_control(item.node) || win_tag(item.node, c"canvas") || win_tag(item.node, c"img")
+	if (style.height < 0.0 && has_top && has_bottom && replaced == 0):
+		style.height = height - top - bottom - style.margin_top - style.margin_bottom
+		if (style.box_sizing == 0): style.height = style.height - win_box_vertical_extras(style)
+		if (style.height < 0.0): style.height = 0.0
+	if (style.display == 2): style.display = 1
+	page.positioned_root = item.node
+	page.fixed_context = 1
+	page.left = 0.0
+	if (has_left): page.left = left
+	else if (has_right == 0): page.left = item.x
+	page.right = page.left + available
+	page.x = page.left
+	page.y = 0.0
+	if (has_top): page.y = top
+	else if (has_bottom == 0): page.y = item.y
+	page.line_start = page.runs.length
+	page.line_height = 0
+	page.ascent = 0
+	page.descent = 0
+	page.space = 0
+	int box_first = page.boxes.length
+	int run_first = page.runs.length
+	int anchor_first = page.anchors.length
+	int fixed_first = page.fixed_items.length
+	win_layout_node_style(page, item.node, style, item.href, -1.0)
+	win_line_end(page, 0)
+	win_box* root = page.boxes[box_first]
+	float32 dx = 0.0
+	float32 dy = 0.0
+	if (has_left == 0 && has_right): dx = width - right - style.margin_right - root.width - root.x
+	if (has_top == 0 && has_bottom): dy = height - bottom - style.margin_bottom - root.height - root.y
+	for i in range(box_first, page.boxes.length):
+		page.boxes[i].x = page.boxes[i].x + dx
+		page.boxes[i].y = page.boxes[i].y + dy
+	for i in range(run_first, page.runs.length):
+		page.runs[i].x = page.runs[i].x + dx
+		page.runs[i].y = page.runs[i].y + dy
+	for i in range(anchor_first, page.anchors.length): page.anchors[i].y = page.anchors[i].y + dy
+	# Only static-position fallback follows a moved ancestor. Explicit nested
+	# fixed insets remain relative to the viewport.
+	for i in range(fixed_first, page.fixed_items.length):
+		page.fixed_items[i].x = page.fixed_items[i].x + dx
+		page.fixed_items[i].y = page.fixed_items[i].y + dy
+	int truncated = page.truncated
+	page[0] = saved
+	page.truncated = truncated
+
 void win_page_set_viewport(win_page* page, int width, int height):
 	if (page == 0): return
 	page.viewport_explicit = 1
@@ -1039,6 +1188,8 @@ void win_page_layout(win_page* page, int width):
 	if (width < 160): width = 160
 	win_runs_clear(page)
 	win_height_measures_clear(page)
+	float32 scroll = page.scroll_y
+	page.scroll_y = 0.0
 	page.width = width
 	if (page.viewport_explicit == 0): page.viewport_width = width
 	page.left = 0.0
@@ -1075,6 +1226,11 @@ void win_page_layout(win_page* page, int width):
 	page.height = page.y
 	if (bottom > page.height): page.height = bottom
 	win_page_canvas_background(page, root, root_style, body, body_style)
+	int fixed = 0
+	while (fixed < page.fixed_items.length && page.truncated == 0):
+		win_layout_fixed(page, page.fixed_items[fixed])
+		fixed = fixed + 1
+	win_page_set_scroll(page, scroll)
 
 char* win_page_hit(win_page* page, float32 x, float32 y):
 	for i in range(page.runs.length):

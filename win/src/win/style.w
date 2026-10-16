@@ -7,9 +7,18 @@ import lib.fmath
 import win.selectors
 import win.css_values
 
-const int WIN_CSS_PROPERTY_COUNT = 36
+const int WIN_CSS_PROPERTY_COUNT = 41
+
+# Insets keep their percentage component until viewport layout.
+struct win_inset:
+	int specified
+	int percent
+	float32 value
+	float32 offset
 
 struct win_style:
+	int position
+	win_inset[4] insets
 	float32 size
 	float32 root_size
 	float32 viewport_width
@@ -64,6 +73,12 @@ struct win_style:
 
 win_style win_default_style():
 	win_style s
+	s.position = 0
+	for i in range(4):
+		s.insets[i].specified = 0
+		s.insets[i].percent = 0
+		s.insets[i].value = 0.0
+		s.insets[i].offset = 0.0
 	s.size = 18
 	s.root_size = 18
 	s.viewport_width = 920.0
@@ -206,6 +221,11 @@ int win_css_property(char* name):
 	if (css_ascii_equal(name, c"flex-shrink")): return 30
 	if (css_ascii_equal(name, c"flex-basis")): return 31
 	if (css_ascii_equal(name, c"justify-content")): return 32
+	if (css_ascii_equal(name, c"position")): return 36
+	if (css_ascii_equal(name, c"top")): return 37
+	if (css_ascii_equal(name, c"right")): return 38
+	if (css_ascii_equal(name, c"bottom")): return 39
+	if (css_ascii_equal(name, c"left")): return 40
 	return -1
 
 float32 win_css_color_clamp(float32 value):

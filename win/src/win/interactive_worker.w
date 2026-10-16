@@ -6,6 +6,7 @@ import lib.utf8
 import structures.string
 import win.frame_surface
 import win.execution
+import win.sandbox
 
 const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
@@ -85,7 +86,9 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	string_append_int(limit, max_bytes)
 	string_builder* parent = string_new()
 	string_append_int(parent, getpid())
-	char** environment = env_copy_with(env_current(), c"WIN_SCRIPT_WORKER_PARENT", parent.data)
+	char** environment = 0
+	if (win_sandbox_requested()): environment = win_sandbox_environment(getpid())
+	else: environment = env_copy_with(env_current(), c"WIN_SCRIPT_WORKER_PARENT", parent.data)
 	string_builder* config = string_new()
 	string_append_int(config, generation)
 	string_append_char(config, 0)
@@ -97,7 +100,7 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	string_append_char(config, 0)
 	int budget_at = config.length
 	string_append_int(config, budget)
-	char*[17] argv
+	char*[19] argv
 	argv[0] = executable
 	argv[1] = c"--interactive-worker"
 	argv[2] = c"--page"
@@ -115,6 +118,10 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	argv[14] = c"--execution-budget"
 	argv[15] = config.data + budget_at
 	argv[16] = 0
+	if (win_sandbox_requested()):
+		argv[16] = c"--sandbox-root"
+		argv[17] = win_sandbox_root
+		argv[18] = 0
 	int pid = fork()
 	if (pid == 0):
 		setpgid(0, 0)
@@ -126,10 +133,12 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 		execve(executable, &argv[0], environment)
 		exit(127)
 	close(child_fd)
-	for i in range(env_vector_count(environment)):
-		char* entry = env_entry_at(environment, i)
-		if (env_match_name(entry, c"WIN_SCRIPT_WORKER_PARENT") >= 0): free(entry)
-	free(cast(void*, environment))
+	if (win_sandbox_requested()): win_sandbox_environment_free(environment)
+	else:
+		for i in range(env_vector_count(environment)):
+			char* entry = env_entry_at(environment, i)
+			if (env_match_name(entry, c"WIN_SCRIPT_WORKER_PARENT") >= 0): free(entry)
+		free(cast(void*, environment))
 	string_free(parent)
 	string_free(limit)
 	string_free(config)

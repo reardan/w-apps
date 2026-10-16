@@ -375,12 +375,23 @@ void win_interactive_child_event(win_browser* browser, list[html_node*] nodes, i
 
 int win_script_interactive_execute_config(char* executable, char* address, char* home, int limit, int generation, int width, int height, int budget):
 	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT || generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX): return 2
+	if (win_sandbox_requested()):
+		if (win_remote(address)): return 2
+		char* display = env_get(c"DISPLAY")
+		if (display != 0 && display[0] != ':' && starts_with(display, c"unix:") == 0): return 2
+		# Direct worker invocations may inherit descriptors; close before GL opens
+		# its deliberate X/DRI capabilities. Normal parent exec already does this.
+		if (win_sandbox_close_inherited() == 0): return 2
 	win_worker_graphics* graphics = 0
 	win_frame_sender* sender = 0
 	if (generation > 0):
 		graphics = win_worker_graphics_new()
 		win_script_graphics_available = graphics != 0
 		sender = win_frame_sender_new(generation, WIN_INTERACTIVE_PIXELS)
+	if (win_sandbox_requested() && win_sandbox_apply(win_sandbox_root, executable, 1) == 0):
+		win_frame_sender_free(sender)
+		win_worker_graphics_free(graphics)
+		return 2
 	char** previous = env_current()
 	char** environment = win_script_worker_environment()
 	environ_ptr = cast(int, environment)

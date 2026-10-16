@@ -1,6 +1,7 @@
 # Linux loader process. Network/file reads never block the UI thread. The
 # parent polls a bounded pipe and destroys the old child on stop/navigation.
 import win.images
+import win.sandbox
 import win.network_state
 import lib.process
 import lib.net
@@ -473,6 +474,10 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	load.request_address = win_without_fragment(address)
 	load.kind = strclone(kind)
 	load.child = 0
+	if (win_sandbox_requested() && win_remote(address)):
+		load.error = strclone(c"Offline sandbox does not permit network resources.")
+		load.finished = 1
+		return load
 	if (strcmp(method, c"GET") != 0): win_cache_clear()
 	if (strcmp(kind, c"fetch") == 0):
 		URL* from = url_parse(origin)
@@ -499,8 +504,9 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	spawn_options* opts = spawn_options_new()
 	opts.stdin_mode = process_null
 	opts.stdout_mode = process_pipe
+	if (win_sandbox_requested()): opts.stderr_mode = process_null
 	opts.new_group = 1
-	char*[10] argv
+	char*[12] argv
 	argv[0] = executable
 	argv[1] = c"--fetch"
 	if (strcmp(kind, c"document") != 0): argv[1] = c"--resource"
@@ -512,10 +518,18 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	argv[7] = c"--body"
 	argv[8] = body
 	argv[9] = 0
+	if (win_sandbox_requested()):
+		argv[9] = c"--sandbox-root"
+		argv[10] = win_sandbox_root
+		argv[11] = 0
 	char* snapshot = win_cookie_snapshot()
 	char** cookie_env = env_copy_with(env_current(), c"WIN_COOKIE_SNAPSHOT", snapshot)
 	char** worker_env = env_copy_with(cookie_env, c"WIN_FETCH_ORIGIN", origin)
 	opts.env = worker_env
+	char** sandbox_env = 0
+	if (win_sandbox_requested()):
+		sandbox_env = win_sandbox_environment(getpid())
+		opts.env = sandbox_env
 	if (strcmp(kind, c"fetch") == 0):
 		# A socketpair permits nonblocking bounded writes with MSG_NOSIGNAL;
 		# it is mapped to worker stdin/stdout without changing signal handlers.
@@ -531,7 +545,7 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 				process_redirect(child_fd, 0)
 				dup2(0, 1)
 				process_close_from(3)
-				execve(executable, &argv[0], worker_env)
+				execve(executable, &argv[0], opts.env)
 				exit(127)
 			close(child_fd)
 			if (pid < 0): close(parent_fd)
@@ -566,6 +580,7 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	free(cast(void*, worker_env))
 	free(cast(void*, cookie_env))
 	free(snapshot)
+	if (sandbox_env != 0): win_sandbox_environment_free(sandbox_env)
 	free(opts)
 	if (load.child == 0):
 		load.error = strclone(c"Cannot start resource loader.")

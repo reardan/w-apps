@@ -53,10 +53,21 @@ win_worker_graphics* win_worker_graphics_new():
 # Snapshot into the canvas-owned CPU buffer, tightly packed top-left RGBA8.
 int win_worker_canvas_capture(win_canvas* canvas):
 	if (canvas.width <= 0 || canvas.height <= 0 || win_canvas_enter(canvas) == 0): return 0
+	# Driver failures must never expose untouched allocator bytes. Preserve any
+	# earlier WebGL error while isolating errors from the internal readback.
+	for i in range(canvas.width * canvas.height * 4): canvas.pixels[i] = 0
+	for i in range(16):
+		int pending = glGetError()
+		if (pending == 0): break
+		win_canvas_error(canvas, pending)
 	glPixelStorei(0x0D05, 1)
 	glReadPixels(0, 0, canvas.width, canvas.height, GL_RGBA, GL_UNSIGNED_BYTE, canvas.pixels)
+	int error = glGetError()
 	glPixelStorei(0x0D05, canvas.pack_alignment)
 	win_canvas_leave(canvas)
+	if (error != 0):
+		win_canvas_error(canvas, error)
+		return 0
 	int stride = canvas.width * 4
 	for y in range(canvas.height / 2):
 		for x in range(stride):

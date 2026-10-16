@@ -60,8 +60,24 @@ int main(int argc, int argv):
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--execution-budget 1..200000000] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--execution-budget 1..200000000] [--sandbox-root ABS_DIR (offline isolated mode)] [--reftest]")
 		return 0
+	win_sandbox_root = args_value(c"sandbox-root")
+	if (args_has_flag(c"sandbox-root")):
+		if (args_has_flag(c"isolated-dump") || args_has_flag(c"script-worker")):
+			println2(c"Offline sandbox is not supported by the headless isolated worker")
+			return 1
+		int worker = args_has_flag(c"interactive-worker") || args_has_flag(c"resource") || args_has_flag(c"fetch")
+		if (win_sandbox_root == 0 || win_sandbox_root[0] != '/' || win_sandbox_root[1] == 0 || (worker == 0 && args_has_flag(c"isolated-interactive") == 0)):
+			println2(c"Sandbox root requires an absolute directory and isolated interactive mode")
+			return 1
+		if (win_sandbox_abi() < 8):
+			println2(c"Offline sandbox requires Linux x86-64 Landlock ABI 8 with thread synchronization")
+			return 1
+		if (args_has_flag(c"resource") || args_has_flag(c"fetch")):
+			if (win_sandbox_apply(win_sandbox_root, args_program(), 0) == 0):
+				println2(c"Cannot enforce requested offline resource sandbox")
+				return 1
 	int execution_budget = win_execution_budget_parse(args_value(c"execution-budget"))
 	if (args_has_flag(c"execution-budget") && args_value(c"execution-budget") == 0): execution_budget = 0
 	if (execution_budget == 0):
@@ -89,6 +105,9 @@ int main(int argc, int argv):
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
+	if (win_sandbox_requested() && win_remote(start)):
+		println2(c"Offline sandbox requires a local page; HTTP content needs a resource broker")
+		return 1
 	if (args_has_flag(c"interactive-worker")):
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1

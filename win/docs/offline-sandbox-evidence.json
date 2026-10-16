@@ -1,0 +1,41 @@
+{
+  "profile": "offline local Linux confinement; HTTP M1\u2013M3 and desktop isolation not claimed",
+  "kernel": "7.0.0-38-generic",
+  "w_commit": "d2aa82ff4ac9294d63bc5575acddab3354af1fef",
+  "runs": {
+    "xvfb": {
+      "title": "Offline sandbox pixels",
+      "status": "Isolated content completed with script or resource errors",
+      "script_failures": 0,
+      "resource_failures": 2,
+      "landlock_abi": 8,
+      "blue_pixels": 16384,
+      "green_pixels": 547744,
+      "environment_sanitized": true,
+      "high_inherited_fd_closed": true,
+      "policy_threads": 58,
+      "fail_closed_unavailable_kernel": true,
+      "crash_reaped": true,
+      "partial_response_cancelled": true,
+      "network_contact": false,
+      "profile": "offline local GL; HTTP M1\u2013M3 unclaimed"
+    },
+    "native": {
+      "title": "Offline sandbox pixels",
+      "status": "Isolated content completed with script or resource errors",
+      "script_failures": 0,
+      "resource_failures": 2,
+      "landlock_abi": 8,
+      "blue_pixels": 16384,
+      "green_pixels": 547744,
+      "environment_sanitized": true,
+      "high_inherited_fd_closed": true,
+      "policy_threads": 1,
+      "fail_closed_unavailable_kernel": true,
+      "crash_reaped": true,
+      "partial_response_cancelled": true,
+      "network_contact": false,
+      "profile": "offline local GL; HTTP M1\u2013M3 unclaimed"
+    }
+  }
+}

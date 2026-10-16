@@ -5,6 +5,7 @@ import win.resources
 import win.forms
 import win.script
 import win.input
+import win.keyboard
 import win.fetch
 import win.history_state
 import graphics.ui.widgets
@@ -111,6 +112,7 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 
 void win_browser_free(win_browser* b):
 	win_script_pointer_cancel(b.script)
+	win_keyboard_cancel(b.script)
 	win_native_clear(&b.native_input)
 	win_interactive_free(b.interactive)
 	free(b.interactive_html)
@@ -140,6 +142,7 @@ void win_stop(win_browser* b):
 	b.history_pop_pending = 0
 	while (b.traversals.length > 0): b.traversals.pop()
 	win_script_pointer_cancel(b.script)
+	win_keyboard_cancel(b.script)
 	win_native_clear(&b.native_input)
 	win_interactive_free(b.interactive)
 	b.interactive = 0
@@ -532,6 +535,11 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 	if (b.native_input.overflow):
 		# A dropped release must never leave capture or a pressed button stuck.
 		win_script_pointer_cancel(b.script)
+		win_keyboard_cancel(b.script)
+		ctx.char_count = 0
+		ctx.nav_count = 0
+		ctx.preedit_active = 0
+		ctx.preedit_length = 0
 		ctx.input.mouse_pressed = 0
 		ctx.input.mouse_released = 0
 		ctx.input.mouse_down = 0
@@ -540,10 +548,19 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 		win_native_clear(&b.native_input)
 		return
 	int count = b.native_input.count
-	b.native_input.count = 0
 	for i in range(count):
 		gfx_event* event = &b.native_input.events[i]
 		int kind = event.kind
+		if (kind == GFX_EVENT_POINTER_CANCEL): win_keyboard_cancel(b.script)
+		if (kind == GFX_EVENT_KEY_DOWN || kind == GFX_EVENT_KEY_UP || kind == GFX_EVENT_CHAR || kind == GFX_EVENT_NAV):
+			win_keyboard_record(b.script, b.forms, ctx, &b.native_input, i)
+			if (b.script.runtime.completion.status == 5):
+				win_keyboard_cancel(b.script)
+				win_native_clear(&b.native_input)
+				ctx.char_count = 0
+				ctx.nav_count = 0
+				return
+			continue
 		if (kind != GFX_EVENT_MOUSE_DOWN && kind != GFX_EVENT_MOUSE_UP && kind != GFX_EVENT_POINTER_CANCEL && kind != GFX_EVENT_SCROLL && kind != GFX_EVENT_SCROLL_PIXELS): continue
 		html_node* hit = win_browser_pointer_hit(b, viewport, event.x, event.y)
 		int allowed = win_script_pointer_input(b.script, hit, kind, event.code, event.x - cast(int, viewport.x), event.y - cast(int, viewport.y), event.mods)
@@ -563,7 +580,9 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 			b.script.pointer.pending = 0
 			b.script.pointer.capture = 0
 			b.script.pointer.pressed = 0
+			win_native_clear(&b.native_input)
 			return
+	b.native_input.count = 0
 	int x = ctx.input.mouse_x - cast(int, viewport.x)
 	int y = ctx.input.mouse_y - cast(int, viewport.y)
 	if (b.script.pointer.present == 0 || b.script.pointer.x != x || b.script.pointer.y != y):

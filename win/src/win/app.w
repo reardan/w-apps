@@ -74,6 +74,7 @@ void win_app_cancel_background_input(win_app* app):
 	for i in range(app.tabs.length):
 		if (i == app.selected): continue
 		win_script_pointer_cancel(app.tabs[i].script)
+		win_keyboard_cancel(app.tabs[i].script)
 		win_native_clear(&app.tabs[i].native_input)
 
 void win_app_frame(win_app* app, ui_context* ctx, int width, int height):

@@ -13,6 +13,7 @@ import win.events
 import win.event_handlers
 import win.pointer
 import win.focus
+import win.keyboard_state
 import win.abort
 import lib.time
 import libs.extras.javascript.runtime
@@ -47,6 +48,7 @@ struct win_script_timer:
 	list[js_value*] args
 
 struct win_script:
+	win_keyboard_state keyboard
 	html_node* active_focus
 	int focus_revision
 	int focus_serial

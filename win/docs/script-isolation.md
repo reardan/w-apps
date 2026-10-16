@@ -119,7 +119,9 @@ or execute scripts from it. Script elements are omitted; numeric
 Clicks, input/change, form submission and periodic ticks travel to the child;
 DOM changes return as a new snapshot. Links and form navigation execute in the
 child. The parent maintains its tab/history controls and can cancel a stuck
-worker. Closing a tab, stopping, reloading, navigating or freeing the app kills
+worker. [Live same-document History](isolated-history.md) travels through the
+ordered input queue and preserves the worker realm; retired realms reload with
+the documented state-restoration limit. Closing a tab, stopping, reloading, navigating or freeing the app kills
 and reaps the old child. The existing parent-death guard covers resource
 loaders as well. With `--storage FILE`, [parent-owned storage IPC](isolated-storage.md)
 shares local data across same-origin tabs and retains tab-local session data across

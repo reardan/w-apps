@@ -1,6 +1,7 @@
 # Modern browser implementation plan
 
-Status: implementation in progress; see [measured progress](modern-browser-progress.md).
+Status: initial M1–M4 app milestones validated; broader platform work remains.
+See [measured progress](modern-browser-progress.md) for exact scope and evidence.
 Written 2026-10-15 after W #662 and w-apps #7 merged.
 This document records the complete implementation program. It supersedes the
 execution order in the older standards gap analysis, whose findings describe an

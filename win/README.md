@@ -29,8 +29,8 @@ bounded wasm execution, binary fetch and typed arrays, static modules, animation
 frames, and native canvas WebGL rendering. The unchanged original W graphics
 host now runs with animation and resizing. The unchanged mobile UI passes native
 and isolated input/resize tests with an explicit 200-million-step budget. The
-pinned Preact workflow passes native API, routing and durable-settings scenarios
-at two viewport sizes; isolated same-document history is under final validation.
+pinned Preact workflow passes native and isolated API, routing and durable-settings
+scenarios at two viewport sizes, preserving live same-document history.
 See the [implementation evidence](docs/modern-browser-progress.md) for limits and
 remaining platform work.
 

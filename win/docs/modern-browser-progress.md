@@ -8,6 +8,35 @@ W's `codex/modern-browser-integration`. These are local implementation branches;
 publication/merge has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
 
+## Final validated checkpoint
+
+The initial M1–M4 application milestones pass under the documented bounds.
+Isolation remains opt-in. M5 expands independently scoped upstream coverage;
+the broader platform roadmap remains open.
+
+| Gate | Final result |
+| --- | --- |
+| W full suite, Node 20.19.3 | 1,236 targets passed |
+| Win full suite, dedicated Xvfb | Passed, including unchanged native/isolated apps |
+| Pinned Test262 | 90 PASS, 23 explicit UNSUPPORTED, zero FAIL/ERROR |
+| Pinned native WPT | 20 PASS, zero FAIL/UNSUPPORTED/ERROR |
+| M3 native/isolated screenshots | Pixel-identical at both 800×600 and 360×640 |
+
+Run `(cd w && env -u NO_COLOR ./wbuild -j 4 tests)`,
+`xvfb-run -a ./win/build test`, and `xvfb-run -a ./win/build standards` with
+Node 20.19.3 on PATH. Optional Chromium reference runs use the separately pinned
+Playwright environment; ordinary acceptance needs no third-party Python packages.
+All original `w/tools/web/` and `w/graphics/` sources remain unchanged from the
+starting W gitlink. The production Preact artifact is unmodified.
+
+Final M1 native measurements were 2.03–2.35 seconds to first frame, 9–10 ms maximum
+frame callbacks, five descriptors after navigation and zero extra W blocks after
+warm teardown. The isolated run painted 36 changing frames across three workers,
+with resize/crash/partial-cancellation checks, 1.84-second first frame, 3 ms maximum
+parent poll and 9 ms maximum paint. These are local samples, not latency guarantees.
+The M2 200-million-step opt-in budget, platform input/IME gaps, visual differences,
+and offline-only sandbox authority are detailed below.
+
 ## Reproducible application targets
 
 - M1: `w/tools/web/index.html?module=/w/bin/graphics_demo.wasm`, served from the
@@ -23,7 +52,9 @@ this implementation is bounded app support, not full browser conformance.
   local API and app; the README defines success/failure/abort, routing, restart
   persistence, origin separation and responsive acceptance steps.
 - M4: M1 now renders through isolated worker canvas frames. M2 raw input is
-  integrated, with portable input, focus/selection metadata and bounded queues. Parent-owned local/session storage is integrated; the full isolated workflow is under validation. The opt-in [offline Linux sandbox](offline-sandbox.md)
+  integrated, with portable input, focus/selection metadata and bounded queues.
+  Parent-owned local/session storage and the full isolated workflow pass, including
+  [same-document History](isolated-history.md). The opt-in [offline Linux sandbox](offline-sandbox.md)
   passes local-content enforcement and GL tests; HTTP apps are outside that profile.
 
 Run `python3 win/tests/modern_hosts.py` for machine-readable startup probes of
@@ -129,7 +160,7 @@ Win async lifecycle guard-allocator run exhausted that cap even with its pending
 module teardown case isolated; the normal test passes. W's narrower suspended-
 frame and thenable lifetime tests complete with zero reported leaks.
 
-## Remaining integration gates
+## Application acceptance and limits
 
 M1's unchanged graphics path passes native startup, sustained frame changes,
 resize and repeated navigation. `modern_graphics_integration.py` records exact
@@ -189,8 +220,11 @@ side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
 HTTP tests. Native controls now honor CSS theme colors; both viewport captures contain
 10,973 exact green accent pixels. Native font metrics/control geometry remain
-visibly different from Chromium. M4 workflow
-parity is being validated; a sandboxed HTTP resource broker remains outside the
+visibly different from Chromium. M4 passes the same workflow at both sizes,
+including the same worker/realm, `Cancelled` result and `slow` name across live
+Back/Forward. Native and isolated workflow screenshots are pixel-identical at
+800×600 and 360×640. Retired-worker traversal reloads the URL without restoring
+transient history state; a sandboxed HTTP resource broker remains outside the
 offline sandbox profile. M5 remains measured feature-family
 work; the current selected Test262 gate has 90 PASS/23 explicit UNSUPPORTED variants from 58 pinned files (zero failures/errors).
 The pinned WPT corpus now adds eight unchanged CSS Variables cases: all 20 native
@@ -215,8 +249,17 @@ feature-selected run separately passed 57 targets including dependencies, with
 no allocator warnings. Focus, CSS root/fixed layout, DOM tree APIs, native
 presence, ordered keyboard/composition, isolated input, parent storage and
 offline confinement are integrated. Terminal listener failure preserves already
-requested event cancellation (`92adfe2`). Final combined Win validation is pending
-the isolated same-document history and sibling-margin integrations.
+requested event cancellation (`92adfe2`). The final full Win and standards suites
+passed on application implementation `442d6a2eadcca00e599a8e63f5dd7650e6c88348`
+and that exact W dependency; later changes only reconcile documentation.
+Logs are `win/bin/modern-browser/final-win-exact.log` and
+`win/bin/modern-browser/final-standards-exact.log`. The full run includes native
+and isolated M1–M3, shared storage, ordered History/input, offline sandbox,
+malformed messages, quotas, cancellation and crash/reap tests. An initial final
+run exposed reload-before-first-history-entry; its central correction has a
+normal/guarded regression and passes the complete rerun. The bounded History
+quota guard run exceeded allocator bookkeeping capacity and remains unavailable;
+normal quota tests and guarded wire/cancellation tests pass.
 
 The offline sandbox checkpoint `ce005ce` passes integrated kernel/TSYNC tests,
 failed-readback zeroing and dedicated-Xvfb local GL/resource acceptance. The

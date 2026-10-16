@@ -137,7 +137,9 @@ see the [process boundary](script-isolation.md) for limits.
 update Location/search and relative-resource bases, and require an HTTP(S) URL
 at the existing origin. Back/forward/go enqueue at most 32 traversals and deliver
 trusted, nonbubbling `popstate` with the restored state; push/replace do not fire
-it. History is bounded to 128 entries. Cross-document traversal reloads the page;
+it. History is bounded to 128 entries. Isolated interactive execution preserves
+live same-document state through [versioned History IPC](isolated-history.md),
+with a 1 MiB aggregate table bound and explicit retired-realm reload limits. Cross-document traversal reloads the page;
 there is no back/forward page cache.
 
 State supports null, top-level undefined, strings, booleans, finite numbers other

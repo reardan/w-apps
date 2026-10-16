@@ -118,14 +118,21 @@ UTF-16 selection start/end/direction, vertical scroll, viewport width/height.
 The worker uses the same native pointer/keyboard/forms pipeline as ordinary Win.
 The parent disables local document editing and scrolling defaults, then applies
 returned focus, selection and scroll to its inert presentation. Canvas handles
-and executable realms remain private to the worker. The parent continues accepting kind 100/101 snapshots; legacy request APIs
-retain their bounded contracts.
+and executable realms remain private to the worker. Direct legacy transport consumers retain kind 100/101 snapshots and bounded
+request APIs; browser-owned sessions use the History profile below.
 
 `isolated_input_integration.py` covers actual button handlers, Unicode editing,
 canceled beforeinput, selection, composition ordering and malformed/stale batches.
 `interactive_input_test.w` covers queue coalescing, overflow and guard-allocator
 cleanup. `isolated_mobile_acceptance.py` drives the unchanged mobile host through
 pointer focus, Unicode input, Backspace and resize without a parent script realm.
-Both native and isolated mobile acceptance now run in `win/build test`. Complete
-platform IME commit payloads, shared storage and framework workflow parity remain
-separately tracked limitations.
+Both native and isolated mobile acceptance run in `win/build test`. Complete
+platform IME commit payloads remain unsupported. Parent-owned shared storage and
+the framework workflow now pass their separate integration gates; see
+[storage](isolated-storage.md) and [application evidence](modern-browser-progress.md).
+
+Browser-owned interactive sessions additionally require kind 103/revision 3,
+which extends the snapshot with bounded History metadata. Direct legacy consumers
+retain kind 102/revision 2. History, focus and document identity publish together
+with the completed frame set; see [isolated History](isolated-history.md) for
+ordered Back/Forward, quotas and reload limitations.

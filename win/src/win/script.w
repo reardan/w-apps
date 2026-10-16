@@ -256,6 +256,96 @@ void win_script_layout(win_script* script);
 
 js_value* win_script_dispatch_host(void* runtime, void* context, js_value* receiver, list[js_value*] args);
 
+void win_dom_hierarchy_error(js_runtime* rt):
+	js_value* error = js_runtime_alloc(rt, 5)
+	js_runtime_set(rt, error, c"name", win_js_string(rt, c"HierarchyRequestError"))
+	js_runtime_set(rt, error, c"message", win_js_string(rt, c"Replacement would create an invalid DOM hierarchy"))
+	js_runtime_throw(rt, error)
+
+int win_dom_bounded_height(js_runtime* rt, html_node* node, int remaining_depth):
+	if (remaining_depth <= 0 || rt.remaining <= 0):
+		js_runtime_fail(rt, 5, c"Replacement DOM traversal limit")
+		return 0
+	rt.remaining = rt.remaining - 1
+	int height = 1
+	html_node* child = node.first_child
+	while (child != 0 && rt.completion.status == 0):
+		height = max(height, 1 + win_dom_bounded_height(rt, child, remaining_depth - 1))
+		child = child.next_sibling
+	return height
+
+js_value* win_dom_replace_children(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* binding = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, binding.context)
+	html_node* parent = binding.node
+	if (receiver != binding.object || parent.kind != HTML_START):
+		js_runtime_fail(rt, 2, c"replaceChildren requires an Element receiver")
+		return rt.undefined_value
+	list[html_node*] nodes = new list[html_node*]
+	for i in range(args.length):
+		if (rt.completion.status != 0): break
+		if (script.bindings.length > rt.remaining):
+			js_runtime_fail(rt, 5, c"Replacement DOM wrapper lookup budget")
+			break
+		rt.remaining = rt.remaining - script.bindings.length
+		html_node* node = 0
+		for j in range(script.bindings.length):
+			if (script.bindings[j].object == args[i]): node = script.bindings[j].node
+		if (node == 0):
+			if (args[i].kind >= 5):
+				js_runtime_fail(rt, 6, c"replaceChildren object string conversion is unsupported")
+				break
+			char* text = 0
+			if (args[i].kind == 4):
+				int length = 0
+				text = js_text_to_utf8(args[i].text, &length)
+				if (text == 0 || strlen(text) != length):
+					free(text)
+					js_runtime_fail(rt, 6, c"DOM text requires scalar UTF-8 without NUL")
+					break
+			else: text = win_js_text(args[i])
+			node = win_dom_create(script, HTML_TEXT, text)
+			free(text)
+			if (node == 0): break
+		if (node.kind != HTML_START && node.kind != HTML_TEXT):
+			win_dom_hierarchy_error(rt)
+			break
+		int depth = 0
+		html_node* ancestor = parent
+		while (ancestor != 0 && rt.completion.status == 0):
+			if (ancestor == node):
+				win_dom_hierarchy_error(rt)
+				break
+			if (depth >= 128 || rt.remaining <= 0):
+				js_runtime_fail(rt, 5, c"Replacement DOM ancestry limit")
+				break
+			rt.remaining = rt.remaining - 1
+			depth = depth + 1
+			ancestor = ancestor.parent
+		if (rt.completion.status != 0): break
+		win_dom_bounded_height(rt, node, 128 - depth)
+		if (rt.completion.status != 0): break
+		nodes.push(node)
+	# Reserve an upper bound for linked-list removal before changing the tree.
+	# Conversion/validation failures leave the target's existing children intact.
+	int cost = script.page.html.node_count * (nodes.length + 1)
+	if (rt.completion.status == 0 && cost > rt.remaining): js_runtime_fail(rt, 5, c"Replacement DOM mutation budget")
+	if (rt.completion.status == 0):
+		rt.remaining = rt.remaining - cost
+		while (parent.first_child != 0): win_dom_detach(parent.first_child)
+		for i in range(nodes.length):
+			html_node* node = nodes[i]
+			win_dom_detach(node)
+			node.parent = parent
+			if (parent.last_child != 0): parent.last_child.next_sibling = node
+			else: parent.first_child = node
+			parent.last_child = node
+		script.dirty = 1
+		script.styles_dirty = 1
+	__w_list_free(cast(__w_list*, nodes))
+	return rt.undefined_value
+
 # Selection methods retain their owning node but reject a forged receiver.
 js_value* win_dom_selection_range(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
@@ -493,6 +583,7 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	script.bindings.push(b)
 	js_runtime_root(rt, object)
 	js_runtime_set(rt, object, c"dispatchEvent", js_runtime_host_callable(rt, b, win_script_dispatch_host))
+	if (node.kind == HTML_START): js_runtime_set(rt, object, c"replaceChildren", js_runtime_host_callable(rt, b, win_dom_replace_children))
 	if (win_text_selection_control(node)):
 		js_runtime_set(rt, object, c"setSelectionRange", js_runtime_host_callable(rt, b, win_dom_selection_range))
 	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)

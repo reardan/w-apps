@@ -8,10 +8,12 @@ import win.modules
 import win.canvas
 import win.wasm
 import win.web_host
+import win.text_selection
 import lib.time
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
+	win_text_selection selection
 	js_value* computed
 	win_canvas* canvas
 	js_value* gl
@@ -256,6 +258,35 @@ int win_dom_canvas_dimension(html_node* node, char* name):
 
 void win_script_layout(win_script* script);
 
+# Selection methods retain their owning node but reject a forged receiver.
+js_value* win_dom_selection_range(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.object || args.length < 2):
+		js_runtime_fail(rt, 2, c"setSelectionRange requires a text control and two arguments")
+		return rt.undefined_value
+	if (win_text_selection_applies(b.node) == 0):
+		win_text_selection_invalid(rt)
+		return rt.undefined_value
+	int start = win_text_selection_index(rt, args[0])
+	int end = win_text_selection_index(rt, args[1])
+	int direction = 0
+	if (args.length > 2):
+		if (args[2].kind >= 5):
+			js_runtime_fail(rt, 6, c"Selection direction object coercion is unsupported")
+			return rt.undefined_value
+		direction = win_text_selection_direction(args[2])
+	if (rt.completion.status != 0): return rt.undefined_value
+	int length = win_text_selection_length(rt, win_attr(b.node, c"value"))
+	if (length >= 0): win_text_selection_range(&b.selection, length, start, end, direction)
+	return rt.undefined_value
+
+int win_dom_selection_key(js_text* key):
+	if (js_runtime_key_is(key, c"selectionStart")): return 1
+	if (js_runtime_key_is(key, c"selectionEnd")): return 2
+	if (js_runtime_key_is(key, c"selectionDirection")): return 3
+	return 0
+
 # All listed properties operate on native state at the property access itself.
 # Unknown properties fall back to the runtime's ordinary object semantics.
 js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text* key):
@@ -263,6 +294,14 @@ js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text*
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (win_text_selection_control(b.node) && win_dom_selection_key(key)):
+		if (win_text_selection_applies(b.node) == 0): return js_runtime_alloc(rt, 1)
+		int length = win_text_selection_length(rt, win_attr(b.node, c"value"))
+		if (length < 0): return rt.undefined_value
+		win_text_selection_clamp(&b.selection, length)
+		if (win_dom_selection_key(key) == 1): return js_runtime_number(rt, cast(float64, b.selection.start))
+		if (win_dom_selection_key(key) == 2): return js_runtime_number(rt, cast(float64, b.selection.end))
+		return win_web_string(rt, win_text_selection_direction_name(b.selection.direction))
 	if (b.node == script.window_node): return win_web_viewport_get(rt, &script.viewport, key)
 	if (js_runtime_key_is(key, c"offsetWidth") || js_runtime_key_is(key, c"offsetHeight") || js_runtime_key_is(key, c"clientWidth") || js_runtime_key_is(key, c"clientHeight")):
 		win_script_layout(script)
@@ -296,6 +335,29 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	int selection_key = win_dom_selection_key(key)
+	if (win_text_selection_control(b.node) && selection_key):
+		if (win_text_selection_applies(b.node) == 0):
+			win_text_selection_invalid(rt)
+			return -1
+		int length = win_text_selection_length(rt, win_attr(b.node, c"value"))
+		if (length < 0): return -1
+		win_text_selection_clamp(&b.selection, length)
+		int start = b.selection.start
+		int end = b.selection.end
+		int direction = b.selection.direction
+		if (selection_key == 3):
+			if (value.kind >= 5): js_runtime_fail(rt, 6, c"Selection direction object coercion is unsupported")
+			direction = win_text_selection_direction(value)
+		else:
+			int index = win_text_selection_index(rt, value)
+			if (selection_key == 1):
+				start = index
+				end = max(start, end)
+			else: end = index
+		if (rt.completion.status != 0): return -1
+		win_text_selection_range(&b.selection, length, start, end, direction)
+		return 1
 	if (win_tag(b.node, c"canvas") && (js_runtime_key_is(key, c"width") || js_runtime_key_is(key, c"height"))):
 		if (value.kind != 3 || value.number < 0.0 || value.number > 4096.0 || value.number != value.number):
 			js_runtime_fail(rt, 2, c"Canvas dimension must be between 0 and 4096")
@@ -346,6 +408,12 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 					if (b.node.kind != HTML_DOCUMENT): win_dom_set_text(script, b.node, text)
 				else if (strlen(text) <= 65536 && script.dom_bytes <= 4194304 - strlen(text)):
 					script.dom_bytes = script.dom_bytes + strlen(text)
+					if (k == 1 && win_text_selection_applies(b.node) && strcmp(text, win_attr(b.node, c"value")) != 0):
+						int length = win_text_selection_length(rt, text)
+						if (length < 0):
+							free(text)
+							return -1
+						win_text_selection_range(&b.selection, length, length, length, 0)
 					win_dom_set_attr(b.node, win_dom_attribute(k), text)
 				else: js_runtime_fail(rt, 5, c"DOM mutation allocation limit")
 				free(text)
@@ -426,6 +494,8 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	b.style = js_runtime_get(rt, object, c"style")
 	script.bindings.push(b)
 	js_runtime_root(rt, object)
+	if (win_text_selection_control(node)):
+		js_runtime_set(rt, object, c"setSelectionRange", js_runtime_host_callable(rt, b, win_dom_selection_range))
 	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)
 	js_runtime_set_host_hooks(rt, b.style, b, win_style_get, win_style_set)
 	char* name = node.name

@@ -208,8 +208,8 @@ including reentrancy, event identity, nested dispatch and the same listener rule
 Core event fields are read-only; synthetic events have `isTrusted:false`. Nested
 dispatch checkpoints run after the outermost invocation. Listener objects with
 `handleEvent`, listener abort options, and shadow DOM event paths remain unsupported.
-Property/inline handlers run after registered noncapture listeners at their node,
-rather than interleaving in registration order. Core event fields use native read-only descriptors.
+Supported property/inline handlers interleave with listeners in registration
+order, as detailed below. Core event fields use native read-only descriptors.
 
 ## Limits and ownership
 
@@ -235,8 +235,15 @@ Live HTML Node tree access, child lists, Text data and bounded node creation/mov
 are described in [the DOM tree contract](dom-tree.md). Native property presence
 uses explicit hooks and does not invoke getters or force layout. Mouse pointer
 input and capture use an ordered bounded native queue; native and programmatic
-focus synchronize activeElement, focus events and UTF-16 text selections. Full
-keyboard/beforeinput/composition delivery is still under implementation.
+focus synchronize activeElement, focus events and UTF-16 text selections.
+Ordered portable KEY/CHAR/NAV records now deliver logical keyboard events and
+cancelable beforeinput followed by input for native edits. Unicode input and
+Backspace pass through the unchanged mobile host into its wasm field; the hidden
+textarea resets after each edit. Unknown hardware keys report Unidentified.
+Bounded preedit snapshots produce compositionstart/update/end; the backend
+provides no committed payload at PREEDIT_END, so compositionend.data is empty
+and later CHAR events perform the commit. Full platform IME behavior remains
+unsupported; focused tests do not establish X11/Windows key translation parity.
 
 Supported nullable `on*` handler properties now register in listener order.
 Replacing a callback keeps its slot; clearing and re-enabling moves it to a new
@@ -245,3 +252,10 @@ false value cancels cancelable events. The implementation covers the names in
 `win/src/win/event_handlers.w`, including the onclick/oninput/onsubmit properties
 used by the pinned framework. Window ErrorEvent extra arguments, body-to-window
 handler aliases and inline form/name scope remain unsupported.
+
+Ordinary functions provide shared `call`, `apply` and `bind`, including bounded
+bound construction. Strict/non-simple functions provide unmapped arguments,
+and generic array-like `slice` uses property presence before reading elements.
+Sloppy mapped arguments remain unsupported. Shared String prototype casing uses
+Unicode 12.1 mappings with default final-sigma handling and resource bounds; see
+[W’s casing contract](../../w/docs/projects/javascript_string_case.md).

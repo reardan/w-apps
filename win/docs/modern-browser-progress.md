@@ -142,15 +142,19 @@ the first frame, and 3,874,919 for subsequent frames. On this host, pinned-threa
 CPU measurements are roughly 2.3 seconds, 2.6 seconds and 93 ms respectively.
 `--execution-budget 200000000` is an explicit bounded experiment; the default
 remains unchanged. Mouse pointer/capture and native focus/UTF-16 selection now have focused tests.
-Keyboard/beforeinput delivery and end-to-end editing are still being implemented
-before claiming M2 acceptance. Author body margins now control the page origin
+Integrated native input acceptance now passes pointer focus, KEY/CHAR and
+CHAR-only Unicode edits (Nativeé🙂), rendered wasm-field changes, sink reset and
+Backspace. Reproduce with `xvfb-run -a python3 win/tests/mobile_native_acceptance.py`.
+The driver uses portable native event records, not synthetic JavaScript events;
+platform key translation and complete IME behavior remain separate gaps. Author body margins now control the page origin
 and root/body backgrounds cover the viewport; see [root layout](root-layout.md). No host or bridge is rewritten.
 
 M3's pinned Preact now lowers and links unchanged after bounded for-in, abstract
 equality, property presence, mutable live exports, and Array constructor/isArray
-support. Ordinary function prototypes/construction now pass focused tests; the next
-integrated runtime blocker is Function.prototype.bind. Shared callable methods
-and arguments support are under implementation. Live HTML DOM tree APIs and
+support. Ordinary function construction, shared call/apply/bind, unmapped
+arguments, generic array-like slice and Unicode String casing now pass focused
+tests. The unchanged framework evaluates and creates virtual nodes; generic
+Array.some and addition conversion are the next measured runtime gaps. Live HTML DOM tree APIs and
 side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
 HTTP tests. The complete native API/interaction/persistence scenario does not
@@ -168,8 +172,8 @@ reusable wasm loader now accepts explicit source/instruction budgets; its defaul
 source/memory limits. Fetch accepts up to 4 MiB so the unmodified binary reaches
 the loader; other resource classes keep their existing limits.
 
-The ordinary-function dependency checkpoint is `d2aa82ff`; focus, CSS root
-layout, DOM tree APIs and native presence are integrated through application
-`7ee65aa`. Feature-selected W tests and
+The current dependency checkpoint is `05c8a572`; focus, CSS root layout, DOM
+tree APIs, native presence, ordered keyboard input and bounded composition
+are integrated through application `615cb39`. Feature-selected W tests and
 focused Win tests pass; a new full exact-revision suite is still required after
 the remaining runtime/DOM/input integrations.

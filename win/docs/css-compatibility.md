@@ -200,7 +200,12 @@ Focus indicators and editing behavior remain native. Pixel tests cover CSS custo
 property updates and password masking with transparent backgrounds. Native control
 geometry and font metrics still differ from a full browser engine.
 
-Inline backgrounds/borders, margin collapsing, floats, relative/absolute/sticky
+Adjacent normal-flow block siblings implement positive/negative margin collapse;
+paragraph UA margins are `1em` at the computed font size. See the
+[bounded margin contract](margin-collapse.md) for inline/flex/grid separation.
+Parent/child and empty-block-through margin collapse remain unsupported.
+
+Inline backgrounds/borders, floats, relative/absolute/sticky
 positioning, z-index/full stacking, opacity, pointer-events, transforms,
 animations, generated content, table layout, vertical writing and
 full font-family selection remain unsupported. `visibility:hidden` preserves

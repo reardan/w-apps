@@ -5,8 +5,8 @@ Implementation started 2026-10-15 from application
 The original W gitlink is `d8aa1039087c5c940908531a9f4a58bbebfaf00a`.
 Work is on `codex/win-modern-browser-implementation`, with dependency commits on
 W's `codex/modern-browser-integration`. These are local implementation branches;
-publication/merge has not occurred. The [roadmap](modern-browser-plan.md) remains
-an outstanding implementation program, not a support claim.
+publication/merge has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
+this implementation is bounded app support, not full browser conformance.
 
 ## Reproducible application targets
 
@@ -187,10 +187,15 @@ routing/back/forward, restart persistence and origin separation under unchanged
 execution limits. Live HTML DOM tree APIs and
 side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
-HTTP tests. Native screenshots still expose visual differences being corrected. M4 workflow
+HTTP tests. Native controls now honor CSS theme colors; both viewport captures contain
+10,973 exact green accent pixels. Native font metrics/control geometry remain
+visibly different from Chromium. M4 workflow
 parity is being validated; a sandboxed HTTP resource broker remains outside the
 offline sandbox profile. M5 remains measured feature-family
 work; the current selected Test262 gate has 90 PASS/23 explicit UNSUPPORTED variants from 58 pinned files (zero failures/errors).
+The pinned WPT corpus now adds eight unchanged CSS Variables cases: all 20 native
+reftests pass with exact reference pixels. This run also exposed and fixed sibling
+margin collapse; no prior expected PASS was weakened.
 
 The complete roadmap's remaining language, CSS/layout, networking, cookie/CORS,
 cache, wasm/WebGL, worker, accessibility, media and platform items remain tracked

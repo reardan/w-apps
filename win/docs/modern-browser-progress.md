@@ -203,12 +203,15 @@ reusable wasm loader now accepts explicit source/instruction budgets; its defaul
 source/memory limits. Fetch accepts up to 4 MiB so the unmodified binary reaches
 the loader; other resource classes keep their existing limits.
 
-The current dependency checkpoint is `a9ba1c95`; focus, CSS root layout, DOM
-tree APIs, native presence, ordered keyboard/composition, isolated input and
-offline confinement are integrated. Terminal listener failure now preserves
-already requested event cancellation (`92adfe2`). Feature-selected W tests and
-focused Win tests pass; a new full exact-revision suite is still required after
-the remaining runtime/DOM/input integrations.
+The final W dependency is `3d1e5ce46d6e5dff5760fc6a533381680f93f49d`.
+Its full `env -u NO_COLOR ./wbuild -j 4 tests` run with Node 20.19.3 passed
+**1,236 targets** (log: `win/bin/modern-browser/final-w-exact.log`). The final
+feature-selected run separately passed 57 targets including dependencies, with
+no allocator warnings. Focus, CSS root/fixed layout, DOM tree APIs, native
+presence, ordered keyboard/composition, isolated input, parent storage and
+offline confinement are integrated. Terminal listener failure preserves already
+requested event cancellation (`92adfe2`). Final combined Win validation is pending
+the isolated same-document history and sibling-margin integrations.
 
 The offline sandbox checkpoint `ce005ce` passes integrated kernel/TSYNC tests,
 failed-readback zeroing and dedicated-Xvfb local GL/resource acceptance. The

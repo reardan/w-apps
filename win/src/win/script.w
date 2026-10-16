@@ -9,6 +9,7 @@ import win.canvas
 import win.wasm
 import win.web_host
 import win.text_selection
+import win.events
 import lib.time
 import libs.extras.javascript.runtime
 
@@ -68,11 +69,6 @@ struct win_script:
 	html_node* window_node
 	int dirty
 	int styles_dirty
-	int prevented
-	int stopped
-	int immediate
-	int passive
-	int cancelable
 	int failures
 	char* error
 	js_value* event
@@ -257,6 +253,8 @@ int win_dom_canvas_dimension(html_node* node, char* name):
 	return min(4096, win_canvas_attribute(node, name, fallback))
 
 void win_script_layout(win_script* script);
+
+js_value* win_script_dispatch_host(void* runtime, void* context, js_value* receiver, list[js_value*] args);
 
 # Selection methods retain their owning node but reject a forged receiver.
 js_value* win_dom_selection_range(void* runtime, void* context, js_value* receiver, list[js_value*] args):
@@ -494,6 +492,7 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	b.style = js_runtime_get(rt, object, c"style")
 	script.bindings.push(b)
 	js_runtime_root(rt, object)
+	js_runtime_set(rt, object, c"dispatchEvent", js_runtime_host_callable(rt, b, win_script_dispatch_host))
 	if (win_text_selection_control(node)):
 		js_runtime_set(rt, object, c"setSelectionRange", js_runtime_host_callable(rt, b, win_dom_selection_range))
 	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)
@@ -800,14 +799,7 @@ js_value* win_script_host(void* context, list[js_value*] args):
 		int length = strlen(text)
 		if (length > 4096): length = 4096
 		script.console.push(substring(text, 0, length))
-	else if (strcmp(operation, c"prevent") == 0):
-		if (args.length > 2 && args[2] == script.event && script.cancelable && script.passive == 0):
-			script.prevented = 1
-			js_runtime_set(rt, script.event, c"defaultPrevented", js_runtime_boolean(rt, 1))
-	else if (strcmp(operation, c"stop") == 0 || strcmp(operation, c"stopImmediate") == 0):
-		if (args.length > 2 && args[2] == script.event):
-			script.stopped = 1
-			if (strcmp(operation, c"stopImmediate") == 0): script.immediate = 1
+
 	free(operation)
 	free(text)
 	return result
@@ -1266,8 +1258,42 @@ js_value* win_script_search_new(void* runtime, void* context, js_value* receiver
 	__w_list_free(cast(__w_list*, call_args))
 	return result
 
+js_value* win_script_event_new(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_script* script = cast(win_script*, context)
+	if (args.length == 0):
+		js_runtime_fail(rt, 2, c"Event requires a type")
+		return rt.undefined_value
+	js_value* type = args[0]
+	if (type.kind != 4):
+		if (type.kind >= 5):
+			js_runtime_fail(rt, 6, c"Event type object coercion is unsupported")
+			return rt.undefined_value
+		char* text = win_js_text(type)
+		type = win_js_string(rt, text)
+		free(text)
+	if (type.text.units.length > 65536):
+		js_runtime_fail(rt, 5, c"Event type length limit")
+		return rt.undefined_value
+	int bubbles = 0
+	int cancelable = 0
+	int composed = 0
+	if (args.length > 1 && args[1].kind != 0 && args[1].kind != 1):
+		if (js_runtime_object(args[1]) == 0):
+			js_runtime_fail(rt, 2, c"Event options must be a dictionary")
+			return rt.undefined_value
+		bubbles = js_runtime_truth(js_runtime_get(rt, args[1], c"bubbles"))
+		cancelable = js_runtime_truth(js_runtime_get(rt, args[1], c"cancelable"))
+		composed = js_runtime_truth(js_runtime_get(rt, args[1], c"composed"))
+	if (rt.completion.status != 0): return rt.undefined_value
+	return win_event_new(rt, type, bubbles, cancelable, composed, cast(float64, time_monotonic_ms() - script.time_origin))
+
 void win_script_web_install(win_script* script, js_value* window):
 	js_runtime* rt = script.runtime
+	js_value* event_constructor = js_runtime_host_callable(rt, script, win_script_event_new)
+	event_constructor.host_construct = 1
+	js_runtime_set(rt, rt.global, c"Event", event_constructor)
+	js_runtime_set(rt, window, c"Event", event_constructor)
 	js_runtime_bind(rt, c"__winSearchGet", win_script_search_get)
 	char* source = c"function __winSearchObject(query){return {get:function(name){return __winSearchGet(query,name);}};}"
 	win_script_result(script, js_runtime_eval(rt, source, strlen(source), 1000000))
@@ -1312,7 +1338,7 @@ win_script* win_script_new(win_page* page):
 	js_runtime_bind(script.runtime, c"__winTimer", win_script_timer_host)
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
 	js_runtime_bind(script.runtime, c"__winGL", win_script_gl_host)
-	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } function __winEvent(){const e={preventDefault:function(){__winHost(0,'prevent',e);},stopPropagation:function(){__winHost(0,'stop',e);},stopImmediatePropagation:function(){__winHost(0,'stopImmediate',e);}}; return e;} const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
+	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
 	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 1000000)
 	win_script_result(script, completion)
 	char* gl_source = win_canvas_bootstrap()
@@ -1360,120 +1386,153 @@ win_script* win_script_new(win_page* page):
 	win_script_collect_nodes(script, page.html.root)
 	return script
 
+# Listener exceptions are reported at the host boundary, not propagated into
+# dispatchEvent's caller. Terminal limits remain terminal and share its budget.
+void win_script_event_result(win_script* script):
+	js_runtime* rt = script.runtime
+	if (rt.completion.status != 5):
+		win_script_result(script, rt.completion)
+		rt.completion.status = 0
+		rt.completion.value = rt.undefined_value
+		rt.completion.message = c""
+
 # Each invocation snapshots its listener list length. Registrations made during
 # a callback can run at a later node/phase, but never in the current invocation.
-int win_script_invoke_listeners(win_script* script, html_node* node, char* name, list[js_value*] args, int capture, int phase, int budget):
+void win_script_invoke_listeners(win_script* script, html_node* node, char* name, list[js_value*] args, int capture, int phase):
 	js_runtime* rt = script.runtime
-	js_runtime_begin(rt, budget)
-	js_runtime_set(rt, script.event, c"currentTarget", win_script_wrap(script, node))
-	js_runtime_set(rt, script.event, c"eventPhase", js_runtime_number(rt, cast(float64, phase)))
-	budget = rt.remaining
-	if (rt.completion.status != 0):
-		win_script_result(script, rt.completion)
-		return 0
+	js_value* event = script.event
+	js_value* receiver = win_script_wrap(script, node)
+	win_event_write(rt, event, c"currentTarget", receiver)
+	win_event_write(rt, event, c"eventPhase", js_runtime_number(rt, cast(float64, phase)))
+	if (rt.completion.status != 0): return
 	int count = script.listeners.length
 	for i in range(count):
 		win_script_listener* listener = script.listeners[i]
-		if (script.immediate || budget <= 0): break
+		if (win_event_flag(event, WIN_EVENT_IMMEDIATE) || rt.remaining <= 0 || rt.completion.status == 5): break
 		if (listener.node != node || listener.capture != capture || strcmp(listener.event, name) != 0): continue
 		if (listener.once): listener.node = 0
-		script.passive = listener.passive
-		js_completion* result = js_runtime_invoke_receiver(rt, listener.callback, win_script_wrap(script, node), args, budget)
+		win_event_flag_set(event, WIN_EVENT_PASSIVE, listener.passive)
+		js_runtime_call_receiver(rt, listener.callback, receiver, args)
 		win_script_sync(script)
-		budget = rt.remaining
-		win_script_result(script, result)
-		script.passive = 0
-		if (result.status == 5): budget = 0
-	if (capture || script.immediate || budget <= 0): return budget
+		win_script_event_result(script)
+		win_event_flag_set(event, WIN_EVENT_PASSIVE, 0)
+	if (capture || win_event_flag(event, WIN_EVENT_IMMEDIATE) || rt.remaining <= 0 || rt.completion.status == 5): return
 	string_builder* property_text = string_from(c"on")
 	string_append(property_text, name)
-	js_runtime_begin(rt, budget)
-	js_value* receiver = win_script_wrap(script, node)
 	js_value* callback = js_runtime_get(rt, receiver, property_text.data)
 	char* handler = win_attr(node, property_text.data)
-	budget = rt.remaining
-	if (callback.kind == 0 && handler[0] != 0):
+	if (rt.completion.status == 0 && callback.kind == 0 && handler[0] != 0):
 		string_builder* source = string_from(c"(function(event){")
 		string_append(source, handler)
 		string_append(source, c"});")
-		js_completion* compiled = js_runtime_eval(rt, source.data, source.length, budget)
-		budget = rt.remaining
-		win_script_result(script, compiled)
-		if (compiled.status == 5): budget = 0
-		if (compiled.status == 0):
-			callback = compiled.value
+		js_value* compiled = js_runtime_compile_function(rt, source.data, source.length)
+		if (rt.completion.status == 0):
+			callback = compiled
 			js_runtime_set(rt, receiver, property_text.data, callback)
+		win_script_event_result(script)
 		string_free(source)
 	string_free(property_text)
-	if ((callback.kind == 7 || callback.kind == 9) && budget > 0):
-		js_completion* result = js_runtime_invoke_receiver(rt, callback, receiver, args, budget)
-		if (script.cancelable && result.status == 0 && result.value.kind == 2 && result.value.number == 0.0): script.prevented = 1
+	if (rt.completion.status != 0):
+		win_script_event_result(script)
+		return
+	if (callback.kind == 7 || callback.kind == 9):
+		js_value* result = js_runtime_call_receiver(rt, callback, receiver, args)
+		if (rt.completion.status == 0 && result.kind == 2 && result.number == 0.0): win_event_prevent(rt, event)
 		win_script_sync(script)
-		win_script_result(script, result)
-		budget = rt.remaining
-		if (result.status == 5): budget = 0
-		js_runtime_set(rt, script.event, c"defaultPrevented", js_runtime_boolean(rt, script.prevented))
-	return budget
+		win_script_event_result(script)
 
-# 1 permits the browser's default action; 0 means a cancelable event was canceled.
+# One algorithm for trusted browser events and dispatchEvent. It runs inside
+# the active execution scope: no collection, fresh budget or microtask checkpoint.
+int win_script_dispatch_event(win_script* script, html_node* node, js_value* event):
+	js_runtime* rt = script.runtime
+	if (win_event_flag(event, WIN_EVENT_DISPATCHING)):
+		js_value* error = js_runtime_alloc(rt, 5)
+		js_runtime_set(rt, error, c"name", win_js_string(rt, c"InvalidStateError"))
+		js_runtime_set(rt, error, c"message", win_js_string(rt, c"Event is already being dispatched"))
+		js_runtime_throw(rt, error)
+		return 0
+	js_value* type = js_runtime_get(rt, event, c"type")
+	int length = 0
+	char* name = js_text_to_utf8(type.text, &length)
+	if (name == 0 || strlen(name) != length):
+		free(name)
+		js_runtime_fail(rt, 6, c"Event type must be representable by the host listener table")
+		return 0
+	js_value* completed_target = js_runtime_get(rt, event, c"currentTarget")
+	js_value* completed_phase = js_runtime_get(rt, event, c"eventPhase")
+	js_value* previous_event = script.event
+	script.event = event
+	win_event_flag_set(event, WIN_EVENT_DISPATCHING, 1)
+	win_event_write(rt, event, c"target", win_script_wrap(script, node))
+	int bubbles = js_runtime_truth(js_runtime_get(rt, event, c"bubbles"))
+	list[js_value*] args = new list[js_value*]
+	args.push(event)
+	# Snapshot ancestry before callbacks mutate or detach nodes.
+	list[html_node*] path = new list[html_node*]
+	html_node* current = node
+	while (current != 0 && rt.remaining > 0):
+		rt.remaining = rt.remaining - 1
+		path.push(current)
+		current = current.parent
+	if (path.length > 0 && path[path.length - 1] == script.page.html.root && strcmp(name, c"load") != 0): path.push(script.window_node)
+	int index = path.length - 1
+	while (index >= 0 && win_event_flag(event, WIN_EVENT_STOP) == 0 && rt.remaining > 0 && rt.completion.status == 0):
+		int phase = 1
+		if (index == 0): phase = 2
+		win_script_invoke_listeners(script, path[index], name, args, 1, phase)
+		index = index - 1
+	index = 0
+	while (index < path.length && win_event_flag(event, WIN_EVENT_STOP) == 0 && rt.remaining > 0 && rt.completion.status == 0):
+		if (index > 0 && bubbles == 0): break
+		int phase = 3
+		if (index == 0): phase = 2
+		win_script_invoke_listeners(script, path[index], name, args, 0, phase)
+		index = index + 1
+	# Reuse completed-state values so heap-limit cleanup does not allocate.
+	win_event_write(rt, event, c"currentTarget", completed_target)
+	win_event_write(rt, event, c"eventPhase", completed_phase)
+	win_event_flag_set(event, WIN_EVENT_DISPATCHING | WIN_EVENT_STOP | WIN_EVENT_IMMEDIATE | WIN_EVENT_PASSIVE, 0)
+	script.event = previous_event
+	# Outer snapshots use stable list indices; compact only at the outer boundary.
+	if (previous_event == 0): win_script_collect_listeners(script)
+	__w_list_free(cast(__w_list*, path))
+	__w_list_free(cast(__w_list*, args))
+	free(name)
+	if (rt.remaining <= 0 && rt.completion.status == 0): js_runtime_fail(rt, 5, c"Event dispatch execution limit")
+	return js_runtime_truth(js_runtime_get(rt, event, c"defaultPrevented")) == 0
+
+js_value* win_script_dispatch_host(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* binding = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, binding.context)
+	if (receiver != binding.object || args.length == 0 || win_event_is(args[0]) == 0):
+		js_runtime_fail(rt, 2, c"dispatchEvent requires an Event and its EventTarget receiver")
+		return rt.undefined_value
+	if (win_event_flag(args[0], WIN_EVENT_DISPATCHING) == 0): win_event_write(rt, args[0], c"isTrusted", js_runtime_boolean(rt, 0))
+	int allowed = win_script_dispatch_event(script, binding.node, args[0])
+	return js_runtime_boolean(rt, allowed)
+
+# Native entry owns the task boundary. JS dispatchEvent shares its enclosing task.
 int win_script_dispatch(win_script* script, html_node* node, char* name):
 	if (script == 0 || node == 0): return 1
 	js_runtime* rt = script.runtime
 	win_script* previous = win_active_script
 	win_active_script = script
 	js_runtime_collect(rt)
-	js_runtime_begin(rt, 1000000)
-	script.prevented = 0
-	script.stopped = 0
-	script.immediate = 0
-	script.passive = 0
-	script.cancelable = strcmp(name, c"click") == 0 || strcmp(name, c"submit") == 0 || strcmp(name, c"reset") == 0
-	int bubbles = strcmp(name, c"load") != 0
-	list[js_value*] args = new list[js_value*]
-	js_value* event = js_runtime_call(rt, js_runtime_get(rt, rt.global, c"__winEvent"), args)
+	if (js_runtime_begin(rt, 1000000) == 0):
+		win_active_script = previous
+		return 1
+	rt.running = 1
+	int cancelable = strcmp(name, c"click") == 0 || strcmp(name, c"submit") == 0 || strcmp(name, c"reset") == 0
+	js_value* event = win_event_new(rt, win_js_string(rt, name), strcmp(name, c"load") != 0, cancelable, 0, cast(float64, time_monotonic_ms() - script.time_origin))
 	js_runtime_root(rt, event)
-	script.event = event
-	js_runtime_set(rt, event, c"type", win_js_string(rt, name))
-	js_runtime_set(rt, event, c"target", win_script_wrap(script, node))
-	js_runtime_set(rt, event, c"defaultPrevented", js_runtime_boolean(rt, 0))
-	js_runtime_set(rt, event, c"bubbles", js_runtime_boolean(rt, bubbles))
-	js_runtime_set(rt, event, c"cancelable", js_runtime_boolean(rt, script.cancelable))
-	args.push(event)
-	# Snapshot the ancestry before callbacks mutate or detach nodes.
-	list[html_node*] path = new list[html_node*]
-	html_node* current = node
-	while (current != 0):
-		path.push(current)
-		current = current.parent
-	if (path.length > 0 && path[path.length - 1] == script.page.html.root && strcmp(name, c"load") != 0): path.push(script.window_node)
-	int budget = rt.remaining
-	if (rt.completion.status != 0):
-		win_script_result(script, rt.completion)
-		budget = 0
-	int index = path.length - 1
-	while (index >= 0 && script.stopped == 0 && budget > 0):
-		int phase = 1
-		if (index == 0): phase = 2
-		budget = win_script_invoke_listeners(script, path[index], name, args, 1, phase, budget)
-		index = index - 1
-	index = 0
-	while (index < path.length && script.stopped == 0 && budget > 0):
-		if (index > 0 && bubbles == 0): break
-		int phase = 3
-		if (index == 0): phase = 2
-		budget = win_script_invoke_listeners(script, path[index], name, args, 0, phase, budget)
-		index = index + 1
-	# Retained events expose the completed state after dispatch.
-	js_runtime_set(rt, event, c"currentTarget", js_runtime_alloc(rt, 1))
-	js_runtime_set(rt, event, c"eventPhase", js_runtime_number(rt, 0.0))
-	js_runtime_set(rt, event, c"defaultPrevented", js_runtime_boolean(rt, script.prevented))
-	script.event = 0
+	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+	int allowed = 1
+	if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
+	rt.running = 0
 	js_runtime_unroot(rt, event)
-	win_script_collect_listeners(script)
-	__w_list_free(cast(__w_list*, path))
-	__w_list_free(cast(__w_list*, args))
-	int allowed = script.prevented == 0
-	win_script_checkpoint(script)
+	win_script_result(script, rt.completion)
+	if (rt.completion.status != 5): win_script_checkpoint(script)
 	win_active_script = previous
 	return allowed
 

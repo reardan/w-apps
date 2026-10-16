@@ -8,7 +8,9 @@ import lib.args
 import win.app
 
 void fetch_eval(win_script* script, char* source):
-	asserts(c"fetch test JavaScript succeeds", win_script_eval(script, source, strlen(source)))
+	int ok = win_script_eval(script, source, strlen(source))
+	if (ok == 0): println(script.error)
+	asserts(c"fetch test JavaScript succeeds", ok)
 
 win_script* fetch_script():
 	char* source = c"<title>initial</title><p>fetch</p>"
@@ -365,6 +367,39 @@ void test_fetch_binary():
 	fetch_eval(script, c"if(!checked) throw 'binary body';")
 	fetch_destroy(script, context)
 
+void test_fetch_json():
+	win_script* script = fetch_script()
+	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
+	char* body = c"{\"value\":[1,true,null,\"\\u0000\\ud800\"],\"__proto__\":3}"
+	win_fetch_request* request = fetch_result(context, body, strlen(body), 200)
+	fetch_expose(script, request)
+	fetch_eval(script, c"let parsed=false; result.then(function(r){const json=r.json; json().catch(function(){}); if(r.bodyUsed) throw 'JSON receiver'; const p=r.json(); if(!r.bodyUsed) throw 'JSON bodyUsed'; return p.then(function(v){if(v.value[0]!==1 || v.value[1]!==true || v.value[2]!==null || v.value[3].length!==2 || v.value[3]!=='\\u0000\\ud800' || v.__proto__!==3) throw 'JSON value'; return r.arrayBuffer().catch(function(){parsed=true;});});});")
+	win_fetch_poll(context)
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(!parsed) throw 'JSON parse completion';")
+	request = fetch_result(context, c"{broken}", 8, 200)
+	fetch_expose(script, request)
+	fetch_eval(script, c"let syntax=false; result.then(function(r){return r.json().catch(function(e){syntax=e.name==='SyntaxError' && r.bodyUsed;});});")
+	win_fetch_poll(context)
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(!syntax) throw 'JSON rejection';")
+	char[7] bytes
+	bytes[0] = cast(char, 239)
+	bytes[1] = cast(char, 187)
+	bytes[2] = cast(char, 191)
+	bytes[3] = '"'
+	bytes[4] = cast(char, 226)
+	bytes[5] = cast(char, 130)
+	bytes[6] = '"'
+	request = fetch_result(context, &bytes[0], 7, 200)
+	fetch_expose(script, request)
+	fetch_eval(script, c"let decoded=false; result.then(function(r){return r.json();}).then(function(v){decoded=v==='\\ufffd';});")
+	win_fetch_poll(context)
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(!decoded) throw 'JSON forgiving UTF8 and BOM';")
+	assert_equal(0, script.failures)
+	fetch_destroy(script, context)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	asserts(c"pass browser executable and fixture", argc >= 3)
@@ -392,6 +427,7 @@ int main(int argc, int argv):
 	test_fetch_origins_and_arguments()
 	test_fetch_rooting_and_response()
 	test_fetch_binary()
+	test_fetch_json()
 	test_fetch_budgets()
 	test_fetch_request_limits()
 	test_fetch_stop()

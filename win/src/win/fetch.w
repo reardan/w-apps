@@ -2,6 +2,8 @@
 # Promise reactions are drained by the page's normal microtask checkpoint.
 import win.loader
 import libs.extras.javascript.runtime
+import libs.extras.javascript.runtime_json
+import libs.extras.javascript.text_codecs
 
 struct win_fetch_request:
 	win_load* load
@@ -71,6 +73,36 @@ js_value* win_fetch_text(void* runtime, void* context, js_value* receiver, list[
 	request.consumed = 1
 	js_runtime_set(rt, receiver, c"bodyUsed", js_runtime_boolean(rt, 1))
 	js_runtime_promise_settle(rt, promise, body, 0)
+	return promise
+
+# JSON consumes the body even when parsing fails. Decode uses the same forgiving
+# UTF-8/BOM algorithm as TextDecoder; parsing never evaluates source code.
+js_value* win_fetch_json(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_fetch_request* request = cast(win_fetch_request*, context)
+	js_value* promise = js_runtime_promise_new(rt)
+	if (rt.completion.status != 0): return promise
+	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
+	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	request.consumed = 1
+	if (request.length > 65536): return win_fetch_reject(rt, promise, c"Fetch response JSON budget exceeded")
+	js_value* decoder = js_runtime_alloc(rt, 5)
+	if (rt.completion.status != 0): return promise
+	decoder.text_codec = 2
+	list[js_value*] decode_args = new list[js_value*]
+	decode_args.push(js_runtime_array_buffer_copy(rt, cast(byte*, request.bytes), request.length))
+	js_value* text = rt.undefined_value
+	if (rt.completion.status == 0): text = js_text_codec_decode(rt, 0, decoder, decode_args)
+	__w_list_free(cast(__w_list*, decode_args))
+	js_value* value = rt.undefined_value
+	if (rt.completion.status == 0): value = js_runtime_json_parse(rt, text.text)
+	if (rt.completion.status == 5): return promise
+	int rejected = rt.completion.status != 0
+	if (rejected):
+		value = rt.completion.value
+		rt.completion.status = 0
+		rt.completion.value = rt.undefined_value
+	js_runtime_promise_settle(rt, promise, value, rejected)
 	return promise
 
 js_value* win_fetch_array_buffer(void* runtime, void* context, js_value* receiver, list[js_value*] args):
@@ -161,6 +193,7 @@ int win_fetch_poll(win_fetch_context* context):
 					js_runtime_set(rt, request.response, c"url", win_fetch_string(rt, load.address, strlen(load.address)))
 					js_runtime_set(rt, request.response, c"bodyUsed", js_runtime_boolean(rt, 0))
 					js_runtime_set(rt, request.response, c"text", js_runtime_host_callable(rt, request, win_fetch_text))
+					js_runtime_set(rt, request.response, c"json", js_runtime_host_callable(rt, request, win_fetch_json))
 					js_runtime_set(rt, request.response, c"arrayBuffer", js_runtime_host_callable(rt, request, win_fetch_array_buffer))
 				if (rt.completion.status != 0):
 					if (request.response != rt.undefined_value): js_runtime_unroot(rt, request.response)

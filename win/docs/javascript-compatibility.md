@@ -130,6 +130,23 @@ see the [process boundary](script-isolation.md) for limits.
 
 ## DOM bindings
 
+`history.pushState`, `replaceState`, `back`, `forward`, `go`, `length` and
+`state` integrate with tab history. Same-document mutations retain the realm,
+update Location/search and relative-resource bases, and require an HTTP(S) URL
+at the existing origin. Back/forward/go enqueue at most 32 traversals and deliver
+trusted, nonbubbling `popstate` with the restored state; push/replace do not fire
+it. History is bounded to 128 entries. Cross-document traversal reloads the page;
+there is no back/forward page cache.
+
+State supports null, top-level undefined, strings, booleans, finite numbers other
+than negative zero, and dense JSON-compatible plain object/array trees. Each
+snapshot is independently cloned, bounded to 64 KiB, 32 levels and 4,096 object
+identities. Unsupported values, cycles/shared object references, accessors,
+`toJSON`, sparse arrays and extra array properties throw `DataCloneError` before
+mutation. This is a storage subset, not general structured clone. General URL
+argument coercion, complete `go` Web IDL conversion, scrollRestoration, hashchange,
+navigation assignment and the Navigation API remain unsupported.
+
 The additional host surface includes `location.search`, string-initialized
 `URLSearchParams.get`, viewport globals and resize events, `getBoundingClientRect`,
 client/offset dimensions, and live computed padding/font-size reads through

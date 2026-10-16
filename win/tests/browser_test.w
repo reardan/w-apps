@@ -114,6 +114,7 @@ void test_navigation(char* executable, char* home):
 	asserts(c"fragment does not refetch", b.load == 0)
 	asserts(c"fragment scrolls", b.scroll.offset_y > 0.0)
 	win_history_go(&b, -1)
+	wait_for_page(&b)
 	asserts(c"back restores scroll", b.scroll.offset_y == 120.0)
 	win_history_go(&b, -1)
 	wait_for_page(&b)

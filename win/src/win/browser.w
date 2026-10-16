@@ -5,13 +5,20 @@ import win.resources
 import win.forms
 import win.script
 import win.fetch
+import win.history_state
 import graphics.ui.widgets
 
 struct win_history_entry:
+	char* state
+	int document_generation
 	char* address
 	float32 scroll
 
 struct win_browser:
+	int history_pop_pending
+	int document_generation
+	js_value* history_object
+	list[int] traversals
 	int execution_budget
 	int isolated
 	win_interactive_worker* interactive
@@ -47,12 +54,22 @@ struct win_browser:
 	ui_textarea_state input
 	ui_scroll_state scroll
 
+void win_browser_history_install(win_browser* b);
+void win_browser_history_poll(win_browser* b);
+void win_browser_history_address(win_browser* b);
+void win_browser_history_state(win_browser* b);
+void win_browser_history_event(win_browser* b);
+
 void win_status(win_browser* browser, char* text):
 	free(browser.status)
 	browser.status = strclone(text)
 
 void win_browser_init(win_browser* b, char* executable, char* home):
 	b.execution_budget = WIN_EXECUTION_DEFAULT
+	b.document_generation = 0
+	b.history_pop_pending = 0
+	b.history_object = 0
+	b.traversals = new list[int]
 	b.isolated = 0
 	b.interactive = 0
 	b.interactive_sequence = -1
@@ -101,9 +118,11 @@ void win_browser_free(win_browser* b):
 	win_forms_free(b.forms)
 	win_page_free(b.page)
 	for i in range(b.history.length):
+		free(b.history[i].state)
 		free(b.history[i].address)
 		free(b.history[i])
 	__w_list_free(cast(__w_list*, b.history))
+	__w_list_free(cast(__w_list*, b.traversals))
 	ui_textarea_free(&b.input)
 	free(b.executable)
 	free(b.home)
@@ -111,6 +130,8 @@ void win_browser_free(win_browser* b):
 	free(b.status)
 
 void win_stop(win_browser* b):
+	b.history_pop_pending = 0
+	while (b.traversals.length > 0): b.traversals.pop()
 	win_interactive_free(b.interactive)
 	b.interactive = 0
 	win_fetch_stop(b.fetches)
@@ -127,15 +148,23 @@ void win_commit_address(win_browser* b, char* address, int target):
 	else if (target == -1):
 		while (b.history.length > b.current + 1):
 			win_history_entry* removed = b.history.pop()
+			free(removed.state)
 			free(removed.address)
 			free(removed)
 		if (b.history.length == 128):
+			free(b.history[0].state)
 			free(b.history[0].address)
 			free(b.history[0])
 			for i in range(127): b.history[i] = b.history[i + 1]
 			b.history.pop()
+			b.current = b.current - 1
 		win_history_entry* entry = new win_history_entry()
 		entry.address = strclone(address)
+		entry.document_generation = b.document_generation
+		entry.state = strclone(c"null")
+		if (b.current >= 0 && b.history[b.current].document_generation == b.document_generation):
+			free(entry.state)
+			entry.state = strclone(b.history[b.current].state)
 		entry.scroll = 0.0
 		b.history.push(entry)
 		b.current = b.history.length - 1
@@ -183,6 +212,8 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 		win_load_free(b.load)
 		b.load = 0
 		win_commit_address(b, address, target)
+		win_browser_history_address(b)
+		win_browser_history_state(b)
 		win_scroll_fragment(b)
 		if (target >= 0): b.scroll.offset_y = b.history[target].scroll
 		b.restore_pending = win_resources_done(b.resources) == 0
@@ -201,9 +232,7 @@ void win_navigate(win_browser* b, char* reference, char* base, int target):
 	win_navigate_request(b, reference, base, target, c"GET", c"")
 
 void win_history_go(win_browser* b, int delta):
-	int index = b.current + delta
-	if (index < 0 || index >= b.history.length): return
-	win_navigate(b, b.history[index].address, c"", index)
+	if (b.traversals.length < 32): b.traversals.push(delta)
 
 void win_browser_poll_document(win_browser* b):
 	if (b.load == 0 || win_load_poll(b.load) == 0): return
@@ -222,6 +251,8 @@ void win_browser_poll_document(win_browser* b):
 			b.page = page
 			b.forms = win_forms_new(page)
 			b.resources = win_resources_start(b.executable, page, b.load.address)
+			b.document_generation = b.document_generation + 1
+			b.history_object = 0
 			b.script = win_script_new(page)
 			win_script_set_execution_budget(b.script, b.execution_budget)
 			b.script.modules = win_modules_new(b.script.runtime, b.executable, b.load.address)
@@ -231,6 +262,9 @@ void win_browser_poll_document(win_browser* b):
 			b.resource_failures = 0
 			win_page_layout(page, b.width)
 			win_commit_address(b, b.load.address, b.pending_history)
+			if (b.current >= 0): b.history[b.current].document_generation = b.document_generation
+			win_browser_history_install(b)
+			b.history_pop_pending = b.pending_history >= 0
 			win_scroll_fragment(b)
 			if (b.pending_history >= 0): b.scroll.offset_y = b.history[b.current].scroll
 			b.restore_pending = 1
@@ -242,6 +276,7 @@ void win_browser_poll_document(win_browser* b):
 	b.load = 0
 
 int win_browser_loading(win_browser* b):
+	if (b.traversals.length > 0): return 1
 	if (b.isolated): return b.interactive != 0 && b.interactive.busy
 	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0) || win_fetch_pending(b.fetches) != 0
 
@@ -315,6 +350,7 @@ void win_browser_set_viewport(win_browser* b, int width, int height):
 	if (resized && b.script != 0): win_script_dispatch(b.script, b.script.window_node, c"resize")
 
 void win_browser_poll(win_browser* b):
+	win_browser_history_poll(b)
 	if (b.isolated):
 		win_browser_poll_interactive(b)
 		return
@@ -330,6 +366,9 @@ void win_browser_poll(win_browser* b):
 	if (win_fetch_poll(b.fetches) && b.script != 0): win_script_result(b.script, b.script.runtime.completion)
 	win_active_script = previous
 	win_script_poll(b.script)
+	if (b.history_pop_pending && b.script != 0 && b.script.ready):
+		b.history_pop_pending = 0
+		win_browser_history_event(b)
 	if (win_resources_refresh(b.resources)): changed = 1
 	if (b.script != 0):
 		if (b.script.dirty): changed = 1
@@ -592,3 +631,5 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	if (b.script != 0 && b.script.dirty):
 		win_page_layout(b.page, b.width)
 		b.script.dirty = 0
+
+import win.browser_history

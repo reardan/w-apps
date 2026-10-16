@@ -10,6 +10,7 @@ import win.wasm
 import win.web_host
 import win.text_selection
 import win.events
+import win.abort
 import lib.time
 import libs.extras.javascript.runtime
 
@@ -40,6 +41,7 @@ struct win_script_timer:
 	list[js_value*] args
 
 struct win_script:
+	win_abort_context* aborts
 	win_web_viewport viewport
 	int layout_width
 	char* address
@@ -1398,8 +1400,12 @@ js_value* win_script_event_new(void* runtime, void* context, js_value* receiver,
 	if (rt.completion.status != 0): return rt.undefined_value
 	return win_event_new(rt, type, bubbles, cancelable, composed, cast(float64, time_monotonic_ms() - script.time_origin))
 
+void win_script_abort_report(void* context, js_completion* completion):
+	win_script_result(cast(win_script*, context), completion)
+
 void win_script_web_install(win_script* script, js_value* window):
 	js_runtime* rt = script.runtime
+	script.aborts = win_abort_new(rt, window, script, win_script_abort_report)
 	js_value* event_constructor = js_runtime_host_callable(rt, script, win_script_event_new)
 	event_constructor.host_construct = 2
 	js_runtime_set(rt, rt.global, c"Event", event_constructor)
@@ -1771,6 +1777,7 @@ void win_script_free(win_script* script):
 	__w_list_free(cast(__w_list*, script.console))
 	win_modules_free(script.modules)
 	win_wasm_free(script.wasm)
+	win_abort_free(script.aborts)
 	js_runtime_free(script.runtime)
 	free(script.error)
 	free(script)

@@ -1,11 +1,14 @@
 # Bounded same-origin Fetch subset. Network I/O runs in cancellable loaders;
 # Promise reactions are drained by the page's normal microtask checkpoint.
 import win.loader
+import win.abort
 import libs.extras.javascript.runtime
 import libs.extras.javascript.runtime_json
 import libs.extras.javascript.text_codecs
 
 struct win_fetch_request:
+	win_abort_state* signal
+	win_abort_observer* observer
 	win_load* load
 	js_value* promise
 	js_value* response
@@ -59,6 +62,23 @@ js_value* win_fetch_reject(js_runtime* rt, js_value* promise, char* message):
 	js_runtime_promise_settle(rt, promise, js_runtime_error_value(rt, message), 1)
 	return promise
 
+int win_fetch_aborted(win_fetch_request* request):
+	return request.signal != 0 && request.signal.aborted
+
+js_value* win_fetch_abort_reject(js_runtime* rt, js_value* promise, win_fetch_request* request):
+	js_runtime_promise_settle(rt, promise, request.signal.reason, 1)
+	return promise
+
+# No JS work here: every observer must kill/reap its child even when later
+# listener execution or Promise settlement exhausts the realm's budgets.
+void win_fetch_abort_transport(void* context):
+	win_fetch_request* request = cast(win_fetch_request*, context)
+	if (request.load == 0): return
+	if (request.load.child != 0):
+		process_free(request.load.child)
+		request.load.child = 0
+	request.load.finished = 1
+
 js_value* win_fetch_text(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_fetch_request* request = cast(win_fetch_request*, context)
@@ -66,6 +86,7 @@ js_value* win_fetch_text(void* runtime, void* context, js_value* receiver, list[
 	if (rt.completion.status != 0): return promise
 	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
 	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	if (win_fetch_aborted(request)): return win_fetch_abort_reject(rt, promise, request)
 	if (request.length > 65536): return win_fetch_reject(rt, promise, c"Fetch response text budget exceeded")
 	if (utf8_validate_bytes(request.bytes, request.length) == 0): return win_fetch_reject(rt, promise, c"Fetch response is not UTF-8")
 	js_value* body = win_fetch_string(rt, request.bytes, request.length)
@@ -84,6 +105,7 @@ js_value* win_fetch_json(void* runtime, void* context, js_value* receiver, list[
 	if (rt.completion.status != 0): return promise
 	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
 	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	if (win_fetch_aborted(request)): return win_fetch_abort_reject(rt, promise, request)
 	request.consumed = 1
 	if (request.length > 65536): return win_fetch_reject(rt, promise, c"Fetch response JSON budget exceeded")
 	js_value* decoder = js_runtime_alloc(rt, 5)
@@ -112,6 +134,7 @@ js_value* win_fetch_array_buffer(void* runtime, void* context, js_value* receive
 	if (rt.completion.status != 0): return promise
 	if (receiver != request.response): return win_fetch_reject(rt, promise, c"Illegal Response receiver")
 	if (request.consumed): return win_fetch_reject(rt, promise, c"Response body already consumed")
+	if (win_fetch_aborted(request)): return win_fetch_abort_reject(rt, promise, request)
 	js_value* buffer = js_runtime_array_buffer_copy(rt, cast(byte*, request.bytes), request.length)
 	if (rt.completion.status != 0): return promise
 	request.consumed = 1
@@ -133,7 +156,22 @@ js_value* win_fetch_host(void* runtime, void* host, js_value* receiver, list[js_
 	if (rt.completion.status != 0): return promise
 	if (args.length == 0 || args[0].kind != 4): return win_fetch_reject(rt, promise, c"fetch requires a URL string")
 	# Unsupported options are rejected instead of silently changing semantics.
-	if (args.length > 1 && args[1].kind != 0): return win_fetch_reject(rt, promise, c"Fetch options are not yet supported")
+	win_abort_state* signal = 0
+	if (args.length > 1 && args[1].kind != 0 && args[1].kind != 1):
+		if (js_runtime_object(args[1]) == 0): return win_fetch_reject(rt, promise, c"Fetch options require an object")
+		# Reject unsupported own init options instead of silently ignoring a body,
+		# method, credentials, or CORS request.
+		for i in range(args[1].properties.length):
+			js_value* property = args[1].properties[i]
+			if (js_runtime_key_is(property.key, c"signal") == 0): return win_fetch_reject(rt, promise, c"Fetch option outside subset")
+		js_value* value = js_runtime_get(rt, args[1], c"signal")
+		if (rt.completion.status != 0): return promise
+		if (value.kind != 0 && value.kind != 1):
+			signal = win_abort_signal(value)
+			if (signal == 0): return win_fetch_reject(rt, promise, c"Fetch signal requires AbortSignal")
+			if (signal.aborted):
+				js_runtime_promise_settle(rt, promise, signal.reason, 1)
+				return promise
 	if (context.requests.length >= 64 || win_fetch_pending(context) >= 3): return win_fetch_reject(rt, promise, c"Page fetch request limit")
 	int length = 0
 	char* reference = js_text_to_utf8(args[0].text, &length)
@@ -147,6 +185,8 @@ js_value* win_fetch_host(void* runtime, void* host, js_value* receiver, list[js_
 		return win_fetch_reject(rt, promise, c"Fetch requires a same-origin HTTP(S) URL")
 	win_fetch_request* request = new win_fetch_request()
 	request.promise = promise
+	request.signal = signal
+	request.observer = win_abort_observe(signal, request, win_fetch_abort_transport)
 	js_runtime_root(rt, promise)
 	request.load = win_load_start_fetch(context.executable, address, context.address, c"GET", c"")
 	context.requests.push(request)
@@ -177,7 +217,8 @@ int win_fetch_poll(win_fetch_context* context):
 		if (load == 0): continue
 		if (win_load_poll(load) == 0): continue
 		js_runtime_begin(rt, 100000)
-		if (load.error != 0): win_fetch_reject(rt, request.promise, load.error)
+		if (win_fetch_aborted(request)): win_fetch_abort_reject(rt, request.promise, request)
+		else if (load.error != 0): win_fetch_reject(rt, request.promise, load.error)
 		else if (request.failure != 0): win_fetch_reject(rt, request.promise, request.failure)
 		else if (load.length > WIN_FETCH_LIMIT || (request.response == 0 && context.bytes > 4194304 - load.length)): win_fetch_reject(rt, request.promise, c"Fetch response byte budget exceeded")
 		else:
@@ -233,6 +274,7 @@ void win_fetch_free(win_fetch_context* context):
 	if (context == 0): return
 	for i in range(context.requests.length):
 		win_fetch_request* request = context.requests[i]
+		win_abort_unobserve(request.signal, request.observer)
 		win_load_free(request.load)
 		if (request.promise != 0): js_runtime_unroot(context.runtime, request.promise)
 		if (request.response != 0): js_runtime_unroot(context.runtime, request.response)

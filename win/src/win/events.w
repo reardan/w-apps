@@ -11,6 +11,10 @@ int WIN_EVENT_PASSIVE = 8
 js_value* win_event_get(void* runtime, void* context, js_value* receiver, js_text* key):
 	return 0
 
+int win_event_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	# Event state is entirely represented by ordinary readonly descriptors.
+	return 0
+
 int win_event_is(js_value* value):
 	return value.kind == 5 && value.host_get == cast(int, win_event_get)
 
@@ -66,4 +70,5 @@ js_value* win_event_new(js_runtime* rt, js_value* type, int bubbles, int cancela
 	js_runtime_set(rt, event, c"stopPropagation", js_runtime_host_callable(rt, 0, win_event_stop_host))
 	js_runtime_set(rt, event, c"stopImmediatePropagation", js_runtime_host_callable(rt, cast(void*, 1), win_event_stop_host))
 	js_runtime_set_host_hooks(rt, event, 0, win_event_get, 0)
+	js_runtime_set_host_has(rt, event, win_event_has)
 	return event

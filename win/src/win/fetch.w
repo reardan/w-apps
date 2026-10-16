@@ -29,6 +29,11 @@ js_value* win_fetch_response_get(void* runtime, void* context, js_value* receive
 	if (js_runtime_key_is(key, c"ok")): return js_runtime_boolean(rt, request.status >= 200 && request.status < 300)
 	return 0
 
+int win_fetch_response_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_fetch_request* request = cast(win_fetch_request*, context)
+	if (receiver != request.response): return 0
+	return js_runtime_key_is(key, c"bodyUsed") || js_runtime_key_is(key, c"status") || js_runtime_key_is(key, c"ok")
+
 win_fetch_request* win_fetch_response(js_value* value):
 	if (value == 0 || value.host_get != cast(int, win_fetch_response_get)): return 0
 	win_fetch_request* request = cast(win_fetch_request*, value.host_context)
@@ -371,6 +376,7 @@ int win_fetch_poll(win_fetch_context* context):
 					request.status = load.status
 					request.wasm_mime = load.wasm_mime
 					js_runtime_set_host_hooks(rt, request.response, request, win_fetch_response_get, 0)
+					js_runtime_set_host_has(rt, request.response, win_fetch_response_has)
 					js_runtime_set(rt, request.response, c"status", js_runtime_number(rt, cast(float64, load.status)))
 					js_runtime_set(rt, request.response, c"ok", js_runtime_boolean(rt, load.status >= 200 && load.status < 300))
 					js_runtime_set(rt, request.response, c"url", win_fetch_string(rt, load.address, strlen(load.address)))

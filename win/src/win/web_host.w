@@ -148,6 +148,9 @@ js_value* win_web_search_get(js_runtime* rt, js_text* query, js_text* name):
 
 # Returns 0 for unknown properties. Install via the parent's window hook;
 # ratio and CSS viewport sizes must come from the actual browser surface.
+int win_web_viewport_has(js_text* key):
+	return js_runtime_key_is(key, c"innerWidth") || js_runtime_key_is(key, c"innerHeight") || js_runtime_key_is(key, c"devicePixelRatio") || js_runtime_key_is(key, c"scrollX") || js_runtime_key_is(key, c"pageXOffset") || js_runtime_key_is(key, c"scrollY") || js_runtime_key_is(key, c"pageYOffset")
+
 js_value* win_web_viewport_get(js_runtime* rt, win_web_viewport* viewport, js_text* key):
 	if (js_runtime_key_is(key, c"innerWidth")): return js_runtime_number(rt, viewport.width)
 	if (js_runtime_key_is(key, c"innerHeight")): return js_runtime_number(rt, viewport.height)
@@ -193,13 +196,17 @@ js_value* win_web_pixels(js_runtime* rt, float32 value):
 
 # Resolved supported lengths, including cascade/inheritance/em units. Unknown
 # properties are unhandled, never substituted with inline specified values.
-js_value* win_web_computed_get(js_runtime* rt, win_page* page, html_node* node, js_text* key):
+int win_web_computed_index(js_text* key):
 	int property = -1
 	if (js_runtime_key_is(key, c"paddingLeft") || js_runtime_key_is(key, c"padding-left")): property = 0
 	if (js_runtime_key_is(key, c"paddingRight") || js_runtime_key_is(key, c"padding-right")): property = 1
 	if (js_runtime_key_is(key, c"paddingTop") || js_runtime_key_is(key, c"padding-top")): property = 2
 	if (js_runtime_key_is(key, c"paddingBottom") || js_runtime_key_is(key, c"padding-bottom")): property = 3
 	if (js_runtime_key_is(key, c"fontSize") || js_runtime_key_is(key, c"font-size")): property = 4
+	return property
+
+js_value* win_web_computed_get(js_runtime* rt, win_page* page, html_node* node, js_text* key):
+	int property = win_web_computed_index(key)
 	if (property < 0): return 0
 	win_style style
 	if (win_web_style(rt, page, node, &style) == 0): return rt.undefined_value

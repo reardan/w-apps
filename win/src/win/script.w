@@ -451,6 +451,29 @@ js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text*
 			return win_js_string(rt, win_attr(b.node, win_dom_attribute(k)))
 	return 0
 
+# Presence never reads values, flushes layout, or invokes a property getter.
+int win_dom_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, b.context)
+	if (receiver != b.object): return 0
+	if (b.node == script.window_node): return win_web_viewport_has(key)
+	if (b.node == script.page.html.root):
+		if (js_runtime_key_is(key, c"activeElement") || js_runtime_key_is(key, c"title") || js_runtime_key_is(key, c"readyState")): return 1
+	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")): return 1
+	if (win_text_selection_control(b.node) && (win_dom_selection_key(key) || js_runtime_key_is(key, c"readOnly"))): return 1
+	if (win_tag(b.node, c"canvas") && (js_runtime_key_is(key, c"width") || js_runtime_key_is(key, c"height"))): return 1
+	if (js_runtime_key_is(key, c"style") || js_runtime_key_is(key, c"offsetWidth") || js_runtime_key_is(key, c"offsetHeight") || js_runtime_key_is(key, c"clientWidth") || js_runtime_key_is(key, c"clientHeight")): return 1
+	for i in range(6):
+		if (js_runtime_key_is(key, win_dom_property(i))): return 1
+	return 0
+
+int win_style_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.style): return 0
+	for i in range(16):
+		if (js_runtime_key_is(key, win_style_property(i))): return 1
+	return 0
+
 int win_style_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value);
 
 int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
@@ -652,7 +675,9 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	if (win_text_selection_control(node)):
 		js_runtime_set(rt, object, c"setSelectionRange", js_runtime_host_callable(rt, b, win_dom_selection_range))
 	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)
+	js_runtime_set_host_has(rt, b.object, win_dom_has)
 	js_runtime_set_host_hooks(rt, b.style, b, win_style_get, win_style_set)
+	js_runtime_set_host_has(rt, b.style, win_style_has)
 	char* name = node.name
 	if (name == 0): name = c"#document"
 	js_runtime_set(rt, object, c"tagName", win_js_string(rt, name))
@@ -1075,6 +1100,9 @@ js_value* win_script_storage_get(void* runtime, void* context, js_value* receive
 	__w_list_free(cast(__w_list*, args))
 	return result
 
+int win_script_storage_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	return js_runtime_key_is(key, c"length")
+
 void win_script_bind_storage(win_script* script, win_storage_context* shared_store, win_storage_context* session_store, char* address):
 	if (script == 0): return
 	script.local_store = shared_store
@@ -1350,6 +1378,9 @@ js_value* win_script_location_get(void* runtime, void* context, js_value* receiv
 	if (js_runtime_key_is(key, c"href")): return win_js_string(rt, script.address)
 	return 0
 
+int win_script_location_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	return js_runtime_key_is(key, c"search") || js_runtime_key_is(key, c"href")
+
 int win_script_location_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
 	if (js_runtime_key_is(key, c"search") || js_runtime_key_is(key, c"href")):
 		js_runtime_fail(cast(js_runtime*, runtime), 6, c"Location navigation is not supported")
@@ -1361,6 +1392,9 @@ js_value* win_script_computed_get(void* runtime, void* context, js_value* receiv
 	win_script* script = cast(win_script*, binding.context)
 	win_script_layout(script)
 	return win_web_computed_get(cast(js_runtime*, runtime), script.page, binding.node, key)
+
+int win_script_computed_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	return win_web_computed_index(key) >= 0
 
 int win_script_computed_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
 	js_runtime_fail(cast(js_runtime*, runtime), 2, c"Computed style is read-only")
@@ -1391,6 +1425,7 @@ js_value* win_script_get_computed(void* runtime, void* context, js_value* receiv
 					js_runtime_root(rt, binding.computed)
 					js_runtime_set(rt, binding.computed, c"getPropertyValue", js_runtime_host_callable(rt, binding, win_script_computed_property))
 					js_runtime_set_host_hooks(rt, binding.computed, binding, win_script_computed_get, win_script_computed_set)
+					js_runtime_set_host_has(rt, binding.computed, win_script_computed_has)
 				return binding.computed
 	js_runtime_fail(rt, 2, c"getComputedStyle requires an Element")
 	return rt.undefined_value
@@ -1484,6 +1519,7 @@ void win_script_web_install(win_script* script, js_value* window):
 	js_runtime_set(rt, window, c"getComputedStyle", computed)
 	js_value* location = js_runtime_alloc(rt, 5)
 	js_runtime_set_host_hooks(rt, location, script, win_script_location_get, win_script_location_set)
+	js_runtime_set_host_has(rt, location, win_script_location_has)
 	js_runtime_set(rt, rt.global, c"location", location)
 	js_runtime_set(rt, window, c"location", location)
 	js_runtime_set(rt, js_runtime_get(rt, rt.global, c"document"), c"location", location)
@@ -1551,6 +1587,7 @@ win_script* win_script_new(win_page* page):
 		js_value* storage = js_runtime_call(script.runtime, js_runtime_get(script.runtime, script.runtime.global, c"__winStorageObject"), storage_args)
 		__w_list_free(cast(__w_list*, storage_args))
 		js_runtime_set_host_hooks(script.runtime, storage, script, win_script_storage_get, 0)
+		js_runtime_set_host_has(script.runtime, storage, win_script_storage_has)
 		char* name = c"localStorage"
 		if (k == 1): name = c"sessionStorage"
 		js_runtime_set(script.runtime, script.runtime.global, name, storage)

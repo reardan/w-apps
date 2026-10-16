@@ -47,6 +47,11 @@ js_value* win_abort_signal_get(void* runtime, void* context, js_value* receiver,
 		return js_runtime_alloc(rt, 1)
 	return 0
 
+int win_abort_signal_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_abort_state* state = cast(win_abort_state*, context)
+	if (receiver != state.signal): return 0
+	return js_runtime_key_is(key, c"aborted") || js_runtime_key_is(key, c"reason") || js_runtime_key_is(key, c"onabort")
+
 win_abort_state* win_abort_signal(js_value* value):
 	if (value == 0 || value.host_get != cast(int, win_abort_signal_get)): return 0
 	win_abort_state* state = cast(win_abort_state*, value.host_context)
@@ -251,6 +256,7 @@ js_value* win_abort_construct(void* runtime, void* host, js_value* receiver, lis
 	js_runtime_root(rt, state.signal)
 	if (rt.completion.status != 0): return rt.undefined_value
 	js_runtime_set_host_hooks(rt, state.signal, state, win_abort_signal_get, win_abort_signal_set)
+	js_runtime_set_host_has(rt, state.signal, win_abort_signal_has)
 	win_event_write(rt, state.controller, c"signal", state.signal)
 	win_event_write(rt, state.signal, c"reason", state.reason)
 	js_runtime_set(rt, state.controller, c"abort", js_runtime_host_callable(rt, state, win_abort_abort))

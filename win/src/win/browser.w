@@ -12,6 +12,7 @@ struct win_history_entry:
 	float32 scroll
 
 struct win_browser:
+	int execution_budget
 	int isolated
 	win_interactive_worker* interactive
 	int interactive_sequence
@@ -51,6 +52,7 @@ void win_status(win_browser* browser, char* text):
 	browser.status = strclone(text)
 
 void win_browser_init(win_browser* b, char* executable, char* home):
+	b.execution_budget = WIN_EXECUTION_DEFAULT
 	b.isolated = 0
 	b.interactive = 0
 	b.interactive_sequence = -1
@@ -90,6 +92,7 @@ void win_browser_free(win_browser* b):
 	free(b.interactive_html)
 	win_load_free(b.load)
 	free(b.new_tab)
+	if (b.script != 0): js_runtime_async_cancel(b.script.runtime)
 	win_fetch_free(b.fetches)
 	win_script_free(b.script)
 	if (b.owns_local_storage): win_storage_free(b.local_storage)
@@ -209,6 +212,7 @@ void win_browser_poll_document(win_browser* b):
 		win_page* page = win_page_parse(b.load.source, b.load.length)
 		if (page == 0): win_status(b, c"Invalid UTF-8 or HTML document exceeds parser limits")
 		else:
+			if (b.script != 0): js_runtime_async_cancel(b.script.runtime)
 			win_fetch_free(b.fetches)
 			b.fetches = 0
 			win_script_free(b.script)
@@ -219,6 +223,7 @@ void win_browser_poll_document(win_browser* b):
 			b.forms = win_forms_new(page)
 			b.resources = win_resources_start(b.executable, page, b.load.address)
 			b.script = win_script_new(page)
+			win_script_set_execution_budget(b.script, b.execution_budget)
 			b.script.modules = win_modules_new(b.script.runtime, b.executable, b.load.address)
 			win_script_bind_storage(b.script, b.local_storage, b.session_storage, b.load.address)
 			b.fetches = win_fetch_new(b.script.runtime, b.executable, b.load.address)
@@ -318,7 +323,12 @@ void win_browser_poll(win_browser* b):
 	win_browser_sync_viewport(b)
 	if (win_script_graphics_available && b.viewport_ready == 0): return
 	win_script_run_pending(b.script, b.resources)
+	# Promise resolution can synchronously invoke a response's then getter.
+	# It must see the same document as script/timer/microtask callbacks.
+	win_script* previous = win_active_script
+	win_active_script = b.script
 	if (win_fetch_poll(b.fetches) && b.script != 0): win_script_result(b.script, b.script.runtime.completion)
+	win_active_script = previous
 	win_script_poll(b.script)
 	if (win_resources_refresh(b.resources)): changed = 1
 	if (b.script != 0):

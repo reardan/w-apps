@@ -41,6 +41,7 @@ struct win_script_timer:
 	list[js_value*] args
 
 struct win_script:
+	int execution_budget
 	win_abort_context* aborts
 	win_web_viewport viewport
 	int layout_width
@@ -81,6 +82,13 @@ struct win_script:
 # Installed only during synchronous bounded host entry, restored afterward.
 win_script* win_active_script
 int win_script_graphics_available
+
+int win_script_set_execution_budget(win_script* script, int budget):
+	if (script == 0 || budget < 1 || budget > WIN_EXECUTION_MAX): return 0
+	if (script.runtime.running || script.runtime.async_tasks.length > 0): return 0
+	script.execution_budget = budget
+	script.wasm.execution_budget = budget
+	return 1
 
 void win_dom_set_attr(html_node* node, char* name, char* value):
 	if (node == 0): return
@@ -911,7 +919,7 @@ int win_script_eval(win_script* script, char* source, int length):
 	win_script* previous = win_active_script
 	win_active_script = script
 	js_runtime_collect(script.runtime)
-	js_completion* result = js_runtime_eval(script.runtime, source, length, 1000000)
+	js_completion* result = js_runtime_eval(script.runtime, source, length, script.execution_budget)
 	win_script_sync(script)
 	win_script_result(script, result)
 	win_script_collect_listeners(script)
@@ -1125,7 +1133,7 @@ int win_script_frame_at(win_script* script, int now_ms):
 	if (now_ms < script.frame_time): now_ms = script.frame_time
 	script.frame_time = now_ms
 	int last_id = script.animation_id
-	int budget = 1000000
+	int budget = script.execution_budget
 	int count = 0
 	win_script* previous = win_active_script
 	win_active_script = script
@@ -1158,7 +1166,7 @@ void win_script_checkpoint(win_script* script):
 	js_runtime_collect(script.runtime)
 	win_script* previous = win_active_script
 	win_active_script = script
-	js_completion* result = js_runtime_drain_microtasks(script.runtime, 1000000)
+	js_completion* result = js_runtime_drain_microtasks(script.runtime, script.execution_budget)
 	win_script_result(script, result)
 	win_script_sync(script)
 	win_script_collect_listeners(script)
@@ -1190,7 +1198,7 @@ int win_script_poll_at(win_script* script, int now_ms):
 	win_script* previous = win_active_script
 	win_active_script = script
 	int count = 0
-	int budget = 1000000
+	int budget = script.execution_budget
 	int last_id = script.timer_id
 	while (count < 64 && budget > 0):
 		win_script_timer* next = 0
@@ -1412,7 +1420,7 @@ void win_script_web_install(win_script* script, js_value* window):
 	js_runtime_set(rt, window, c"Event", event_constructor)
 	js_runtime_bind(rt, c"__winSearchGet", win_script_search_get)
 	char* source = c"function __winSearchObject(query){return {get:function(name){return __winSearchGet(query,name);}};}"
-	win_script_result(script, js_runtime_eval(rt, source, strlen(source), 1000000))
+	win_script_result(script, js_runtime_eval(rt, source, strlen(source), script.execution_budget))
 	js_value* constructor = js_runtime_host_callable(rt, script, win_script_search_new)
 	constructor.host_construct = 1
 	js_runtime_set(rt, rt.global, c"URLSearchParams", constructor)
@@ -1429,6 +1437,7 @@ void win_script_web_install(win_script* script, js_value* window):
 
 win_script* win_script_new(win_page* page):
 	win_script* script = new win_script()
+	script.execution_budget = WIN_EXECUTION_DEFAULT
 	script.timers = new list[win_script_timer*]
 	script.animation_frames = new list[win_script_timer*]
 	script.now_ms = time_monotonic_ms()
@@ -1455,11 +1464,11 @@ win_script* win_script_new(win_page* page):
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
 	js_runtime_bind(script.runtime, c"__winGL", win_script_gl_host)
 	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
-	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), 1000000)
+	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), script.execution_budget)
 	win_script_result(script, completion)
 	char* gl_source = win_canvas_bootstrap()
-	win_script_result(script, js_runtime_eval(script.runtime, gl_source, strlen(gl_source), 1000000))
-	script.runtime.remaining = 1000000
+	win_script_result(script, js_runtime_eval(script.runtime, gl_source, strlen(gl_source), script.execution_budget))
+	script.runtime.remaining = script.execution_budget
 	js_value* document = win_script_wrap(script, page.html.root)
 	js_runtime_set(script.runtime, script.runtime.global, c"document", document)
 	js_runtime_set(script.runtime, document, c"document", document)
@@ -1635,7 +1644,7 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	win_script* previous = win_active_script
 	win_active_script = script
 	js_runtime_collect(rt)
-	if (js_runtime_begin(rt, 1000000) == 0):
+	if (js_runtime_begin(rt, script.execution_budget) == 0):
 		win_active_script = previous
 		return 1
 	rt.running = 1
@@ -1712,7 +1721,7 @@ int win_script_run_pending(win_script* script, win_resources* resources):
 					win_script* previous = win_active_script
 					win_active_script = script
 					if (script.evaluating_module == 0):
-						script.evaluating_module = win_modules_evaluate_async(script.modules, script.active_module.source.identifier, 1000000)
+						script.evaluating_module = win_modules_evaluate_async(script.modules, script.active_module.source.identifier, script.execution_budget)
 						if (script.evaluating_module == 0): win_script_result(script, script.runtime.completion)
 					win_script_sync(script)
 					win_script_checkpoint(script)

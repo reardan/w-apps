@@ -4,6 +4,7 @@ import win.browser
 const int WIN_MAX_TABS = 32
 
 struct win_app:
+	int execution_budget
 	int isolated
 	list[win_browser*] tabs
 	int32 selected
@@ -13,6 +14,7 @@ struct win_app:
 	win_storage_context* local_storage
 
 void win_app_init(win_app* app, char* executable, char* home):
+	app.execution_budget = WIN_EXECUTION_DEFAULT
 	app.isolated = 0
 	app.tabs = new list[win_browser*]
 	app.selected = 0
@@ -26,6 +28,7 @@ int win_app_open(win_app* app, char* address, char* base):
 	win_browser* tab = new win_browser()
 	win_browser_init(tab, app.executable, app.home)
 	tab.isolated = app.isolated
+	tab.execution_budget = app.execution_budget
 	win_storage_free(tab.local_storage)
 	tab.local_storage = app.local_storage
 	tab.owns_local_storage = 0

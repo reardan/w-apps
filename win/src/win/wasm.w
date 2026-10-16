@@ -3,6 +3,7 @@
 import libs.extras.javascript.runtime
 import libs.extras.wasm.runtime
 import win.fetch
+import win.execution
 
 const int WIN_WASM_SOURCE_LIMIT = 4194304
 const int WIN_WASM_OP_LIMIT = 1048576
@@ -26,6 +27,7 @@ struct win_wasm_method:
 	int index
 
 struct win_wasm_realm:
+	int execution_budget
 	js_runtime* rt
 	list[win_wasm_object*] objects
 	list[win_wasm_method*] methods
@@ -400,7 +402,7 @@ js_value* win_wasm_dispatch(void* runtime, void* context, js_value* receiver, li
 		int result = 0
 		if (rt.completion.status == 0):
 			int fuel = rt.remaining
-			if (fuel > 1000000): fuel = 1000000
+			if (fuel > realm.execution_budget): fuel = realm.execution_budget
 			if (m.depth > 0): fuel = m.fuel
 			result = wwasm_call(m, object.index, values, fuel)
 			if (m.fuel < rt.remaining): rt.remaining = m.fuel
@@ -431,6 +433,7 @@ js_value* win_wasm_dispatch(void* runtime, void* context, js_value* receiver, li
 
 win_wasm_realm* win_wasm_install(js_runtime* rt):
 	win_wasm_realm* realm = new win_wasm_realm()
+	realm.execution_budget = WIN_EXECUTION_DEFAULT
 	realm.rt = rt
 	realm.objects = new list[win_wasm_object*]
 	realm.methods = new list[win_wasm_method*]

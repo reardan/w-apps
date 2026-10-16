@@ -14,6 +14,8 @@ int main(int argc, int argv):
 	win_script_graphics_available = 1
 	win_browser browser
 	win_browser_init(&browser, executable, address)
+	browser.execution_budget = win_execution_budget_parse(args_value(c"execution-budget"))
+	if (browser.execution_budget == 0): return 2
 	win_browser_set_viewport(&browser, 800, 600)
 	win_navigate(&browser, address, c"", -1)
 	int started = time_monotonic_ms()
@@ -23,7 +25,9 @@ int main(int argc, int argv):
 	int canvas_pixels = 0
 	int changed_frames = 0
 	int last_hash = 0
-	while (time_monotonic_ms() - started < 5000):
+	int duration = 5000
+	if (browser.execution_budget > WIN_EXECUTION_DEFAULT): duration = 30000
+	while (time_monotonic_ms() - started < duration):
 		win_browser_poll(&browser)
 		int count = win_script_frame_at(browser.script, time_monotonic_ms())
 		callbacks = callbacks + count
@@ -49,6 +53,7 @@ int main(int argc, int argv):
 		sleep_ms(16)
 	json_value* report = json_object()
 	json_object_set(report, c"address", json_string(address))
+	json_object_set(report, c"execution_budget", json_int(browser.execution_budget))
 	json_object_set(report, c"status", json_string(browser.status))
 	json_object_set(report, c"title", json_string(c""))
 	if (browser.page != 0): json_object_set(report, c"title", json_string(browser.page.title))

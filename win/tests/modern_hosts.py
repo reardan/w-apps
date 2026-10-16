@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--browser', type=Path, default=ROOT / 'win/bin/win')
     parser.add_argument('--report', type=Path, default=ROOT / 'win/bin/modern-browser/hosts.json')
     parser.add_argument('--record', action='store_true', help='Record known failures without failing the command')
+    parser.add_argument('--execution-budget', type=int, default=1000000,
+                        help='Explicit synchronous task budget; higher values may stall the UI')
     opts = parser.parse_args()
     output = opts.report.resolve().parent
     output.mkdir(parents=True, exist_ok=True)
@@ -60,7 +62,8 @@ def main():
             ('M2', '/w/tools/web/index.html?module=/w/bin/graphics_ui_mobile.wasm'),
         ):
             url = f'http://127.0.0.1:{server.server_port}{path}'
-            result = run(display + [str(probe), '--browser', str(opts.browser.resolve()), '--page', url])
+            result = run(display + [str(probe), '--browser', str(opts.browser.resolve()), '--page', url,
+                                    '--execution-budget', str(opts.execution_budget)])
             lines = [line for line in result.stdout.splitlines() if line.startswith('{')]
             if not lines:
                 raise RuntimeError((name, result.returncode, result.stdout, result.stderr))

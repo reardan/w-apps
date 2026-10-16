@@ -60,8 +60,16 @@ int main(int argc, int argv):
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--execution-budget 1..200000000] [--reftest]")
 		return 0
+	int execution_budget = win_execution_budget_parse(args_value(c"execution-budget"))
+	if (args_has_flag(c"execution-budget") && args_value(c"execution-budget") == 0): execution_budget = 0
+	if (execution_budget == 0):
+		println2(c"Execution budget must be an integer from 1 through 200000000")
+		return 1
+	if (execution_budget != WIN_EXECUTION_DEFAULT && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive") || args_has_flag(c"script-worker") || args_has_flag(c"interactive-worker"))):
+		println2(c"Custom execution budgets are not yet forwarded to isolated workers")
+		return 1
 	if (args_value(c"storage") != 0 && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive"))):
 		println2(c"Persistent storage is not yet shared with isolated workers")
 		return 1
@@ -105,6 +113,7 @@ int main(int argc, int argv):
 		return code
 	win_app app
 	win_app_init(&app, args_program(), home)
+	app.execution_budget = execution_budget
 	app.isolated = args_has_flag(c"isolated-interactive")
 	char* storage_path = args_value(c"storage")
 	if (storage_path != 0):

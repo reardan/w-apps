@@ -61,7 +61,7 @@ Supported properties are:
   `flex-basis`, `flex-wrap`, `align-items`, `align-self`, `justify-content`, and `grid-template-columns` for the
   limited flex/grid layouts described below.
 
-Lengths accept px, em, and rem values, including fractional and exponent numeric
+Lengths accept px, em, rem, vw, vh, vmin, and vmax values, including fractional and exponent numeric
 syntax and case-insensitive units. Box geometry retains floating-point lengths;
 font rasterization and some image/text placement still use integer metrics.
 Width and max-width also accept percentages. Font-size percentages are
@@ -69,7 +69,14 @@ relative to the inherited font size. Line height accepts pixels, em/rem,
 percentages, unitless inherited multipliers, normal, and inherit; values smaller
 than the font metrics currently keep the natural line height. Used lengths are
 bounded to a magnitude of 1,000,000 pixels; font rasterization uses bounded strike
-sizes.
+sizes. `calc()` supports nested parentheses, compatible addition/subtraction,
+number multiplication, and division by a nonzero number. Percentages remain
+symbolic until the supported property supplies its reference dimension. Mixed
+length/percentage calculations work for width, max-width, flex-basis, font-size,
+and line-height; they do not add percentage support to other properties.
+Viewport units use the browser viewport, independent of content layout width.
+`min()`, `max()`, `clamp()`, `env()`, dimensional cancellation, and small/large/
+dynamic viewport variants remain unsupported.
 Colors accept `rgb()`/`rgba()` and `hsl()`/`hsla()` in comma-separated and
 space-separated forms, with slash alpha in space-separated forms. Hues accept
 unitless degrees, `deg`, `grad`, `rad`, and `turn`, including wrapping negative
@@ -84,7 +91,7 @@ for translucent or antialiased paint. Out-of-gamut Color 4 mapping is not implem
 white, gray/grey, silver, red, green, blue, yellow, orange, purple, navy, teal,
 maroon, olive, lime, aqua/cyan, and fuchsia/magenta). Invalid color declarations
 leave earlier valid declarations effective. Relative colors, other color spaces,
-gradients, background images and custom properties are not implemented.
+gradients and background images are not implemented.
 Functional colors apply to `color`, `background`, `background-color`,
 `border-color`, and the `border` shorthand. Space-separated RGB/HSL forms accept
 `none` for any channel (including alpha), rendered as zero; comma-separated forms
@@ -101,6 +108,13 @@ components reject the whole declaration. Each component competes independently
 with longhands and `!important`. Omitted border colors and explicit `currentColor`
 in `border`/`border-color` follow the final computed text color. Per-side borders,
 multiple longhand values and other line styles remain unsupported.
+
+Custom properties are case-sensitive, inherit their computed token values, and
+participate in the cascade and inline CSSOM. `var()` supports nested and empty
+fallbacks. Dependency cycles include fallback references; invalid substitution
+uses the property's inherited/initial value without reviving an earlier losing
+declaration. Limits are 256 names per element, 64 KiB per expansion, and 128
+dependency levels. Registered custom properties and typed `@property` are absent.
 
 ## Layout and painting
 
@@ -140,7 +154,10 @@ Percentage widths and max-widths resolve against the flex container once. Column
 containers support `justify-content` against a definite height and horizontal
 `align-items`/`align-self`, including horizontal auto margins. Auto-width column
 items stretch by default, or use bounded intrinsic widths for other alignments.
-Column grow/shrink and flex-basis sizing remain unsupported.
+Column containers with definite heights also resolve grow/shrink and flex-basis
+using the shared flexible-length allocator. Percentage bases use a definite main
+size; indefinite columns use content sizing. Final allocated heights reach nested
+layout before painting and hit testing.
 
 `flex-wrap:wrap` collects row lines using outer hypothetical sizes, including
 margins, padding, borders and gaps, before resolving flexible lengths separately
@@ -150,8 +167,7 @@ Each line applies its own auto margins and `justify-content` distribution.
 `align-self` adds `auto`. Row alignment uses the line's outer item heights,
 or the definite container height for nowrap. Wrapped rows implement the default
 `align-content:stretch` behavior for positive extra height. Stretch changes an
-auto-height item's border box; it does not rerun descendant layout against the
-stretched height, so nested height-dependent flex alignment is incomplete.
+auto-height item's border box and reruns nested layout against that final height.
 Alignment translates descendant runs, boxes and fragment anchors together to
 keep painting and hit testing consistent.
 
@@ -162,8 +178,7 @@ column tokens or `repeat(N, ...)`, wrapping later children into rows. Gap separa
 rows/tracks. Column wrapping, wrap-reverse, reverse directions, baseline alignment,
 vertical auto margins, explicit align-content, explicit min-width, intrinsic sizing keywords in flex-basis, proportional/fixed grid track
 sizes, grid placement, and complete intrinsic sizing algorithms remain unsupported.
-Flex factors currently affect row flex only; grid alignment and the column
-flex sizing algorithm are not implemented.
+Grid alignment remains unsupported.
 
 Explicit block heights determine the box and following sibling position, while
 visible overflowing content contributes to the page's scroll extent. This does
@@ -203,3 +218,8 @@ max-width, and fixed-height visible overflow.
 component priorities, CSS-wide resets, shorthand mutation and relayout. The row
 algorithm targets [CSS Flexbox 1 §9.7](https://www.w3.org/TR/css-flexbox-1/#resolve-flexible-lengths). These cases qualify the supported foundation; full flex/grid and
 independent inline-block formatting contexts remain deferred.
+
+`css_custom_test.w`, `css_math_test.w`, and the column cases in `layout_test.w`
+cover these additions, including mutation, viewport resizing, cycles, dimensional
+errors, allocation and nested geometry. Native reference renders compare against
+equivalent explicit CSS; these are focused regressions rather than conformance claims.

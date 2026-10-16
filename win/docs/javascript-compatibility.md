@@ -2,9 +2,26 @@
 
 Win executes inline classic scripts and fetched external classic scripts in document order in a separate W JavaScript interpreter instance for each page/tab. Failed downloads and script exceptions produce a status diagnostic and do not prevent later scripts from running. The resource queue may fetch scripts concurrently, but execution waits for earlier script elements. Scripts use the fully parsed document; parser-blocking execution, `async` and `defer` scheduling are not modeled. `DOMContentLoaded` fires once on Document after the initial script queue finishes, with `readyState` set to `interactive`; it does not wait for unrelated image downloads. `load` fires once on Window after all initial resources finish, with `readyState` set to `complete`.
 
-This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary functions/closures, synchronous arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver; global `this` and sloppy receiver substitution/boxing remain unsupported. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including classes, generators, async functions, arbitrary-precision BigInt arithmetic, and regex execution. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Implicit operator coercion and many standard built-ins are also outside the subset. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, const exports, and live function exports. The bounded scheduling and storage APIs below are available, along with same-origin GET `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, navigation bindings, and access to W/OS capabilities from page code remain unavailable.
+This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary and async functions/closures, synchronous and async arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver; global `this` and sloppy receiver substitution/boxing remain unsupported. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including generators, async methods, and arbitrary-precision BigInt arithmetic. RegExp literals/constructors, exec/test and String.replace implement a bounded UTF-16 subset with explicit unsupported features; see [the RegExp contract](../../w/docs/projects/javascript_regexp.md). Bounded classes support constructors, prototype/static methods, inheritance, super-constructor calls and instanceof; accessors/private fields/super-property access remain outside the class subset. Bounded 64-bit BigInt arithmetic preserves exact bits and rejects overflow. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Implicit operator coercion and many standard built-ins are also outside the subset. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, const exports, live function exports and top-level await. Pending module evaluation lets Fetch/timers/Promise jobs advance and delays the initial DOMContentLoaded/load lifecycle; rejection is cached and reported without replaying module bodies. The bounded scheduling and storage APIs below are available, along with same-origin `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` / `Response.json()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, navigation bindings, and access to W/OS capabilities from page code remain unavailable.
+
+`String(value)` supports bounded ordinary object conversion and Error
+stringification; wrapper construction and Symbol hooks remain unsupported.
+`parseFloat` and `Number.parseFloat` share a bounded decimal-prefix parser with
+ECMAScript whitespace, signed zero, Infinity and correctly rounded binary64
+results. These do not imply general implicit coercion.
 
 ## Tasks and storage
+
+The default script/task budget is 1,000,000 shared JavaScript/Wasm steps.
+`--execution-budget N` explicitly selects 1–200,000,000 steps for ordinary native
+pages and new tabs. The same cap covers script/module entry, event dispatch,
+timers, animation batches and microtask checkpoints; reentrant imports do not
+refill fuel. Suspended async tasks conserve their original budget. Native Fetch
+settlement retains its independent 100,000-step entry bound. Isolated modes reject
+custom budgets until policy forwarding exists. Higher budgets can block the
+parent UI for seconds; they permit measured experiments, not responsiveness claims.
+All heap/source/stack/resource limits remain enforced independently.
+
 
 `requestAnimationFrame` and `cancelAnimationFrame` run bounded callbacks before
 painting the visible tab, with one relative monotonic timestamp per frame. Nested
@@ -29,11 +46,22 @@ callback/argument roots, including during self-cancellation. Navigation and tab
 closure free them; Stop cancels timers and queued microtasks.
 
 The runtime provides `new Promise(executor)`, `Promise.resolve`,
-`Promise.reject`, `then`, `catch`, and `queueMicrotask`. Executors run
+`Promise.reject`, `then`, `catch`, `finally`, and `queueMicrotask`. Executors run
 synchronously; reactions run at checkpoints. Settlement is first-call-wins,
-chains adopt native promises, and retained jobs participate in garbage collection.
-Generic thenables, Promise combinators, `finally`, species, unhandled-rejection
-events and async/await remain unsupported.
+chains adopt native promises and generic thenables, and retained jobs participate
+in garbage collection. Resolution reads `then` synchronously and queues its call;
+shared resolving capabilities enforce first-call-wins even with reentrancy.
+`finally` awaits cleanup and preserves the original result unless cleanup fails.
+`Promise.all`, `race`, and `allSettled` accept the supported array/string
+iterables, preserve result ordering, and assimilate thenables. Custom iterators,
+`Promise.any`, generic constructors/species, and unhandled-rejection events remain
+unsupported.
+Async functions and top-level module await use suspended
+W generator stacks resumed by Promise jobs. Suspension is bounded to 32 tasks,
+8 MiB of stack storage and a separate retained-root quota; fuel is conserved
+across checkpoints. Stop/navigation unwind suspended native temporaries and
+invalidate queued resumptions before freeing host records. Await assimilates
+thenables through the same Promise resolution mechanism.
 
 The runtime provides `queueMicrotask` and bounded Promise jobs. The script host
 runs explicit microtask checkpoints after script evaluation and event dispatch,
@@ -47,8 +75,15 @@ native tests use `win_script_poll_at(script, now_ms)`; production uses monotonic
 `localStorage` and `sessionStorage` support `getItem`, `setItem`, `removeItem`,
 `clear`, `key`, and `length`. Explicit storage owners retain local data for the
 app lifetime and session data for the tab lifetime, including reloads. Local data
-is shared with other tabs at the same origin; session data is not. These stores
-are memory-only and disappear when their owner closes. The origin is parsed from
+is shared with other tabs at the same origin; session data is not.
+Session storage is memory-only. Local storage also defaults to memory-only;
+`--storage FILE` opts into a versioned disk store protected by a lifetime advisory
+lock. The parent directory must exist. Mutations publish mode-0600 files through
+atomic replacement with file/directory synchronization. Prepublication failures
+restore the old memory state; a postpublication directory-sync failure retains
+the new state and throws `UnknownError`. Malformed records fail closed without
+replacement. Isolated modes refuse this option until shared storage IPC exists.
+The origin is parsed from
 the final document URL and includes normalized scheme, host, and effective port;
 paths do not split an origin. File/invalid origins throw `SecurityError` rather
 than sharing an opaque bucket.
@@ -56,29 +91,41 @@ than sharing an opaque bucket.
 Each owner is bounded to 1 MiB and 1,024 entries across its origins; keys and
 values are at most 64 KiB each. Quota failures throw `QuotaExceededError` and leave
 the old value intact. Strings use the browser binding's bounded primitive string
-conversion. Named-property storage access, storage events, disk persistence,
+conversion. Named-property storage access, storage events,
 full Web IDL coercion, and new-tab session copying are not implemented.
 
 ## Fetch
 
-`fetch(url)` and `window.fetch(url)` support HTTP(S) GET to the document's own
+`fetch(url, options)` and `window.fetch(url, options)` support HTTP(S) to the document's own
 scheme/host/effective-port origin. Relative references resolve against its final
 URL. Cross-origin redirects are rejected before the foreign request; local files
-and CORS requests are unavailable. Request/options objects are rejected rather
-than ignored. Loading uses cancellable child processes and existing deadlines.
+and CORS requests are unavailable. Options may supply `method`, `body`, native `signal`, and a plain data record
+of Content-Type/Accept headers. Bodies are bounded to 64 KiB, accept strings or
+copied BufferSource views and preserve embedded NUL bytes. GET/HEAD reject
+bodies; CONNECT/TRACE/TRACK are forbidden. Unsupported headers/options are
+rejected rather than silently ignored. Binary request framing, redirect behavior
+and exact limits are described in [network compatibility](network-compatibility.md). Loading uses cancellable child processes and existing deadlines.
 
 The returned native Promise fulfills with `status`, `ok`, `url`, `bodyUsed`, and
-`text()`, and `arrayBuffer()`. HTTP error statuses still fulfill; transport failures reject.
-`text()` and `arrayBuffer()` return Promises and share a single-use body. Bodies
+`text()`, `arrayBuffer()`, and `json()`. HTTP error statuses still fulfill; transport failures reject.
+`text()`, `arrayBuffer()` and `json()` return Promises and share a single-use body. Bodies
 are limited to 4 MiB each; `text()` additionally requires valid UTF-8 and at most
 64 KiB. Binary bodies are preserved byte-for-byte. Encoding replacement for text,
-streaming, JSON/blob helpers, headers, AbortSignal, and XHR remain unsupported. A page allows three
+streaming, blob helpers, response headers, and XHR remain unsupported.
+`json()` accepts up to 64 KiB, uses forgiving UTF-8 decoding, then strict bounded
+JSON parsing, with `SyntaxError` rejection and consumed-on-failure semantics. A page allows three
 concurrent fetches, 64 requests over its lifetime, and 4 MiB of retained body
-bytes. Responses remain owned until document teardown. Navigation/tab closure
+bytes. Responses remain owned until document teardown. `AbortController` exposes a
+stable branded `signal`, exact `reason`, `aborted`, `throwIfAborted`, `onabort`
+and function-valued abort listeners. Native observers cancel/reap Fetch workers
+before JS listeners run. Aborting after fulfillment rejects unread response
+bodies. At most 256 controllers are retained per realm and 1,024 active listeners
+per signal. Signal composition/timeouts, full prototypes and DOMException classes
+remain unsupported. Navigation/tab closure
 cancel outstanding workers before freeing their realm.
 
-`--dump` waits for pending fetches, but does not wait for future timers or recurring
-intervals. `--isolated-dump` executes the complete headless pipeline in a child;
+`--dump` waits for pending fetches and module evaluation (including awaited
+timers), but does not wait for unrelated future timers or recurring intervals. `--isolated-dump` executes the complete headless pipeline in a child;
 see the [process boundary](script-isolation.md) for limits.
 
 ## DOM bindings
@@ -97,9 +144,10 @@ Available operations:
 - Element `matches(selector)` returns a boolean; `closest(selector)` checks the element and then its ancestors, returning the nearest matching wrapper or null, including in detached trees. These and the query methods share filtered nth-child selectors and forgiving `:is()`/`:where()` lists. An invalid or unsupported strict selector list throws a catchable object with `name: 'SyntaxError'` and a `message`, even on an empty tree; native DOMException prototypes are not implemented. A valid forgiving list with no surviving branches simply matches nothing.
 - `textContent`, `value`, `id`, `className`, `checked`, and `hidden` properties; `document.title` and `document.readyState`.
 - `getAttribute`, `setAttribute`, and `removeAttribute`.
-- `createElement`, `createTextNode`, `appendChild`, and `remove`. Detached nodes remain owned until the page is freed, so retained wrappers remain safe.
+- Input/textarea `selectionStart`, `selectionEnd`, `selectionDirection`, and `setSelectionRange` use UTF-16 offsets with clamping. Native focus, editing and selection task events remain incomplete.
+- `createElement`, `createTextNode`, `appendChild`, `replaceChildren`, and `remove`. Element `replaceChildren` accepts nodes and primitive strings with preflight hierarchy validation; Document and DocumentFragment variants are absent. Detached nodes remain owned until the page is freed, so retained wrappers remain safe.
 - `classList.add`, `.remove`, `.toggle`, and `.contains` with one class token per call.
-- `style.cssText`, `.color`, `.backgroundColor`, `.display`, `.fontSize`, `.fontWeight`, `.width`, `.height`, `.margin`, `.padding`, `.border`, `.flex`, `.flexGrow`, `.flexShrink`, `.flexBasis`, and `.justifyContent` reads/writes. `getPropertyValue`, `getPropertyPriority`, `setProperty`, and `removeProperty` operate on supported CSS property names; `setProperty` accepts an optional `important` priority. Reads return specified inline values, not computed cascade values. `cssText` normalizes declaration order, separators, and spacing. Invalid individual property assignments leave existing declarations unchanged; replacing `cssText` keeps only valid supported declarations. The interface does not implement `getComputedStyle`, stylesheet rule APIs, or complete CSSStyleDeclaration enumeration/serialization.
+- `style.cssText`, `.color`, `.backgroundColor`, `.display`, `.fontSize`, `.fontWeight`, `.width`, `.height`, `.margin`, `.padding`, `.border`, `.flex`, `.flexGrow`, `.flexShrink`, `.flexBasis`, and `.justifyContent` reads/writes. `getPropertyValue`, `getPropertyPriority`, `setProperty`, and `removeProperty` operate on supported CSS property names; `setProperty` accepts an optional `important` priority. Reads return specified inline values, not computed cascade values. `cssText` normalizes declaration order, separators, and spacing. Invalid individual property assignments leave existing declarations unchanged; replacing `cssText` keeps only valid supported declarations. The interface does not implement general computed styles, stylesheet rule APIs, or complete CSSStyleDeclaration enumeration/serialization; limited computed padding/font-size reads are listed above.
 - `addEventListener`, `removeEventListener`, function-valued `on...` properties, and inline event attributes for the supported language subset. Listener registration accepts a boolean capture argument or an options object with `capture`, `once`, and `passive`; removal matches the callback, event type, and capture flag.
 - `console.log`, `.warn`, and `.error` retain their first argument in a bounded per-page console buffer (the last 32 entries, at most 4 KiB each). A console panel is not yet provided.
 
@@ -137,11 +185,13 @@ Listeners and property/inline handlers receive their current event target as
 `this`; arrows keep their lexical receiver. Connected-node event paths include
 Window after Document, while detached trees do not reach either. Window and
 Document retain separate listener registrations, and page load targets Window.
-Listener objects with `handleEvent`, abort signals, synthetic `Event` constructors
-and `dispatchEvent`, and shadow DOM event paths remain unsupported.
+`new Event(type, options)` and `dispatchEvent(event)` support synthetic dispatch,
+including reentrancy, event identity, nested dispatch and the same listener rules.
+Core event fields are read-only; synthetic events have `isTrusted:false`. Nested
+dispatch checkpoints run after the outermost invocation. Listener objects with
+`handleEvent`, listener abort options, and shadow DOM event paths remain unsupported.
 Property/inline handlers run after registered noncapture listeners at their node,
-rather than interleaving in registration order. Event fields are ordinary mutable
-wrapper properties, not native read-only accessors.
+rather than interleaving in registration order. Core event fields use native read-only descriptors.
 
 ## Limits and ownership
 
@@ -157,3 +207,8 @@ Collection runs between evaluations/dispatches; DOM wrappers and callbacks are r
 Tests in `win/tests/script_test.w` cover timer ordering/cancellation/bounds, microtask checkpoints, storage reload/origin/tab isolation and quotas, mutation, selector identity, insertion, styles/classes, event phases and options, propagation/cancelation, form input values, inline handlers, lifecycle, console storage, execution/allocation bounds, failure recovery, and realm isolation. The HTTP resource fixture checks ordered external execution and download-failure isolation. `win/fixtures/standards.html` and the browser integration suite exercise capture/once listeners and canceled form navigation together with expanded CSS selectors and colors. `win/tests/cssom_test.w` additionally covers synchronous DOM properties, inline CSSOM operations, stylesheet mutations, distinct Window events, receiver identity, and separate DOM/content load readiness. W's merged runtime foundation expands the subset described above; these tests do not establish full ECMAScript or DOM conformance.
 
 The standards command `./win/build standards` runs a [bounded upstream Test262 runtime profile](../../w/tests/javascript/test262/README.md) in addition to static WPT rendering. Labelled control flow includes nested/chained labels, outward jumps, and finally propagation; Annex B labelled function declarations remain unsupported.
+
+The runtime provides bounded `JSON.parse`/`JSON.stringify`, preserving UTF-16
+strings (including escaped NUL/lone surrogates), strict number/syntax validation,
+property ordering, toJSON, cycle and BigInt errors. Revivers/replacers and broader
+coercion are outside this subset; see W's runtime contract for exact limits.

@@ -175,3 +175,13 @@ checks real listener state across multiple clicks, input values and escaping,
 navigation, malformed requests, and the parent headless snapshot path. When
 X11 or `xvfb-run` is available, it also verifies that the native UI completes
 24 frames and writes a screenshot while the child waits on a slow HTTP load.
+
+`frame_transport.w` is an independent experimental RGBA transport primitive;
+it is not connected to the interactive worker or canvas presentation. Its WFRM
+v1 header carries generation/sequence, format, dimensions, stride and bounded
+payload size. Senders retain one frame until a matching acknowledgment; stale
+frames/ACKs and malformed headers are rejected before allocation. A generation
+change after a partial send explicitly requires reconnecting. Dimensions are
+bounded to 16,384 and the caller selects a payload limit no greater than 64 MiB.
+Tests cover x86/x64 overflow, fragmented sockets, backpressure, EOF, ownership
+and sequence limits. This adds neither an OS sandbox nor M4 application support.

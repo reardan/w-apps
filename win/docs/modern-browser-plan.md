@@ -1,7 +1,8 @@
 # Modern browser implementation plan
 
-Status: planned, not implemented. Written 2026-10-15 after W #662 and w-apps #7 merged.
-This document is the handoff for a fresh implementation session. It supersedes the
+Status: implementation in progress; see [measured progress](modern-browser-progress.md).
+Written 2026-10-15 after W #662 and w-apps #7 merged.
+This document records the complete implementation program. It supersedes the
 execution order in the older standards gap analysis, whose findings describe an
 older baseline. The compatibility documents remain the source of truth for shipped
 behavior. Do not interpret the roadmap as a support claim.

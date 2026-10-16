@@ -6,12 +6,14 @@ are subsets, not complete ECMAScript, WebAssembly, or WebGL conformance.
 
 ## Concrete target
 
-`fixtures/wasm-demo.html` loads the unchanged wasm produced from
-`w/graphics/demo_web.w` and imports the existing `w/tools/web/webgl_env.mjs`
-bridge. Its startup uses Promises and a minimal WASI adapter. It is a separate
-compatibility fixture: **the original `w/tools/web/index.html` is not supported
-unchanged**. That host still requires top-level await, classes, BigInt arithmetic, and
-additional browser interfaces. The mobile UI host is not an acceptance claim.
+The original `w/tools/web/index.html` now runs **unchanged** with the existing
+`graphics/demo_web.w` wasm and web bridge. Native acceptance checks cover three
+navigation cycles, 60 changing frames per cycle, 800×600 → 480×360 canvas resizing,
+script/resource errors, post-navigation callback/task release, stable descriptors
+and live W allocation counts, and triangle pixels in the actual browser window.
+The [progress note](modern-browser-progress.md) records timing/memory measurements
+and the remaining mobile, framework and isolation gates. This is not a claim of
+full browser compatibility or performance parity.
 
 From the repository root:
 
@@ -19,12 +21,13 @@ From the repository root:
 (cd w && ./bin/wv2 wasm graphics/demo_web.w -o bin/graphics_demo.wasm)
 python3 -m http.server 8000
 # In another terminal:
-./win/build run --page http://localhost:8000/win/fixtures/wasm-demo.html
+./win/build run --page 'http://localhost:8000/w/tools/web/index.html?module=/w/bin/graphics_demo.wasm'
 ```
 
-The fixture draws three frames and stops. It is not a general WASI environment:
-filesystem operations return errors, and its proc_exit handler records the exit
-code at the end of W's generated startup wrapper.
+`fixtures/wasm-demo.html` remains a separate three-frame Promise compatibility
+fixture with a minimal WASI adapter. The unchanged mobile UI host requires an
+explicit larger execution budget to render and does not yet pass input/workflow
+acceptance. Its exact entry point and measured bottlenecks are in the progress note.
 
 ## Available layers
 
@@ -33,16 +36,18 @@ code at the end of W's generated startup wrapper.
   coercions and streaming codecs remain explicit failures. BigInt64 DataView
   methods and exact wasm i64 crossings use a distinct bounded BigInt primitive
   covering [-2^63, 2^64-1]; arbitrary-precision arithmetic is not implemented.
-- Fetch: same-origin HTTP(S) GET with single-use `text()` and `arrayBuffer()`.
-  Binary bodies may contain NUL and invalid UTF-8. Bodies are limited to 4 MiB
+- Fetch: same-origin HTTP(S), bounded methods/string or binary request bodies,
+  and single-use `text()`, `arrayBuffer()` and `json()`.
+  Binary bodies may contain NUL and invalid UTF-8. `Response.json()` consumes the
+  same body using forgiving UTF-8 decoding followed by strict bounded JSON parsing. Bodies are limited to 4 MiB
   each and 4 MiB retained per page; text decoding retains its 64 KiB/valid-UTF-8
-  restriction. Options, CORS, XHR, headers, streams, and JSON/blob helpers are
-  not implemented.
+  restriction. Native AbortSignal options and cancellation are supported. CORS, XHR, response
+  headers, streams, and blob helpers remain unsupported.
 - Static modules: bounded asynchronous same-origin source graph loading,
   relative resolution, named imports, cached evaluation, immutable const exports,
   and function exports with live bindings.
-  This does not implement cycles, dynamic import, live mutable exports, or
-  top-level await. The current loader aborts its graph on a load failure.
+  Top-level await and async dependencies suspend through the browser event loop.
+  This does not implement cycles, dynamic import, or live mutable exports. The current loader aborts its graph on a load failure.
 - Animation: requestAnimationFrame/cancelAnimationFrame on Window and the global
   scope; up to 256 queued callbacks, one shared timestamp per visible paint,
   microtask checkpoints between callbacks, and deferred nested registration.
@@ -56,9 +61,13 @@ code at the end of W's generated startup wrapper.
 - WebAssembly: validated bounded interpreter, function imports/exports,
   defined linear memory/table/globals, and the instruction subset emitted by W's
   graphics demo. Unsupported types/proposals fail validation; this is not a JIT
-  and does not accept arbitrary modern wasm binaries. JS i64 crossings use a bounded BigInt representation; broader BigInt language
-  operations remain outside the subset. Streaming entry points buffer the response;
-  they are not incremental compilers and do not yet enforce response MIME. Modules are limited to 1 MiB, defined
+  and does not accept arbitrary modern wasm binaries. JS i64 crossings and bounded BigInt arithmetic preserve exact integer bits;
+  arbitrary-precision BigInt remains outside the subset. Streaming entry points buffer the response;
+  they are not incremental compilers. They require an unconsumed native Fetch
+  Response, successful status, and `application/wasm` with no MIME parameters;
+  forged objects and overridden response methods cannot bypass validation.
+  Modules are limited to 4 MiB and 1,048,576 decoded instructions, with a 4 MiB
+  aggregate retained source budget (module and instance copies count), defined
   memories to 16 MiB, and total realm memory to 64 MiB with at most 16 machines.
 - Canvas: `getContext('webgl2')` exposes the implemented native GL subset only
   with a graphics context. Headless calls return null. Each canvas owns a private
@@ -83,15 +92,20 @@ GL handles/buffer bounds/pixels. The actual browser rendering checks are:
 ```sh
 xvfb-run -a python3 win/tests/canvas_rendering.py win/bin/win
 python3 win/tests/wasm_graphics_integration.py win/bin/win
+xvfb-run -a python3 win/tests/modern_graphics_integration.py win/bin/win
 ```
 
 They require an X11/OpenGL display or Xvfb. The wasm test compiles the existing
 W demo and serves only a loopback HTTP fixture. Passing these tests establishes
 these paths, not compatibility with complete framework applications.
 
-The completed validation run passed 1,210 W toolchain targets, all 23 browser W
+The pre-roadmap baseline validation run passed 1,210 W toolchain targets, all 23 browser W
 test programs, eight Python integration suites, native GPU/canvas pixel checks,
 and 12/12 pinned WPT reftests. Test262 records 41 passes and 12 explicitly
 unsupported variants, with no unexpected failures. The toolchain run used
 `env -u NO_COLOR ./wbuild tests` so its color-output fixture could control its
 own environment.
+
+Current implementation and validation evidence is recorded in
+[modern-browser-progress.md](modern-browser-progress.md). Historical counts above
+do not include subsequent slices.

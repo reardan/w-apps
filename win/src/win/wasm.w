@@ -4,6 +4,9 @@ import libs.extras.javascript.runtime
 import libs.extras.wasm.runtime
 import win.fetch
 
+const int WIN_WASM_SOURCE_LIMIT = 4194304
+const int WIN_WASM_OP_LIMIT = 1048576
+
 struct win_wasm_object:
 	void* realm
 	wwasm* machine
@@ -202,10 +205,10 @@ win_wasm_object* win_wasm_compile(win_wasm_realm* realm, js_value* bytes):
 	if (data == 0):
 		win_wasm_error(rt, c"TypeError", c"WebAssembly requires a buffer source")
 		return 0
-	if (realm.machines >= 16 || length > 4194304 - realm.source_bytes):
+	if (realm.machines >= 16 || length > WIN_WASM_SOURCE_LIMIT - realm.source_bytes):
 		win_wasm_error(rt, c"CompileError", c"WebAssembly realm source limit")
 		return 0
-	wwasm* m = wwasm_load(cast(char*, data), length)
+	wwasm* m = wwasm_load_bounded(cast(char*, data), length, WIN_WASM_SOURCE_LIMIT, WIN_WASM_OP_LIMIT)
 	if (m.pages > 1024 - realm.pages): wwasm_fail(m, c"WebAssembly realm memory limit")
 	if (!m.valid || m.error != 0):
 		win_wasm_error(rt, c"CompileError", m.error)
@@ -223,8 +226,8 @@ win_wasm_object* win_wasm_compile(win_wasm_realm* realm, js_value* bytes):
 
 js_value* win_wasm_instantiate(win_wasm_realm* realm, win_wasm_object* module, js_value* imports):
 	js_runtime* rt = realm.rt
-	if (realm.machines >= 16 || module.machine.length > 4194304 - realm.source_bytes): return win_wasm_error(rt, c"LinkError", c"WebAssembly realm source limit")
-	wwasm* m = wwasm_load(module.machine.bytes, module.machine.length)
+	if (realm.machines >= 16 || module.machine.length > WIN_WASM_SOURCE_LIMIT - realm.source_bytes): return win_wasm_error(rt, c"LinkError", c"WebAssembly realm source limit")
+	wwasm* m = wwasm_load_bounded(module.machine.bytes, module.machine.length, WIN_WASM_SOURCE_LIMIT, WIN_WASM_OP_LIMIT)
 	if (m.pages > 1024 - realm.pages): wwasm_fail(m, c"WebAssembly realm memory limit")
 	if (!m.valid || m.error != 0):
 		js_value* result = win_wasm_error(rt, c"CompileError", m.error)
@@ -297,7 +300,7 @@ js_value* win_wasm_dispatch(void* runtime, void* context, js_value* receiver, li
 		if (action == 6):
 			byte* data = js_runtime_binary_data(rt, first)
 			if (data == 0): return win_wasm_error(rt, c"TypeError", c"WebAssembly requires a buffer source")
-			wwasm* checked = wwasm_load(cast(char*, data), js_runtime_binary_byte_length(rt, first))
+			wwasm* checked = wwasm_load_bounded(cast(char*, data), js_runtime_binary_byte_length(rt, first), WIN_WASM_SOURCE_LIMIT, WIN_WASM_OP_LIMIT)
 			int valid = checked.valid
 			wwasm_free(checked)
 			return js_runtime_boolean(rt, valid)

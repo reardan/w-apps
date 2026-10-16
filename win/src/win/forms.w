@@ -281,6 +281,21 @@ void win_forms_select_next(html_node* node):
 			break
 	__w_list_free(cast(__w_list*, options))
 
+# Document painting owns author backgrounds/borders. Native widgets provide
+# editing and fallback chrome without covering CSS or compositing alpha twice.
+ui_theme win_form_theme(ui_theme theme, win_box* box):
+	if (box.author_paint & WIN_PAINT_TEXT):
+		theme.text = box.text_color
+		theme.disabled_text = box.text_color
+	if (box.author_paint & WIN_PAINT_BACKGROUND):
+		ui_color clear = ui_color_new(0.0, 0.0, 0.0, 0.0)
+		theme.widget = clear
+		theme.widget_hot = clear
+		theme.widget_active = clear
+		theme.disabled_widget = clear
+	if (box.author_paint & WIN_PAINT_BORDER): theme.border.a = 0.0
+	return theme
+
 void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 	forms.clicked = 0
 	forms.changed = 0
@@ -319,6 +334,10 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 		if (strcmp(type, c"hidden") == 0): continue
 		ctx.next_id = c.id
 		ui_rect area = ui_rect_new(x + box.x, y + box.y, box.width, box.height)
+		ui_theme* previous_theme = ctx.theme
+		ui_theme control_theme = win_form_theme(*previous_theme, box)
+		ctx.theme = &control_theme
+		ui_clip_push(ctx.rndr, ui_rect_inset(area, cast(float32, box.border)))
 		ui_disable(ctx, win_form_disabled(node))
 		int choice = strcmp(type, c"checkbox") == 0 || strcmp(type, c"radio") == 0
 		int button = win_tag(node, c"button") || strcmp(type, c"submit") == 0 || strcmp(type, c"reset") == 0 || strcmp(type, c"button") == 0 || choice || win_tag(node, c"select")
@@ -356,6 +375,11 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 						ctx.char_mods[kept] = ctx.char_mods[k]
 						kept = kept + 1
 				ctx.char_count = kept
+			ui_color text_color = control_theme.text
+			ui_color disabled_text = control_theme.disabled_text
+			if (strcmp(type, c"password") == 0):
+				control_theme.text.a = 0.0
+				control_theme.disabled_text.a = 0.0
 			if (ui_textarea(ctx, area, &c.editor)):
 				int limit = WIN_FORM_LIMIT
 				if (win_form_has(node, c"maxlength")):
@@ -365,6 +389,8 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 				else:
 					win_form_set(node, c"value", c.editor.buf.data)
 					forms.changed = node
+			control_theme.text = text_color
+			control_theme.disabled_text = disabled_text
 			if (strcmp(type, c"password") == 0):
 				ui_rect mask = ui_rect_inset(area, 3.0)
 				ui_render_rect(ctx.rndr, mask, ctx.theme.widget)
@@ -377,4 +403,6 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 				ui_clip_pop(ctx.rndr)
 				string_free(hidden)
 		ui_disable(ctx, 0)
+		ui_clip_pop(ctx.rndr)
+		ctx.theme = previous_theme
 	ctx.next_id = saved_id

@@ -9,6 +9,10 @@ import win.css_values
 
 const int WIN_CSS_PROPERTY_COUNT = 41
 
+const int WIN_PAINT_BACKGROUND = 1
+const int WIN_PAINT_TEXT = 2
+const int WIN_PAINT_BORDER = 4
+
 # Insets keep their percentage component until viewport layout.
 struct win_inset:
 	int specified
@@ -17,6 +21,7 @@ struct win_inset:
 	float32 offset
 
 struct win_style:
+	int author_paint
 	int position
 	win_inset[4] insets
 	float32 size
@@ -73,6 +78,7 @@ struct win_style:
 
 win_style win_default_style():
 	win_style s
+	s.author_paint = 0
 	s.position = 0
 	for i in range(4):
 		s.insets[i].specified = 0

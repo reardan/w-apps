@@ -28,6 +28,8 @@ struct win_anchor:
 	float32 y
 
 struct win_box:
+	int author_paint
+	ui_color text_color
 	int fixed
 	int hidden
 	html_node* node
@@ -266,6 +268,9 @@ win_style win_computed_style(win_page* page, html_node* node, win_style style, w
 	list[css_document*] expanded = win_css_pending(&winners[0], custom)
 	int root = node.kind == HTML_START && (node.parent == 0 || node.parent.kind == HTML_DOCUMENT)
 	win_css_compute(&winners[0], &style, inherited, root)
+	if (winners[0].present): style.author_paint = style.author_paint | WIN_PAINT_TEXT
+	if (winners[8].present): style.author_paint = style.author_paint | WIN_PAINT_BACKGROUND
+	if (winners[20].present || winners[21].present || winners[28].present): style.author_paint = style.author_paint | WIN_PAINT_BORDER
 	for i in range(expanded.length): css_document_free(expanded[i])
 	__w_list_free(cast(__w_list*, expanded))
 	win_css_custom_free(custom)
@@ -433,6 +438,8 @@ win_box* win_box_add(win_page* page, html_node* node, win_style style, float32 x
 	box.y = y
 	box.width = width
 	box.height = height
+	box.author_paint = style.author_paint
+	box.text_color = style.color
 	box.color = style.background
 	box.border_color = style.border_color
 	box.border = style.border
@@ -441,6 +448,7 @@ win_box* win_box_add(win_page* page, html_node* node, win_style style, float32 x
 
 win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	win_style style = win_default_style()
+	style.author_paint = inherited.author_paint & WIN_PAINT_TEXT
 	style.size = inherited.size
 	style.root_size = inherited.root_size
 	style.line_height = inherited.line_height

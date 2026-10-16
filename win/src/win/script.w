@@ -260,7 +260,12 @@ char* win_style_property(int index):
 	if (index == 12): return c"flexGrow"
 	if (index == 13): return c"flexShrink"
 	if (index == 14): return c"flexBasis"
-	return c"justifyContent"
+	if (index == 15): return c"justifyContent"
+	if (index == 16): return c"position"
+	if (index == 17): return c"top"
+	if (index == 18): return c"right"
+	if (index == 19): return c"bottom"
+	return c"left"
 
 char* win_style_attribute(int index):
 	if (index == 2): return c"background-color"
@@ -542,7 +547,7 @@ int win_dom_has(void* runtime, void* context, js_value* receiver, js_text* key):
 int win_style_has(void* runtime, void* context, js_value* receiver, js_text* key):
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	if (receiver != b.style): return 0
-	for i in range(16):
+	for i in range(21):
 		if (js_runtime_key_is(key, win_style_property(i))): return 1
 	return 0
 
@@ -679,7 +684,7 @@ js_value* win_style_get(void* runtime, void* context, js_value* receiver, js_tex
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	if (receiver != b.style): return 0
-	for k in range(16):
+	for k in range(21):
 		if (js_runtime_key_is(key, win_style_property(k))):
 			char* text = 0
 			if (k == 0): text = win_cssom_edit(win_attr(b.node, c"style"), 0, c"", c"")
@@ -693,7 +698,7 @@ int win_style_set(void* runtime, void* context, js_value* receiver, js_text* key
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	if (receiver != b.style): return 0
-	for k in range(16):
+	for k in range(21):
 		if (js_runtime_key_is(key, win_style_property(k))):
 			char* text = win_js_text(value)
 			if (strlen(text) > 65536):

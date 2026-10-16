@@ -383,6 +383,7 @@ void win_browser_sync_viewport(win_browser* b):
 		b.interactive.viewport_width = b.viewport_width
 		b.interactive.viewport_height = b.viewport_height
 	if (b.page != 0): win_page_set_viewport(b.page, b.viewport_width, b.viewport_height)
+	win_page_set_scroll(b.page, b.scroll.offset_y)
 	win_script_set_viewport(b.script, b.viewport_width, b.viewport_height, 1.0, 0.0, cast(float64, b.scroll.offset_y))
 	if (b.script != 0): b.script.layout_width = b.width
 
@@ -611,12 +612,14 @@ void win_browser_focus_scroll(win_browser* b, ui_rect viewport):
 	float32 height = 0.0
 	win_box* box = win_page_node_box(b.page, node)
 	if (box != 0):
+		if (box.fixed): return
 		top = box.y
 		height = box.height
 	else:
 		for i in range(b.page.runs.length):
 			win_run* run = b.page.runs[i]
 			if (run.node == node):
+				if (run.fixed): return
 				top = run.y
 				height = run.height
 				break

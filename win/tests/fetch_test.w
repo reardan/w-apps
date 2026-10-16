@@ -468,9 +468,64 @@ void test_fetch_init_rejection():
 	fetch_eval(script, c"if(!caught) throw 'init getter rejection';")
 	fetch_destroy(script, context)
 
+void test_fetch_thenable_settlement():
+	win_script* script = fetch_script()
+	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
+	fetch_eval(script, c"function responseThen(){const button=document.createElement('button');button.setAttribute('onprobe','window.inlineGetter=true');button.dispatchEvent(new Event('probe'));return function(resolve){resolve('assimilated');};}")
+	win_fetch_request* request = fetch_result(context, c"", 0, 200)
+	fetch_expose(script, request)
+	fetch_eval(script, c"let settled='';result.then(function(v){settled=v;});")
+	# Inject a getter on a retained host Response to exercise native settlement
+	# entry; the getter dispatches an inline DOM handler requiring active runtime.
+	request.response = js_runtime_alloc(script.runtime, 5)
+	js_runtime_root(script.runtime, request.response)
+	js_text* key = js_runtime_key(c"then")
+	asserts(c"response getter fixture", js_runtime_define_accessor(script.runtime, request.response, key, js_runtime_get(script.runtime, script.runtime.global, c"responseThen"), 0, 1, 1))
+	js_text_free(key)
+	win_script* previous = win_active_script
+	win_active_script = script
+	assert_equal(0, win_fetch_poll(context))
+	win_active_script = previous
+	assert_equal(0, script.runtime.running)
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(settled!=='assimilated' || !window.inlineGetter) throw 'host settlement getter context'; const c=new AbortController();let invoked=false;const reason={then:function(){invoked=true;}};c.abort(reason);let same=false;fetch('/data',{signal:c.signal}).catch(function(e){same=e===reason;});")
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(invoked || !same) throw 'abort reason was assimilated';")
+	assert_equal(0, script.failures)
+	fetch_destroy(script, context)
+
+void test_fetch_nested_settlement_budget():
+	win_script* script = fetch_script()
+	js_runtime* rt = script.runtime
+	win_fetch_context* context = win_fetch_new(rt, c"unused", c"https://example.test/")
+	fetch_eval(script, c"function expensiveThen(){while(true){}}")
+	win_fetch_request* request = fetch_result(context, c"", 0, 200)
+	request.response = js_runtime_alloc(rt, 5)
+	js_runtime_root(rt, request.response)
+	js_text* key = js_runtime_key(c"then")
+	asserts(c"budget getter fixture", js_runtime_define_accessor(rt, request.response, key, js_runtime_get(rt, rt.global, c"expensiveThen"), 0, 1, 1))
+	js_runtime_begin(rt, 5)
+	rt.running = 1
+	assert_equal(1, win_fetch_poll(context))
+	assert_equal(5, rt.completion.status)
+	assert_equal(1, rt.running)
+	asserts(c"nested settlement does not replace caller fuel", rt.remaining <= 0)
+	assert_equal(1, request.promise.promise_state)
+	rt.running = 0
+	js_runtime_begin(rt, 100000)
+	asserts(c"replace expensive getter", js_runtime_define_data(rt, request.response, key, rt.undefined_value, 1, 1, 1))
+	js_text_free(key)
+	assert_equal(0, win_fetch_poll(context))
+	assert_equal(0, rt.running)
+	assert_equal(0, win_fetch_pending(context))
+	fetch_destroy(script, context)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	asserts(c"pass browser executable and fixture", argc >= 3)
+	if (argc > 3 && strcmp(args_get(3), c"--thenable") == 0):
+		test_fetch_thenable_settlement()
+		return 0
 	if (argc > 3 && strcmp(args_get(3), c"--saturation") == 0):
 		test_fetch_saturated_settlement()
 		return 0
@@ -486,6 +541,8 @@ int main(int argc, int argv):
 	if (argc > 3 && strcmp(args_get(3), c"--stop-saturation") == 0):
 		test_fetch_stop_saturation()
 		return 0
+	test_fetch_thenable_settlement()
+	test_fetch_nested_settlement_budget()
 	test_fetch_saturated_settlement()
 	test_fetch_heap_failure()
 	test_fetch_admission_heap_failure()

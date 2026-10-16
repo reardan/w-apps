@@ -353,7 +353,12 @@ int win_fetch_poll(win_fetch_context* context):
 		win_load* load = request.load
 		if (load == 0): continue
 		if (win_load_poll(load) == 0): continue
-		js_runtime_begin(rt, 100000)
+		# Resolution may call a user-defined then getter. Enter a bounded host
+		# scope when idle; nested callers retain their existing execution budget.
+		int was_running = rt.running
+		if (was_running == 0): js_runtime_begin(rt, 100000)
+		else if (rt.completion.status != 0): return 1
+		rt.running = 1
 		if (win_fetch_aborted(request)): win_fetch_abort_reject(rt, request.promise, request)
 		else if (load.error != 0): win_fetch_reject(rt, request.promise, load.error)
 		else if (request.failure != 0): win_fetch_reject(rt, request.promise, request.failure)
@@ -377,6 +382,7 @@ int win_fetch_poll(win_fetch_context* context):
 					if (request.response != rt.undefined_value): js_runtime_unroot(rt, request.response)
 					request.response = 0
 					request.failure = c"Fetch response allocation failed"
+					rt.running = was_running
 					return 1
 				request.bytes = cast(char*, malloc(load.length + 1))
 				for j in range(load.length): request.bytes[j] = load.source[j]
@@ -384,6 +390,7 @@ int win_fetch_poll(win_fetch_context* context):
 				request.length = load.length
 				context.bytes = context.bytes + load.length
 			js_runtime_promise_settle(rt, request.promise, request.response, 0)
+		rt.running = was_running
 		if (rt.completion.status != 0): return 1
 		js_runtime_unroot(rt, request.promise)
 		request.promise = 0

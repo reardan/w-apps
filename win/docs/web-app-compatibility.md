@@ -26,8 +26,9 @@ python3 -m http.server 8000
 
 `fixtures/wasm-demo.html` remains a separate three-frame Promise compatibility
 fixture with a minimal WASI adapter. The unchanged mobile UI host requires an
-explicit larger execution budget to render and does not yet pass input/workflow
-acceptance. Its exact entry point and measured bottlenecks are in the progress note.
+explicit larger execution budget. Native input, resize, wheel scrolling and
+continued rendering pass; isolated input and resize also pass focused acceptance.
+Full page CSS fidelity and the separate framework workflow remain incomplete. Its exact entry point and measured bottlenecks are in the progress note.
 
 ## Available layers
 
@@ -83,7 +84,9 @@ It presents atomic DOM snapshots and bounded RGBA8 canvas surfaces from the
 worker, with generation validation and acknowledgement backpressure. The unchanged
 graphics host passes sustained rendering and resize in this mode. See
 [isolated graphics](isolated-graphics.md) and [process isolation](script-isolation.md)
-for the remaining input, shared-storage and OS-sandbox limitations.
+for ordered input and the remaining shared-storage/workflow limitations. The
+[offline Linux sandbox](offline-sandbox.md) is opt-in and does not support HTTP
+applications; connected desktop/GPU authority remains explicit.
 
 ## Verification
 

@@ -107,10 +107,11 @@ Both are discovered by `win/build test`.
 `win --isolated-interactive --page PATH_OR_URL` keeps each tab's browser,
 JavaScript realm, event listeners, timers and document loading in a persistent
 child executable. `--isolated-interactive --dump` also exercises this path
-without a display. The default mode is unchanged: canvas/WebGL resource IPC
-is not implemented, so isolated snapshots cannot display canvas output and
-`getContext` is unavailable in the child. This mode is process separation with
-the same OS authority, not a sandbox.
+without a display. The default mode is unchanged. With X11/GLX, the graphics
+profile presents bounded canvas frames and forwards ordered native input; see
+[isolated graphics](isolated-graphics.md) for that protocol. Process separation
+alone retains OS authority; [offline confinement](offline-sandbox.md) is a
+separate opt-in profile for local content.
 
 The parent renders an inert HTML snapshot and does not create a script realm
 or execute scripts from it. Script elements are omitted; numeric
@@ -133,9 +134,9 @@ win_interactive_free(worker)
 ```
 
 Request kinds are 1 (tick), 2 (click), 3 (input value), and 4 (submit).
-Only one request can be outstanding. The UI reports busy input instead of
-building an unbounded event queue; users may need to retry input during a
-request. Each accepted request invalidates the borrowed `html`, `address`,
+Only one legacy request can be outstanding; its direct API reports busy
+instead of queuing. Graphical native input uses the separately bounded kind 5
+queue, so ordinary typing can wait behind an outstanding reply. Each accepted request invalidates the borrowed `html`, `address`,
 and `title` pointers. A successful poll publishes them until the next accepted
 request or free. There is a 30-second deadline per UI request, including the
 initial load; transport callers may choose 1–120,000 ms. Polling must continue
@@ -159,10 +160,11 @@ no evaluation replay or pointer transfer occurs. Unlike the one-shot dump,
 a persistent reply does not imply that the child has exited; later death is
 reported on the next poll.
 
-The initial interactive implementation replaces the displayed DOM after a
-mutation, so focus/selection preservation and complete native input-event
-fidelity remain limited. It reloads display resources in the parent; it does
-not transfer image, stylesheet, canvas or GPU objects. Ticks are requested at
+The displayed DOM is replaced after mutations. The graphics profile now
+returns worker-owned focus, UTF-16 selection and scroll, and routes portable
+native input through the same worker editing pipeline. Full platform IME
+semantics remain limited. Display resources reload in the parent; native
+image, stylesheet and GPU objects are not transferred. Canvas pixels use WFRM. Ticks are requested at
 roughly 100 ms intervals and can run timers/animation callbacks. These limits
 are why isolation is explicitly selected rather than enabled by default.
 
@@ -176,12 +178,14 @@ navigation, malformed requests, and the parent headless snapshot path. When
 X11 or `xvfb-run` is available, it also verifies that the native UI completes
 24 frames and writes a screenshot while the child waits on a slow HTTP load.
 
-`frame_transport.w` is an independent experimental RGBA transport primitive;
-it is not connected to the interactive worker or canvas presentation. Its WFRM
+`frame_transport.w` supplies the bounded RGBA primitive now connected to
+interactive canvas presentation. Its WFRM
 v1 header carries generation/sequence, format, dimensions, stride and bounded
 payload size. Senders retain one frame until a matching acknowledgment; stale
 frames/ACKs and malformed headers are rejected before allocation. A generation
 change after a partial send explicitly requires reconnecting. Dimensions are
 bounded to 16,384 and the caller selects a payload limit no greater than 64 MiB.
 Tests cover x86/x64 overflow, fragmented sockets, backpressure, EOF, ownership
-and sequence limits. This adds neither an OS sandbox nor M4 application support.
+and sequence limits. The integrated profile uses stricter 4,096-pixel and
+16 MiB aggregate limits. These transport tests alone do not establish M4
+application parity or OS confinement.

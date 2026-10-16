@@ -4,8 +4,9 @@
 persistent child process. The parent parses a display-only HTML snapshot and
 uploads validated RGBA bytes. It never evaluates the child page's JavaScript,
 creates its Wasm instance, or receives native GL handles. The default execution
-mode is unchanged. This is **process separation, not an OS sandbox**: the worker
-retains its existing filesystem, network and X server authority.
+mode is unchanged. Process separation alone retains filesystem, network and
+X server authority. An optional [offline Linux profile](offline-sandbox.md)
+restricts local-content workers; sandboxed HTTP applications are not supported.
 
 The child opens an unmapped 1×1 X11 drawable and a GLX context. Canvas contexts and
 FBOs remain private to the child; capture reads their RGBA buffers and flips rows
@@ -37,8 +38,8 @@ positive `--worker-generation` selects the graphics profile:
   DOM and surface set; an incomplete reply cannot replace the displayed set.
 - Parent polling reads at most 64 KiB and writes at most 64 KiB per call. Each
   read stops at the current record boundary, so coalesced records cannot be
-  misinterpreted. There is one request outstanding, no growing request queue,
-  and a 30-second request deadline independent of JavaScript/Wasm fuel.
+  misinterpreted. There is one request outstanding, a bounded native input queue described
+  below, and a 30-second request deadline independent of JavaScript/Wasm fuel.
 - Graphics requests use WINT reserved/revision value 1, then a 12-byte prefix
   `{node_id, viewport_width, viewport_height}` followed by the existing UTF-8
   event value. Kinds 1–4 retain tick/click/input/submit semantics. Dimensions
@@ -86,10 +87,45 @@ across all three stops; the absolute count includes the active GL driver's FDs.
 The new transport regression runs with guard-page allocation and reports zero
 retained W allocations, including failure and cancellation paths.
 
-This slice does not implement a sandbox, zero-copy rendering, continuous
-high-refresh presentation, or forwarding of native pointer/key streams. Existing
-snapshot-targeted click/input/submit requests retain their busy refusal behavior.
-Native input forwarding and broader M4 performance/interaction acceptance remain
-separate work. Non-WebGL canvas APIs and a missing GL display do not acquire new
+Zero-copy rendering, continuous high-refresh presentation and full M4 workflow
+acceptance remain separate work. Legacy snapshot-targeted click/input/submit
+requests retain their busy-refusal behavior; graphical input uses the bounded
+ordered transport below. Non-WebGL canvas APIs and a missing GL display do not acquire new
 rendering support. The renderer uses the existing bounded native WebGL subset;
 this is not a claim of full browser conformance.
+
+## Ordered native input
+
+WINT kind 5/revision 2 carries a 36-byte prefix of little-endian int32 fields:
+worker generation, document generation, viewport width/height, event count,
+mouse x/y, modifiers and reserved zero. Each of at most 64 events has five int32
+fields: kind, code, x, y and modifiers. Coordinates are relative to the document
+viewport and bounded to ±65,536; dimensions are 1–4,096. Valid kinds are the
+portable key, character, caret navigation, pointer button/cancel, wheel and
+preedit records. Unknown kinds, invalid codes/scalars/modifiers, stale generation
+or document IDs, and malformed lengths reject the whole batch before dispatch.
+
+The parent retains at most eight batches while a request or frame ACK is pending.
+Compatible text batches coalesce only up to 64 ordered records; redundant motion
+snapshots coalesce. Overflow visibly stops the worker rather than losing a
+release or text edit. Tab ownership changes discard unsent input and enqueue a
+terminal cancellation. Keyboard input is routed to the focused document; browser
+chrome consumes its own input locally.
+
+Kind 102/revision 2 extends the canvas manifest with nine int32 metadata fields
+before its strings: worker generation, document generation, focused node ID,
+UTF-16 selection start/end/direction, vertical scroll, viewport width/height.
+The worker uses the same native pointer/keyboard/forms pipeline as ordinary Win.
+The parent disables local document editing and scrolling defaults, then applies
+returned focus, selection and scroll to its inert presentation. Canvas handles
+and executable realms remain private to the worker. Existing kind 100/101
+receivers and legacy request APIs retain their bounded contracts.
+
+`isolated_input_integration.py` covers actual button handlers, Unicode editing,
+canceled beforeinput, selection, composition ordering and malformed/stale batches.
+`interactive_input_test.w` covers queue coalescing, overflow and guard-allocator
+cleanup. `isolated_mobile_acceptance.py` drives the unchanged mobile host through
+pointer focus, Unicode input, Backspace and resize without a parent script realm.
+Both native and isolated mobile acceptance now run in `win/build test`. Complete
+platform IME commit payloads, shared storage and framework workflow parity remain
+separately tracked limitations.

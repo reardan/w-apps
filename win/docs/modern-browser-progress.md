@@ -22,8 +22,8 @@ an outstanding implementation program, not a support claim.
   the published tarball SHA-256. `python3 win/tests/workflow_server.py` serves the
   local API and app; the README defines success/failure/abort, routing, restart
   persistence, origin separation and responsive acceptance steps.
-- M4: M1 now renders through isolated worker canvas frames. M2 raw input has
-  passed agent acceptance and awaits transport integration. Shared-state parity
+- M4: M1 now renders through isolated worker canvas frames. M2 raw input is
+  integrated, with portable input, focus/selection metadata and bounded queues. Shared-state parity
   remains outstanding. The opt-in [offline Linux sandbox](offline-sandbox.md)
   passes local-content enforcement and GL tests; HTTP apps are outside that profile.
 
@@ -89,7 +89,7 @@ Each track uses a separate worktree and generated-output directory.
   without a parent script realm. Integrated acceptance passed 36 painted frames
   with 36 pixel changes, resize, three worker lifetimes, crash/reap, partial
   cancellation and descriptor cleanup. See [the protocol](isolated-graphics.md).
-  Raw pointer/key forwarding and shared storage are still being integrated.
+  Raw pointer/key forwarding is integrated; shared storage is still underway.
   The offline sandbox is now integrated, retaining the documented desktop/GPU
   authority and rejecting network access.
 
@@ -174,11 +174,14 @@ equality, property presence, mutable live exports, and Array constructor/isArray
 support. Ordinary function construction, shared call/apply/bind, unmapped
 arguments, generic array-like slice and Unicode String casing now pass focused
 tests. The unchanged framework evaluates and creates virtual nodes; generic
-Array.some and addition conversion are the next measured runtime gaps. Live HTML DOM tree APIs and
+Array.some, addition and bitwise numeric conversion, and iterative logical/comma/
+conditional evaluation have since landed. Native input now reaches API success,
+HTTP 503 failure and abort with no late success. The next measured failure is
+expression depth while navigating to the settings view; limits remain unchanged. Live HTML DOM tree APIs and
 side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
 HTTP tests. The complete native API/interaction/persistence scenario does not
-pass yet. M4 still lacks integrated input/shared-state parity and a sandboxed
+pass yet. M4 still lacks shared-state/workflow parity and a sandboxed
 HTTP resource broker. M5 remains measured feature-family
 work; the current selected Test262 gate has 43 PASS/10 UNSUPPORTED variants.
 
@@ -193,9 +196,10 @@ reusable wasm loader now accepts explicit source/instruction budgets; its defaul
 source/memory limits. Fetch accepts up to 4 MiB so the unmodified binary reaches
 the loader; other resource classes keep their existing limits.
 
-The current dependency checkpoint is `05c8a572`; focus, CSS root layout, DOM
-tree APIs, native presence, ordered keyboard input and bounded composition
-are integrated through application `615cb39`. Feature-selected W tests and
+The current dependency checkpoint is `a9ba1c95`; focus, CSS root layout, DOM
+tree APIs, native presence, ordered keyboard/composition, isolated input and
+offline confinement are integrated. Terminal listener failure now preserves
+already requested event cancellation (`92adfe2`). Feature-selected W tests and
 focused Win tests pass; a new full exact-revision suite is still required after
 the remaining runtime/DOM/input integrations.
 

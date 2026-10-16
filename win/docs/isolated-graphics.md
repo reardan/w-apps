@@ -118,8 +118,8 @@ UTF-16 selection start/end/direction, vertical scroll, viewport width/height.
 The worker uses the same native pointer/keyboard/forms pipeline as ordinary Win.
 The parent disables local document editing and scrolling defaults, then applies
 returned focus, selection and scroll to its inert presentation. Canvas handles
-and executable realms remain private to the worker. Existing kind 100/101
-receivers and legacy request APIs retain their bounded contracts.
+and executable realms remain private to the worker. The parent continues accepting kind 100/101 snapshots; legacy request APIs
+retain their bounded contracts.
 
 `isolated_input_integration.py` covers actual button handlers, Unicode editing,
 canceled beforeinput, selection, composition ordering and malformed/stale batches.

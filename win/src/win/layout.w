@@ -12,6 +12,7 @@ struct win_layout_item:
 	win_style style
 	win_intrinsic_size intrinsic
 	float32 main_size
+	float32 content_height
 	float32 minimum
 	float32 maximum
 	float32 base_size
@@ -84,11 +85,19 @@ win_intrinsic_size win_intrinsic_text(char* text, int length, win_style style):
 	if (style.pre): result.min_content = result.max_content
 	return result
 
+float32 win_flex_main_extras(win_style style, int vertical):
+	if (vertical): return win_box_vertical_extras(style)
+	return win_box_horizontal_extras(style)
+
+float32 win_flex_main_margins(win_style style, int vertical):
+	if (vertical): return style.margin_top + style.margin_bottom
+	return style.margin_left + style.margin_right
+
 # Content-box flex bases deliberately ignore min/max constraints and the
 # zero floor (a small border-box basis can have a negative inner base).
-float32 win_flex_length(win_style style, float32 value, int percent, float32 available):
+float32 win_flex_length(win_style style, float32 value, int percent, float32 available, int vertical):
 	if (percent): value = available * value / 100.0
-	if (style.box_sizing): value = value - win_box_horizontal_extras(style)
+	if (style.box_sizing): value = value - win_flex_main_extras(style, vertical)
 	return value
 
 float32 win_flex_clamp(win_layout_item* item, float32 size):
@@ -101,7 +110,7 @@ float32 win_flex_clamp(win_layout_item* item, float32 size):
 # distribute from original bases, clamp, then freeze only the violations
 # matching the total violation. This keeps later passes proportional to the
 # original scaled shrink factors, not the previous pass's intermediate sizes.
-void win_flex_sizes(list[win_layout_item*] items, float32 available, float32 gap):
+void win_flex_sizes(list[win_layout_item*] items, float32 available, float32 gap, int vertical):
 	float32 extras_total = 0.0
 	if (items.length > 1): extras_total = gap * cast(float32, items.length - 1)
 	float32 hypothetical_total = 0.0
@@ -109,22 +118,35 @@ void win_flex_sizes(list[win_layout_item*] items, float32 available, float32 gap
 		win_layout_item* item = items[i]
 		item.base_size = item.intrinsic.max_content
 		item.minimum = item.intrinsic.min_content
+		if (vertical):
+			item.base_size = item.content_height
+			item.minimum = item.content_height
 		item.maximum = -1.0
 		if (item.anonymous == 0):
 			win_style style = item.style
-			extras_total = extras_total + win_box_horizontal_extras(style) + style.margin_left + style.margin_right
-			if (style.width >= 0.0):
-				float32 preferred = win_flex_length(style, style.width, style.width_percent, available)
+			extras_total = extras_total + win_flex_main_extras(style, vertical) + win_flex_main_margins(style, vertical)
+			float32 preferred_size = style.width
+			int preferred_percent = style.width_percent
+			if (vertical):
+				preferred_size = style.height
+				preferred_percent = 0
+			if (preferred_size >= 0.0):
+				float32 preferred = win_flex_length(style, preferred_size, preferred_percent, available, vertical)
 				if (item.minimum > preferred): item.minimum = preferred
 				if (style.flex_basis == -1.0): item.base_size = preferred
-			if (style.flex_basis >= 0.0): item.base_size = win_flex_length(style, style.flex_basis, style.flex_basis_percent, available)
-			if (style.max_width >= 0.0):
-				item.maximum = win_flex_length(style, style.max_width, style.max_width_percent, available)
+			if (style.flex_basis >= 0.0 && (style.flex_basis_percent == 0 || available >= 0.0)): item.base_size = win_flex_length(style, style.flex_basis, style.flex_basis_percent, available, vertical)
+			if (vertical == 0 && style.max_width >= 0.0):
+				item.maximum = win_flex_length(style, style.max_width, style.max_width_percent, available, vertical)
 				if (item.maximum < 0.0): item.maximum = 0.0
 				if (item.minimum > item.maximum): item.minimum = item.maximum
 		if (item.minimum < 0.0): item.minimum = 0.0
 		item.hypothetical = win_flex_clamp(item, item.base_size)
 		hypothetical_total = hypothetical_total + item.hypothetical
+	# An indefinite column uses its hypothetical content sizes. Percentage
+	# bases remain content, and no grow/shrink space is invented.
+	if (available < 0.0):
+		for i in range(items.length): items[i].main_size = items[i].hypothetical
+		return
 	int growing = hypothetical_total + extras_total < available
 	float32 initial_free = available - extras_total
 	for i in range(items.length):

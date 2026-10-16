@@ -41,9 +41,16 @@ struct win_stylesheet:
 	html_node* node
 	css_document* css
 
+# Per-layout intrinsic-height cache shared by temporary measurement pages.
+struct win_height_measure:
+	html_node* node
+	float32 width
+	float32 height
+
 struct win_page:
 	html_node* layout_node
 	list[win_image*] images
+	list[win_height_measure*] height_measures
 	list[win_box*] boxes
 	list[win_stylesheet*] stylesheets
 	int align
@@ -74,9 +81,15 @@ void win_runs_clear(win_page* page):
 	for i in range(page.anchors.length): free(page.anchors[i])
 	while (page.anchors.length > 0): page.anchors.pop()
 
+void win_height_measures_clear(win_page* page):
+	for i in range(page.height_measures.length): free(page.height_measures[i])
+	while (page.height_measures.length > 0): page.height_measures.pop()
+
 void win_page_free(win_page* page):
 	if (page == 0): return
 	win_runs_clear(page)
+	win_height_measures_clear(page)
+	__w_list_free(cast(__w_list*, page.height_measures))
 	win_images_free(page.images)
 	for i in range(page.stylesheets.length):
 		if (page.stylesheets[i].css != 0): css_document_free(page.stylesheets[i].css)
@@ -247,6 +260,7 @@ win_page* win_page_parse(char* source, int length):
 	win_page* page = new win_page()
 	page.html = html
 	page.images = new list[win_image*]
+	page.height_measures = new list[win_height_measure*]
 	page.boxes = new list[win_box*]
 	page.stylesheets = new list[win_stylesheet*]
 	win_page_collect_styles(page, html.root)
@@ -627,6 +641,62 @@ void win_flex_translate(win_page* page, win_layout_item* item, float32 dx, float
 		page.runs[i].y = page.runs[i].y + dy
 	for i in range(item.anchor_first, item.anchor_end): page.anchors[i].y = page.anchors[i].y + dy
 
+# Column cross sizes are determined before content-height measurement. The
+# same width is used for final layout, so wrapping and replaced ratios agree.
+float32 win_column_width(win_layout_item* item, win_style container, float32 available):
+	win_style used = item.style
+	int alignment = used.align_self
+	if (alignment < 0 || item.anonymous): alignment = container.align_items
+	float32 width = available
+	if (item.anonymous == 0):
+		width = win_box_border_width(used, available) - win_box_horizontal_extras(used)
+		if (used.width < 0.0 && (alignment != 0 || used.margin_left_auto || used.margin_right_auto)):
+			if (width > item.intrinsic.max_content): width = item.intrinsic.max_content
+	else if (alignment != 0 && width > item.intrinsic.max_content): width = item.intrinsic.max_content
+	return width
+
+float32 win_column_content_height(win_page* page, win_layout_item* item, float32 width, char* href):
+	for i in range(page.height_measures.length):
+		win_height_measure* cached = page.height_measures[i]
+		if (cached.node == item.first && cached.width == width): return cached.height
+	# Measurement owns geometry only; the HTML, images, styles and memo table
+	# remain borrowed. Nothing from this pass enters painting or hit testing.
+	win_page* probe = new win_page()
+	probe.html = page.html
+	probe.images = page.images
+	probe.stylesheets = page.stylesheets
+	probe.height_measures = page.height_measures
+	probe.width = page.width
+	probe.runs = new list[win_run*]
+	probe.boxes = new list[win_box*]
+	probe.anchors = new list[win_anchor*]
+	win_style measured = item.style
+	measured.height = -1.0
+	measured.margin_top = 0.0
+	measured.margin_bottom = 0.0
+	probe.right = width
+	if (item.anonymous):
+		html_node* text = item.first
+		while (text != item.end):
+			if (text.kind == HTML_TEXT): win_layout_node(probe, text, measured, href)
+			text = text.next_sibling
+	else:
+		if (measured.display == 2): measured.display = 1
+		probe.right = width + win_box_horizontal_extras(measured) + measured.margin_left + measured.margin_right
+		win_layout_node_style(probe, item.first, measured, href, width)
+	win_line_end(probe, 0)
+	if (probe.truncated): page.truncated = 1
+	float32 height = probe.y
+	if (item.anonymous == 0): height = height - win_box_vertical_extras(measured)
+	if (height < 0.0): height = 0.0
+	win_runs_clear(probe)
+	__w_list_free(cast(__w_list*, probe.runs))
+	__w_list_free(cast(__w_list*, probe.boxes))
+	__w_list_free(cast(__w_list*, probe.anchors))
+	free(probe)
+	if (page.height_measures.length < 20000): page.height_measures.push(new win_height_measure(item.first, width, height))
+	return height
+
 void win_layout_flex(win_page* page, html_node* node, win_style style, char* href):
 	list[win_layout_item*] items = win_layout_items(page, node, style)
 	float32 left = page.left
@@ -634,7 +704,14 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 	float32 top = page.y
 	float32 available = right - left
 	int vertical = style.flex_column
-	if (vertical == 0): win_flex_sizes(items, available, style.gap)
+	if (vertical == 0): win_flex_sizes(items, available, style.gap, 0)
+	else:
+		for i in range(items.length):
+			win_layout_item* item = items[i]
+			item.content_height = win_column_content_height(page, item, win_column_width(item, style, available), href)
+		float32 main_available = -1.0
+		if (style.height >= 0.0): main_available = win_box_content_height(style)
+		win_flex_sizes(items, main_available, style.gap, 1)
 	int first = 0
 	int line_count = 0
 	float32 line_top = top
@@ -643,7 +720,7 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 		if (vertical == 0 && style.flex_wrap): end = win_flex_line_end(items, first, available, style.gap)
 		list[win_layout_item*] line = new list[win_layout_item*]
 		for i in range(first, end): line.push(items[i])
-		if (vertical == 0): win_flex_sizes(line, available, style.gap)
+		if (vertical == 0): win_flex_sizes(line, available, style.gap, 0)
 		float32 remaining = available - style.gap * cast(float32, line.length - 1)
 		int auto_margins = 0
 		if (vertical == 0):
@@ -674,12 +751,11 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 			if (alignment < 0 || item.anonymous): alignment = style.align_items
 			float32 width = item.main_size
 			if (vertical):
-				width = available
-				if (item.anonymous == 0):
-					width = win_box_border_width(used, available) - win_box_horizontal_extras(used)
-					if (used.width < 0.0 && (alignment != 0 || used.margin_left_auto || used.margin_right_auto)):
-						if (width > item.intrinsic.max_content): width = item.intrinsic.max_content
-				else if (alignment != 0 && width > item.intrinsic.max_content): width = item.intrinsic.max_content
+				width = win_column_width(item, style, available)
+				# Feed the allocated height into descendant layout, including
+				# nested flex containers, before emitting final geometry.
+				used.height = item.main_size
+				if (used.box_sizing): used.height = used.height + win_box_vertical_extras(used)
 			float32 outer_width = width
 			if (item.anonymous == 0): outer_width = outer_width + win_box_horizontal_extras(used) + used.margin_left + used.margin_right
 			page.left = cursor
@@ -914,6 +990,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 void win_page_layout(win_page* page, int width):
 	if (width < 160): width = 160
 	win_runs_clear(page)
+	win_height_measures_clear(page)
 	page.width = width
 	page.left = 28.0
 	page.right = cast(float32, width) - 28.0

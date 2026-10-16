@@ -22,8 +22,10 @@ an outstanding implementation program, not a support claim.
   the published tarball SHA-256. `python3 win/tests/workflow_server.py` serves the
   local API and app; the README defines success/failure/abort, routing, restart
   persistence, origin separation and responsive acceptance steps.
-- M4: M1 now renders through isolated worker canvas frames. M2/M3 input and
-  shared-state parity remain outstanding; process separation is not an OS sandbox.
+- M4: M1 now renders through isolated worker canvas frames. M2 raw input has
+  passed agent acceptance and awaits transport integration. Shared-state parity
+  remains outstanding. The opt-in [offline Linux sandbox](offline-sandbox.md)
+  passes local-content enforcement and GL tests; HTTP apps are outside that profile.
 
 Run `python3 win/tests/modern_hosts.py` for machine-readable startup probes of
 the unchanged graphics/mobile hosts and the Preact workflow. `--record` records failures without a
@@ -87,7 +89,9 @@ Each track uses a separate worktree and generated-output directory.
   without a parent script realm. Integrated acceptance passed 36 painted frames
   with 36 pixel changes, resize, three worker lifetimes, crash/reap, partial
   cancellation and descriptor cleanup. See [the protocol](isolated-graphics.md).
-  Raw pointer/key forwarding, shared storage and an OS sandbox remain gaps.
+  Raw pointer/key forwarding and shared storage are still being integrated.
+  The offline sandbox is now integrated, retaining the documented desktop/GPU
+  authority and rejecting network access.
 
 ## Initial evidence and toolchain
 
@@ -132,7 +136,13 @@ latency, maximum poll/callback durations and native window paint. This runs unde
 a dedicated Xvfb display to avoid interference from other desktop sessions.
 The initial three-cycle run took 2.8–3.5 seconds to first frame under concurrent
 build load, with 9–30 ms maximum frame callbacks and 1.4–1.6 second maximum polls.
-These are measured baselines, not an assertion of responsive startup. RSS alone
+These are measured baselines, not an assertion of responsive startup. A later
+dedicated-Xvfb run on W `6b105463` passed all three 60-frame cycles, resize,
+29,005 colored window pixels and stable five descriptors. Warm teardown retained
+zero additional W blocks, with byte deltas −1,336/+80. Under concurrent unrelated
+compiler/VM load, first frames took 11.8–14.3 seconds and maximum polls 5.3–6.5
+seconds; a shared-display attempt timed out before 60 frames. These runs do not
+isolate runtime performance from host contention. RSS alone
 is not a leak detector: the production allocator and GL driver may retain pages.
 
 M2 reaches startup, but its bundled font decoding and first glyph rasterization
@@ -150,7 +160,10 @@ scrolling inside wasm (61,082 changed canvas pixels without outer scrolling),
 and 30 further frames. `mobile_native_reference.py` repeats this input/resize
 sequence in Chromium 145.0.7632.6. Edited and narrow screenshots were visually
 compared: field text and geometry match, including the application’s stretched
-typography and right-edge field cropping. Native screenshots and source hashes
+typography and right-edge field cropping. Pixel comparison found no channel
+difference above 16 in either 360×360 capture; 151 of 280,800 pixels exceeded
+that threshold in the edited 390×720 capture. This canvas comparison does not
+establish full page CSS fidelity: fixed positioning remains unsupported. Native screenshots and source hashes
 are recorded under `win/bin/modern-browser/mobile-native/`.
 The driver uses portable native event records, not synthetic JavaScript events;
 platform key translation and complete IME behavior remain separate gaps. Author body margins now control the page origin
@@ -165,7 +178,8 @@ Array.some and addition conversion are the next measured runtime gaps. Live HTML
 side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
 HTTP tests. The complete native API/interaction/persistence scenario does not
-pass yet. M4 still lacks input/shared-state parity and an OS sandbox. M5 remains measured feature-family
+pass yet. M4 still lacks integrated input/shared-state parity and a sandboxed
+HTTP resource broker. M5 remains measured feature-family
 work; the current selected Test262 gate has 43 PASS/10 UNSUPPORTED variants.
 
 The complete roadmap's remaining language, CSS/layout, networking, cookie/CORS,
@@ -184,3 +198,9 @@ tree APIs, native presence, ordered keyboard input and bounded composition
 are integrated through application `615cb39`. Feature-selected W tests and
 focused Win tests pass; a new full exact-revision suite is still required after
 the remaining runtime/DOM/input integrations.
+
+The offline sandbox checkpoint `ce005ce` passes integrated kernel/TSYNC tests,
+failed-readback zeroing and dedicated-Xvfb local GL/resource acceptance. The
+parent paints 16,384 blue canvas pixels and 547,744 green CSS pixels; the two
+intentional forbidden stylesheets fail, and the negative network listener sees
+no connection. See its contract for retained authority and unsupported kernels.

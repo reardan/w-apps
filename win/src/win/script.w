@@ -1399,7 +1399,7 @@ js_value* win_script_event_new(void* runtime, void* context, js_value* receiver,
 void win_script_web_install(win_script* script, js_value* window):
 	js_runtime* rt = script.runtime
 	js_value* event_constructor = js_runtime_host_callable(rt, script, win_script_event_new)
-	event_constructor.host_construct = 1
+	event_constructor.host_construct = 2
 	js_runtime_set(rt, rt.global, c"Event", event_constructor)
 	js_runtime_set(rt, window, c"Event", event_constructor)
 	js_runtime_bind(rt, c"__winSearchGet", win_script_search_get)

@@ -1,5 +1,12 @@
 # Standards implementation status
 
+For the current app-driven implementation and final dependency/check results,
+see [modern browser progress](modern-browser-progress.md). The older milestones
+below are historical checkpoints. The current selected gate contains 20 pinned
+WPT reftests and 113 Test262 variants (90 PASS, 23 explicit UNSUPPORTED), with
+zero unexpected failures or harness errors; these are feature slices, not an
+overall browser conformance percentage.
+
 The W dependency includes the bounded Promise/microtask runtime and standalone
 module foundation from [W #657](https://github.com/reardan/w/pull/657), on top of
 the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation and
@@ -24,8 +31,9 @@ The [web application contract](web-app-compatibility.md) describes the new bound
 WebAssembly interpreter, typed buffers and UTF-8 codecs, binary Fetch, browser
 module graph loading, canvas WebGL rendering, animation frames, and opt-in
 interactive process isolation. The Promise-based W demo fixture is the concrete
-integration target. The original full W host still requires unsupported JavaScript
-and browser features; this is not general modern-site compatibility.
+integration target at that checkpoint. The original full W host subsequently
+passed the app-driven integration described in the progress note; general modern-site
+compatibility remains outside the support claim.
 
 ## Implemented foundation
 
@@ -106,11 +114,11 @@ variants in W, runs the rendering adapter's contract tests, and compares pinned
 unmodified WPT test/reference pages using the native GL renderer. An X11 display
 or `xvfb-run` is required. Network access is unnecessary during test execution.
 
-- [WPT static rendering contract](../tests/wpt/README.md): 12 pinned color and
-  selector reftests, an 800×600 content viewport, exact pixel comparisons,
+- [WPT static rendering contract](../tests/wpt/README.md): 20 pinned color, selector and CSS Variables
+  reftests, an 800×600 content viewport, exact pixel comparisons,
   captured evidence, and explicit unsupported/error handling.
-- [Test262 runtime contract](../../w/tests/javascript/test262/README.md): 28
-  upstream files, 53 metadata-selected variants, native boolean/SameValue
+- [Test262 runtime contract](../../w/tests/javascript/test262/README.md): 58
+  upstream files, 113 metadata-selected variants, native boolean/SameValue
   assertions, phase/type-checked negatives, and separate unsupported results.
 - WPT screenshots and JSON are saved under `win/bin/wpt-results/`. Test262
   writes its full report to `w/bin/test262-conformance.json`.

@@ -105,6 +105,34 @@ void mobile_shot(win_canvas* canvas, char* path):
 	free(row)
 	free(pixels)
 
+void mobile_parent_shot(mobile_driver* driver, char* path):
+	if (path == 0): return
+	int width = driver.width - 24
+	int height = driver.height - 182
+	char* pixels = cast(char*, malloc(width * height * 4))
+	ui_begin(&driver.ui, driver.width, driver.height)
+	win_browser_frame(&driver.browser, &driver.ui, driver.width, driver.height)
+	ui_end(&driver.ui)
+	glReadPixels(12, 44, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels)
+	wstream* out = stream_open_write(path)
+	assert1(out != 0)
+	stream_write_cstr(out, c"P6\n")
+	stream_write_int(out, width)
+	stream_write_cstr(out, c" ")
+	stream_write_int(out, height)
+	stream_write_cstr(out, c"\n255\n")
+	char* row = cast(char*, malloc(width * 3))
+	int y = height - 1
+	while (y >= 0):
+		for x in range(width):
+			for c in range(3): row[x * 3 + c] = pixels[(y * width + x) * 4 + c]
+		stream_write(out, row, width * 3)
+		y = y - 1
+	io_result result
+	assert_equal(IO_OK, stream_close_checked(out, &result))
+	free(row)
+	free(pixels)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	char* executable = args_value(c"browser")
@@ -166,7 +194,10 @@ int main(int argc, int argv):
 	mobile_frame(&driver)
 	asserts(c"native Backspace edits Wasm field by a Unicode scalar", mobile_memory_contains(machine, c"Nativeé"))
 	assert_strings_equal(c"​", win_attr(editor, c"value"))
+	assert_equal(0, cast(int, driver.browser.scroll.offset_y))
+	assert1(driver.browser.page.height <= cast(float32, driver.browser.viewport_height))
 	mobile_shot(binding.canvas, args_value(c"screenshot"))
+	mobile_parent_shot(&driver, args_value(c"parent-screenshot"))
 	driver.width = 384
 	driver.height = 542
 	XResizeWindow(driver.window.display, driver.window.window, driver.width, driver.height)
@@ -177,7 +208,10 @@ int main(int argc, int argv):
 	assert_equal(360, driver.browser.viewport_height)
 	assert_equal(360, binding.canvas.width)
 	assert_equal(360, binding.canvas.height)
+	assert_equal(0, cast(int, driver.browser.scroll.offset_y))
+	assert1(driver.browser.page.height <= cast(float32, driver.browser.viewport_height))
 	mobile_shot(binding.canvas, args_value(c"narrow-screenshot"))
+	mobile_parent_shot(&driver, args_value(c"parent-narrow-screenshot"))
 	# Wheel delivery must reach the inner wasm scroll region and cancel the
 	# outer page's default scroll. Coordinates remain inside the resized canvas.
 	int outer_scroll = cast(int, driver.browser.scroll.offset_y)

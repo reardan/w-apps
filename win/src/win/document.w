@@ -179,13 +179,36 @@ void win_page_refresh_styles(win_page* page):
 	__w_list_free(cast(__w_list*, previous))
 	page.width = 0
 
+# Ancestors contribute computed values, so a child override cannot rebind a
+# variable reference that was already resolved on its parent.
+list[win_css_custom*] win_node_custom(win_page* page, html_node* node):
+	list[win_css_custom*] values = new list[win_css_custom*]
+	if (node.parent != 0):
+		__w_list_free(cast(__w_list*, values))
+		values = win_node_custom(page, node.parent)
+		win_css_custom_inherit(values)
+	int order = 0
+	for i in range(page.stylesheets.length):
+		css_document* css = page.stylesheets[i].css
+		if (css != 0): win_css_rules(css, css.nodes, node, page.width, 0, &order, values)
+	char* text = win_attr(node, c"style")
+	css_document* inline_css = css_parse_declarations_n(text, strlen(text), 0)
+	if (inline_css.failed == 0):
+		for i in range(inline_css.nodes.length):
+			css_node* d = inline_css.nodes[i]
+			order = order + 1
+			win_css_custom_collect(values, inline_css, d, win_cascade_author(d.important, 1, win_specificity_zero(), order))
+	css_document_free(inline_css)
+	win_css_custom_finish(values)
+	return values
+
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
 	win_css_specified[36] winners
 	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	int order = 0
 	for i in range(page.stylesheets.length):
 		css_document* css = page.stylesheets[i].css
-		if (css != 0): win_css_rules(css, css.nodes, node, page.width, &winners[0], &order)
+		if (css != 0): win_css_rules(css, css.nodes, node, page.width, &winners[0], &order, 0)
 	char* text = win_attr(node, c"style")
 	css_document* inline_css = 0
 	if (text[0] != 0):
@@ -195,8 +218,18 @@ win_style win_computed_style(win_page* page, html_node* node, win_style style, w
 				css_node* d = inline_css.nodes[i]
 				order = order + 1
 				win_css_collect(inline_css, d, win_cascade_author(d.important, 1, win_specificity_zero(), order), &winners[0])
+	list[win_css_custom*] custom = new list[win_css_custom*]
+	for p in range(WIN_CSS_PROPERTY_COUNT):
+		if (winners[p].present && winners[p].pending != 0):
+			__w_list_free(cast(__w_list*, custom))
+			custom = win_node_custom(page, node)
+			break
+	list[css_document*] expanded = win_css_pending(&winners[0], custom)
 	int root = node.kind == HTML_START && (node.parent == 0 || node.parent.kind == HTML_DOCUMENT)
 	win_css_compute(&winners[0], &style, inherited, root)
+	for i in range(expanded.length): css_document_free(expanded[i])
+	__w_list_free(cast(__w_list*, expanded))
+	win_css_custom_free(custom)
 	css_document_free(inline_css)
 	return style
 

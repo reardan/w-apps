@@ -3,6 +3,7 @@
 import win.style
 
 char* win_cssom_name(char* name):
+	if (win_css_custom_name(name)): return strclone(name)
 	string_builder* result = string_new()
 	for i in range(strlen(name)):
 		int c = name[i] & 255
@@ -13,6 +14,7 @@ char* win_cssom_name(char* name):
 	return text
 
 int win_cssom_equal(char* a, char* b):
+	if (win_css_custom_name(a) || win_css_custom_name(b)): return strcmp(a, b) == 0
 	int pos = 0
 	while (a[pos] != 0 && b[pos] != 0):
 		int left = a[pos] & 255
@@ -89,6 +91,24 @@ void win_cssom_append(string_builder* out, char* name, char* value, int importan
 # the same priority. A mixture of CSS-wide and ordinary values has no shorthand.
 char* win_cssom_get(char* source, char* name, int priority):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
+	if (win_css_custom_name(name)):
+		list[win_css_custom*] custom = new list[win_css_custom*]
+		for i in range(css.nodes.length):
+			css_node* d = css.nodes[i]
+			win_css_custom_collect(custom, css, d, win_cascade_author(d.important, 0, win_specificity_zero(), i))
+		win_css_custom* entry = win_css_custom_find(custom, name)
+		char* result = strclone(c"")
+		if (entry != 0):
+			free(result)
+			if (priority):
+				result = strclone(c"")
+				if (entry.key.important):
+					free(result)
+					result = strclone(c"important")
+			else: result = strclone(entry.specified.source)
+		win_css_custom_free(custom)
+		css_document_free(css)
+		return result
 	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
 	int[4] properties
@@ -106,6 +126,8 @@ char* win_cssom_get(char* source, char* name, int priority):
 	if (count == 3 && win_cssom_equal(name, c"border")):
 		properties[1] = 28
 		properties[2] = 21
+	# Pending shorthands have no specified longhand serialization.
+	if (count == 1 && winners[properties[0]].present && winners[properties[0]].pending != 0 && win_css_property(winners[properties[0]].pending.name) < 0): count = 0
 	int valid = count > 0
 	int important = 0
 	if (count > 0 && winners[properties[0]].present): important = winners[properties[0]].key.important
@@ -123,8 +145,15 @@ char* win_cssom_get(char* source, char* name, int priority):
 			values[i] = win_cssom_specified(&winners[properties[i]], properties[i])
 			if (winners[properties[i]].wide): wide = 1
 			if (i > 0 && win_cssom_equal(values[i], values[0]) == 0): same = 0
+		int pending = winners[properties[0]].pending != 0
+		if (pending):
+			for i in range(count):
+				if (winners[properties[i]].pending != winners[properties[0]].pending): same = 0
 		int length = count
-		if (wide):
+		if (pending):
+			length = 0
+			if (same): length = 1
+		else if (wide):
 			length = 0
 			if (same): length = 1
 		else if (count == 4):
@@ -145,13 +174,16 @@ char* win_cssom_get(char* source, char* name, int priority):
 void win_cssom_serialize(string_builder* out, css_document* css, css_node* d, int order, win_css_specified* winners):
 	int complete = 1
 	int matches = 0
+	int pending = 0
 	for p in range(WIN_CSS_PROPERTY_COUNT):
 		if (win_cssom_contains(d.name, p)):
 			win_css_specified* slot = &winners[p]
-			if (slot.present && slot.css == css && slot.key.order == order): matches = matches + 1
+			if (slot.present && slot.css == css && slot.key.order == order):
+				matches = matches + 1
+				if (slot.pending != 0): pending = 1
 			else: complete = 0
 	if (matches == 0): return
-	if (complete):
+	if (complete || pending):
 		char* value = win_cssom_value(css, d)
 		win_cssom_append(out, d.name, value, d.important)
 		free(value)
@@ -185,18 +217,37 @@ char* win_cssom_edit(char* source, char* name, char* value, char* priority):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
 	win_css_specified[36] winners
 	win_cssom_collect(css, &winners[0])
+	if (name != 0 && value[0] == 0 && win_css_property(name) >= 0):
+		win_css_specified* removed = &winners[win_css_property(name)]
+		if (removed.present && removed.pending != 0 && win_css_property(removed.pending.name) < 0):
+			css_document_free(css)
+			css_document_free(parsed)
+			return 0
 	if (name != 0):
 		for p in range(WIN_CSS_PROPERTY_COUNT):
 			if (win_cssom_contains(name, p)): winners[p].present = 0
 	if (parsed != 0):
 		parsed.nodes[0].important = important
 		win_css_collect(parsed, parsed.nodes[0], win_cascade_author(important, 0, win_specificity_zero(), css.nodes.length), &winners[0])
+	list[win_css_custom*] custom = new list[win_css_custom*]
+	if (css.failed == 0):
+		for i in range(css.nodes.length):
+			css_node* d = css.nodes[i]
+			if (name == 0 || strcmp(d.name, name) != 0): win_css_custom_collect(custom, css, d, win_cascade_author(d.important, 0, win_specificity_zero(), i))
+	if (parsed != 0): win_css_custom_collect(custom, parsed, parsed.nodes[0], win_cascade_author(important, 0, win_specificity_zero(), css.nodes.length))
 	string_builder* out = string_new()
 	if (css.failed == 0):
-		for i in range(css.nodes.length): win_cssom_serialize(out, css, css.nodes[i], i, &winners[0])
+		for i in range(css.nodes.length):
+			css_node* d = css.nodes[i]
+			win_css_custom* entry = win_css_custom_find(custom, d.name)
+			if (entry != 0 && entry.key.order == i): win_cssom_append(out, entry.name, entry.specified.source, entry.key.important)
+			win_cssom_serialize(out, css, d, i, &winners[0])
 	if (parsed != 0):
+		win_css_custom* entry = win_css_custom_find(custom, parsed.nodes[0].name)
+		if (entry != 0): win_cssom_append(out, entry.name, entry.specified.source, entry.key.important)
 		win_cssom_serialize(out, parsed, parsed.nodes[0], css.nodes.length, &winners[0])
 		css_document_free(parsed)
+	win_css_custom_free(custom)
 	css_document_free(css)
 	char* result = out.data
 	free(out)

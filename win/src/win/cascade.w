@@ -15,6 +15,7 @@ struct win_css_specified:
 	int wide
 	# Synthetic shorthand values: 1 initial, 2 one, 3 zero (0px for basis).
 	int reset
+	css_node* pending
 
 int win_cascade_compare(win_cascade_key a, win_cascade_key b):
 	if (a.important != b.important): return a.important - b.important
@@ -34,6 +35,7 @@ win_cascade_key win_cascade_author(int important, int inline_style, win_specific
 void win_css_store(win_css_specified* winners, int property, css_document* css, int first, int last, win_cascade_key key, int reset):
 	win_css_specified* slot = &winners[property]
 	if (slot.present && win_cascade_compare(key, slot.key) < 0): return
+	slot.pending = 0
 	slot.present = 1
 	slot.key = key
 	slot.css = css
@@ -188,12 +190,26 @@ int win_css_flex(css_document* css, int first, int last, win_cascade_key key, wi
 		win_css_store(winners, 31, css, basis, basis + 1, key, reset)
 	return 1
 
+import win.css_custom
+
 # Validates the whole declaration before any longhand can become a winner.
 # A null winners pointer is the public validation-only path for CSSOM.
 int win_css_collect(css_document* css, css_node* d, win_cascade_key key, win_css_specified* winners):
 	int first = css_skip(css, d.first, d.last)
 	int last = css_trim(css, first, d.last)
+	if (win_css_custom_name(d.name)): return win_css_custom_valid(css, first, last)
 	if (first >= last): return 0
+	int variables = win_css_variables_valid(css, first, last, 0)
+	if (variables == 0): return 0
+	if (variables == 2):
+		int supported = 0
+		for p in range(WIN_CSS_PROPERTY_COUNT):
+			if (win_css_affects(d.name, p)):
+				supported = 1
+				if (winners != 0):
+					win_css_store(winners, p, css, first, last, key, 0)
+					if (winners[p].css == css && winners[p].key.order == key.order): winners[p].pending = d
+		return supported
 	int property = win_css_property(d.name)
 	if (property >= 0):
 		if (win_css_longhand_valid(property, css, first, last) == 0): return 0
@@ -251,6 +267,32 @@ int win_css_collect(css_document* css, css_node* d, win_cascade_key key, win_css
 			if (k == 2): target = 21
 			win_css_store(winners, target, css, starts[k], ends[k], key, starts[k] < 0)
 	return 1
+
+# Resolve only cascade winners. Invalid substitution is unset, rather than a
+# second chance for a declaration that lost the cascade. Expanded token owners
+# remain alive through computed-value resolution.
+list[css_document*] win_css_pending(win_css_specified* winners, list[win_css_custom*] custom):
+	list[css_document*] documents = new list[css_document*]
+	for p in range(WIN_CSS_PROPERTY_COUNT):
+		win_css_specified* slot = &winners[p]
+		if (slot.present == 0 || slot.pending == 0): continue
+		char* value = win_css_custom_expand(custom, slot.css, slot.first, slot.last, 0)
+		css_node* declaration = slot.pending
+		slot.pending = 0
+		slot.wide = 3
+		if (value == 0): continue
+		string_builder* text = string_from(declaration.name)
+		string_append_char(text, ':')
+		string_append(text, value)
+		free(value)
+		css_document* css = css_parse_declarations_n(text.data, text.length, 0)
+		string_free(text)
+		documents.push(css)
+		if (css.failed || css.nodes.length != 1): continue
+		win_css_specified[36] resolved
+		for i in range(WIN_CSS_PROPERTY_COUNT): resolved[i].present = 0
+		if (win_css_collect(css, css.nodes[0], slot.key, &resolved[0]) && resolved[p].present && resolved[p].pending == 0): slot[0] = resolved[p]
+	return documents
 
 int win_css_declaration_supported(css_document* css, css_node* declaration):
 	return win_css_collect(css, declaration, win_cascade_author(0, 0, win_specificity_zero(), 0), 0)
@@ -493,11 +535,11 @@ int win_css_media(css_document* css, css_node* rule, int width):
 		pos = css_skip(css, close + 1, last)
 	return matched
 
-void win_css_rules(css_document* css, list[css_node*] rules, html_node* node, int width, win_css_specified* winners, int* order):
+void win_css_rules(css_document* css, list[css_node*] rules, html_node* node, int width, win_css_specified* winners, int* order, list[win_css_custom*] custom):
 	for i in range(rules.length):
 		css_node* rule = rules[i]
 		if (strcmp(rule.kind, c"at-rule") == 0):
-			if (css_ascii_equal(rule.name, c"media") && win_css_media(css, rule, width)): win_css_rules(css, rule.children, node, width, winners, order)
+			if (css_ascii_equal(rule.name, c"media") && win_css_media(css, rule, width)): win_css_rules(css, rule.children, node, width, winners, order, custom)
 			continue
 		if (strcmp(rule.kind, c"qualified-rule") != 0 || win_selector_list_valid(css, rule.first, rule.last) == 0): continue
 		int matched = 0
@@ -514,4 +556,6 @@ void win_css_rules(css_document* css, list[css_node*] rules, html_node* node, in
 			css_node* d = rule.children[j]
 			if (strcmp(d.kind, c"declaration") == 0):
 				order[0] = order[0] + 1
-				win_css_collect(css, d, win_cascade_author(d.important, 0, specificity, order[0]), winners)
+				win_cascade_key key = win_cascade_author(d.important, 0, specificity, order[0])
+				if (custom != 0): win_css_custom_collect(custom, css, d, key)
+				if (winners != 0): win_css_collect(css, d, key, winners)

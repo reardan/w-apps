@@ -255,6 +255,7 @@ void win_browser_poll_document(win_browser* b):
 		if (page == 0): win_status(b, c"Invalid UTF-8 or HTML document exceeds parser limits")
 		else:
 			win_script_pointer_cancel(b.script)
+			win_keyboard_cancel(b.script)
 			win_native_clear(&b.native_input)
 			if (b.script != 0): js_runtime_async_cancel(b.script.runtime)
 			win_fetch_free(b.fetches)

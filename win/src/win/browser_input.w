@@ -96,8 +96,13 @@ void win_browser_interactive_cancel(win_browser* b):
 	if (worker.input_present == 0 && worker.input_queue.length == 0): return
 	# Discard unsent input when the tab loses ownership, then reliably send a
 	# terminal cancellation after any already-in-flight request is acknowledged.
-	for win_interactive_input* queued in worker.input_queue: free(queued)
-	while (worker.input_queue.length): worker.input_queue.pop()
+	int retained = 0
+	for win_interactive_input* queued in worker.input_queue:
+		if (queued.history_delta):
+			worker.input_queue[retained] = queued
+			retained = retained + 1
+		else: free(queued)
+	while (worker.input_queue.length > retained): worker.input_queue.pop()
 	win_interactive_input* batch = new win_interactive_input()
 	batch.generation = worker.generation
 	batch.document = worker.document_generation

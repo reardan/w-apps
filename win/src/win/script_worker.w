@@ -6,6 +6,7 @@ import win.browser
 import lib.process
 import lib.poll
 
+int win_worker_history
 char* win_worker_storage_origin
 
 const int WIN_SCRIPT_WORKER_LIMIT = 8388608
@@ -302,6 +303,35 @@ int win_interactive_child_frame(win_frame_sender* sender, win_canvas* canvas):
 	if (win_frame_header_read(&bytes[0], &ack, 4) == 0): return 0
 	return win_frame_sender_ack(sender, ack)
 
+int win_interactive_child_history(win_browser* browser, string_builder* output):
+	int bytes = 8
+	for win_history_entry* entry in browser.history:
+		int address = strlen(entry.address)
+		int state = strlen(entry.state)
+		if (address < 1 || address > 65536 || state > 65536 || bytes > WIN_HISTORY_WIRE_LIMIT - 20 - address - state): return 0
+		bytes = bytes + 20 + address + state
+	if (browser.history.length < 1 || browser.history.length > 128 || browser.current < 0 || browser.current >= browser.history.length): return 0
+	int base = output.length
+	for i in range(12): string_append_char(output, 0)
+	save_int32(output.data + base, bytes)
+	save_int32(output.data + base + 4, browser.history.length)
+	save_int32(output.data + base + 8, browser.current)
+	for i in range(browser.history.length):
+		win_history_entry* entry = browser.history[i]
+		if (entry.serial < 1 || entry.serial > 2147483647): return 0
+		int at = output.length
+		for j in range(20): string_append_char(output, 0)
+		save_int32(output.data + at, entry.serial)
+		save_int32(output.data + at + 4, entry.document_generation)
+		float32 scroll = entry.scroll
+		if (i == browser.current): scroll = browser.scroll.offset_y
+		save_int32(output.data + at + 8, cast(int, scroll))
+		save_int32(output.data + at + 12, strlen(entry.address))
+		save_int32(output.data + at + 16, strlen(entry.state))
+		string_append(output, entry.address)
+		string_append(output, entry.state)
+	return 1
+
 int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes, int sequence, int limit, win_frame_sender* sender):
 	if (browser.page == 0 || browser.page.truncated): return 0
 	string_builder* output = string_new()
@@ -355,6 +385,10 @@ int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes,
 		save_int32(output.data + at + 24, cast(int, browser.scroll.offset_y))
 		save_int32(output.data + at + 28, browser.viewport_width)
 		save_int32(output.data + at + 32, browser.viewport_height)
+	if (sender != 0 && win_worker_history):
+		save_int32(output.data + 16, 103)
+		save_int32(output.data + 20, 3)
+		if (ok): ok = win_interactive_child_history(browser, output)
 	if (ok): ok = win_interactive_append(output, browser.address, limit - 3)
 	string_append_char(output, 0)
 	if (ok): ok = win_interactive_append(output, browser.page.title, limit - 2)
@@ -423,6 +457,7 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	environ_ptr = cast(int, environment)
 	win_browser browser
 	win_browser_init(&browser, executable, home)
+	if (win_worker_history): browser.history_wire_limit = WIN_HISTORY_WIRE_LIMIT
 	win_storage_bridge bridge
 	win_storage_bridge_init(&bridge, generation)
 	if (win_worker_storage_origin != 0):
@@ -479,11 +514,18 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		if (kind == 5):
 			prefix = WIN_INPUT_PREFIX
 			revision = 2
-		if (running == 0 || length < prefix || length > 65536 + prefix || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 5 || load_int32(&header[20]) != revision || (kind == 5 && generation == 0)): break
+		if (kind == 6):
+			prefix = 16
+			revision = 3
+		if (running == 0 || length < prefix || length > 65536 + prefix || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 6 || load_int32(&header[20]) != revision || ((kind == 5 || kind == 6) && generation == 0) || (kind == 6 && win_worker_history == 0)): break
 		char* payload = cast(char*, malloc(length + 1))
 		payload[length] = 0
 		int ok = win_interactive_child_read(payload, length)
-		if (kind == 5 && ok):
+		if (kind == 6 && ok):
+			int delta = win_interactive_history_delta(payload, length, generation, browser.document_generation)
+			if (delta == 0): ok = 0
+			else: win_history_go(&browser, delta)
+		else if (kind == 5 && ok):
 			win_interactive_input* input = win_interactive_input_decode(payload, length, generation, browser.document_generation)
 			if (input == 0): ok = 0
 			else:

@@ -8,6 +8,7 @@ const int WIN_INPUT_RECORD = 20
 const int WIN_INPUT_BATCHES = 8
 
 struct win_interactive_input:
+	int history_delta
 	int generation
 	int document
 	int width
@@ -44,12 +45,13 @@ int win_interactive_input_valid(win_interactive_input* input):
 	if (input.width < 1 || input.width > 4096 || input.height < 1 || input.height > 4096): return 0
 	if (input.mods < 0 || input.mods > 15 || win_interactive_coordinate(input.mouse_x) == 0 || win_interactive_coordinate(input.mouse_y) == 0): return 0
 	if (input.native.overflow || input.native.count < 0 || input.native.count > 64): return 0
+	if (input.history_delta != 0): return input.native.count == 0 && input.history_delta >= -127 && input.history_delta <= 127
 	for i in range(input.native.count):
 		if (win_interactive_event_valid(&input.native.events[i]) == 0): return 0
 	return 1
 
 string_builder* win_interactive_input_encode(win_interactive_input* input):
-	if (win_interactive_input_valid(input) == 0): return 0
+	if (input.history_delta != 0 || win_interactive_input_valid(input) == 0): return 0
 	string_builder* result = string_new()
 	for i in range(WIN_INPUT_PREFIX + input.native.count * WIN_INPUT_RECORD): string_append_char(result, 0)
 	save_int32(result.data, input.generation)

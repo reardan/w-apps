@@ -11,12 +11,17 @@ import win.history_state
 import graphics.ui.widgets
 
 struct win_history_entry:
+	int serial
+	int worker_generation
+	int worker_serial
 	char* state
 	int document_generation
 	char* address
 	float32 scroll
 
 struct win_browser:
+	int history_serial
+	int history_wire_limit
 	int history_pop_pending
 	int document_generation
 	js_value* history_object
@@ -69,6 +74,9 @@ void win_browser_history_poll(win_browser* b);
 void win_browser_history_address(win_browser* b);
 void win_browser_history_state(win_browser* b);
 void win_browser_history_event(win_browser* b);
+int win_browser_history_isolated_go(win_browser* b, int delta);
+void win_browser_history_snapshot(win_browser* b, int first);
+int win_browser_history_isolated_dispatch(win_browser* b);
 
 void win_status(win_browser* browser, char* text):
 	free(browser.status)
@@ -78,6 +86,8 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	win_native_clear(&b.native_input)
 	b.execution_budget = WIN_EXECUTION_DEFAULT
 	b.document_generation = 0
+	b.history_serial = 0
+	b.history_wire_limit = 0
 	b.history_pop_pending = 0
 	b.history_object = 0
 	b.traversals = new list[int]
@@ -181,6 +191,8 @@ void win_commit_address(win_browser* b, char* address, int target):
 			b.history.pop()
 			b.current = b.current - 1
 		win_history_entry* entry = new win_history_entry()
+		b.history_serial = b.history_serial + 1
+		entry.serial = b.history_serial
 		entry.address = strclone(address)
 		entry.document_generation = b.document_generation
 		entry.state = strclone(c"null")
@@ -223,6 +235,7 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 		b.interactive_generation = b.interactive_generation + 1
 		if (b.local_storage.path != 0): b.interactive = win_interactive_start_owned(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget, b.local_storage, b.session_storage)
 		else: b.interactive = win_interactive_start_config(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget)
+		b.interactive.require_history = 1
 		ui_textarea_set(&b.input, address)
 		win_status(b, c"Loading isolated content…")
 		free(address)
@@ -233,6 +246,17 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 	free(old_path)
 	free(new_path)
 	if (same):
+		# Fragment navigation also clones state into a new entry. Check the
+		# aggregate before committing URL/scroll, just like pushState.
+		if (b.history_wire_limit > 0 && target == -1 && b.current >= 0):
+			int bytes = 28 + strlen(address) + strlen(b.history[b.current].state)
+			int first = 0
+			if (b.current == 127): first = 1
+			for i in range(first, b.current + 1): bytes = bytes + 20 + strlen(b.history[i].address) + strlen(b.history[i].state)
+			if (bytes > b.history_wire_limit || b.history_serial >= 2147483647):
+				win_status(b, c"Isolated history metadata limit reached")
+				free(address)
+				return
 		win_load_free(b.load)
 		b.load = 0
 		win_commit_address(b, address, target)
@@ -256,6 +280,7 @@ void win_navigate(win_browser* b, char* reference, char* base, int target):
 	win_navigate_request(b, reference, base, target, c"GET", c"")
 
 void win_history_go(win_browser* b, int delta):
+	if (win_browser_history_isolated_go(b, delta)): return
 	if (b.traversals.length < 32): b.traversals.push(delta)
 
 void win_browser_poll_document(win_browser* b):
@@ -364,7 +389,8 @@ void win_browser_poll_interactive(win_browser* b):
 			return
 		free(b.page.title)
 		b.page.title = strclone(worker.title)
-		if (first || strcmp(b.address, worker.address) != 0):
+		if (worker.history.length): win_browser_history_snapshot(b, first)
+		else if (first || strcmp(b.address, worker.address) != 0):
 			int target = -1
 			if (first): target = b.pending_history
 			win_commit_address(b, worker.address, target)
@@ -377,6 +403,9 @@ void win_browser_poll_interactive(win_browser* b):
 		if (b.script_failures || b.resource_failures): win_status(b, c"Isolated content completed with script or resource errors")
 	if (win_resources_poll(b.resources) && b.page != 0): win_page_layout(b.page, b.width)
 	while (worker.input_queue.length):
+		int traversal = win_browser_history_isolated_dispatch(b)
+		if (traversal == 2): return
+		if (traversal == 1): continue
 		int sent = win_interactive_send_input(worker)
 		if (sent > 0): return
 		if (sent == 0): break

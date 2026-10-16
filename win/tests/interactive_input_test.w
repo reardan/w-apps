@@ -3,6 +3,7 @@ import win.interactive_worker
 
 int main():
 	win_interactive_input input
+	input.history_delta = 0
 	input.generation = 7
 	input.document = 3
 	input.width = 390

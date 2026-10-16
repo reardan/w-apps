@@ -168,12 +168,18 @@ void workflow_round(workflow_driver* driver):
 	workflow_wait(driver, c"theme", 0)
 	if (strcmp(win_attr(workflow_node(driver, c"theme"), c"value"), c"green")): workflow_click(driver, c"theme")
 	assert_strings_equal(c"green", win_attr(workflow_node(driver, c"theme"), c"value"))
+	int child = driver.browser.interactive.child.pid
 	win_history_go(&driver.browser, -1)
 	workflow_wait(driver, c"name", 0)
 	assert_strings_equal(c"Workflow: form", driver.browser.page.title)
+	assert_equal(child, driver.browser.interactive.child.pid)
+	assert_strings_equal(c"slow", win_attr(workflow_node(driver, c"name"), c"value"))
+	workflow_wait(driver, c"result", c"Cancelled")
 	win_history_go(&driver.browser, 1)
 	workflow_wait(driver, c"theme", 0)
 	assert_strings_equal(c"Workflow: settings", driver.browser.page.title)
+	assert_equal(child, driver.browser.interactive.child.pid)
+	workflow_wait(driver, c"result", c"Cancelled")
 	assert_strings_equal(c"green", win_attr(workflow_node(driver, c"theme"), c"value"))
 
 int main(int argc, int argv):

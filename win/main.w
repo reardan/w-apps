@@ -113,6 +113,7 @@ int main(int argc, int argv):
 		println2(c"Offline sandbox requires a local page; HTTP content needs a resource broker")
 		return 1
 	if (args_has_flag(c"interactive-worker")):
+		win_worker_history = args_has_flag(c"worker-history")
 		win_worker_storage_origin = args_value(c"worker-storage-origin")
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1

@@ -7,6 +7,7 @@ import structures.string
 import win.frame_surface
 import win.execution
 import win.sandbox
+import win.interactive_history
 import win.interactive_input
 import win.storage_rpc
 
@@ -14,6 +15,22 @@ const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
 
 struct win_interactive_worker:
+	int require_history
+	list[win_interactive_history_entry*] pending_history
+	int pending_history_current
+	int pending_document_generation
+	int pending_focus_node
+	int pending_selection_start
+	int pending_selection_end
+	int pending_selection_direction
+	int pending_scroll_y
+	int pending_script_failures
+	int pending_resource_failures
+	char* pending_address
+	char* pending_title
+	char* pending_html
+	list[win_interactive_history_entry*] history
+	int history_current
 	win_storage_context* local_store
 	win_storage_context* session_store
 	win_storage_job* storage_job
@@ -91,6 +108,8 @@ win_interactive_worker* win_interactive_start_owned(char* executable, char* addr
 	worker.viewport_height = height
 	worker.surfaces = new list[win_frame_surface*]
 	worker.pending_surfaces = new list[win_frame_surface*]
+	worker.pending_history = new list[win_interactive_history_entry*]
+	worker.history = new list[win_interactive_history_entry*]
 	worker.input_queue = new list[win_interactive_input*]
 	if (generation > 0):
 		worker.receiver = win_frame_receiver_new(generation)
@@ -125,7 +144,7 @@ win_interactive_worker* win_interactive_start_owned(char* executable, char* addr
 	string_append_char(config, 0)
 	int budget_at = config.length
 	string_append_int(config, budget)
-	char*[21] argv
+	char*[22] argv
 	argv[0] = executable
 	argv[1] = c"--interactive-worker"
 	argv[2] = c"--page"
@@ -143,6 +162,9 @@ win_interactive_worker* win_interactive_start_owned(char* executable, char* addr
 	argv[14] = c"--execution-budget"
 	argv[15] = config.data + budget_at
 	int argc = 16
+	if (generation > 0):
+		argv[argc] = c"--worker-history"
+		argc = argc + 1
 	if (local_store != 0 && session_store != 0):
 		argv[argc] = c"--worker-storage-origin"
 		argv[argc + 1] = worker.storage_origin
@@ -242,7 +264,7 @@ int win_interactive_enqueue(win_interactive_worker* worker, win_interactive_inpu
 	if (batch.generation != worker.generation || batch.document != worker.document_generation || win_interactive_input_valid(batch) == 0): return 0
 	if (worker.input_queue.length):
 		win_interactive_input* last = worker.input_queue[worker.input_queue.length - 1]
-		if (last.document == batch.document && last.width == batch.width && last.height == batch.height):
+		if (last.history_delta == 0 && batch.history_delta == 0 && last.document == batch.document && last.width == batch.width && last.height == batch.height):
 			# Motion already comes from a coalesced backend snapshot. Retain its
 			# latest value while blocked; never coalesce across a button/key edge.
 			if (last.native.count == 0 && batch.native.count == 0):
@@ -278,7 +300,10 @@ int win_interactive_send_input(win_interactive_worker* worker):
 	if (batch.document != worker.document_generation):
 		free(batch)
 		return -1
-	string_builder* payload = win_interactive_input_encode(batch)
+	int delta = batch.history_delta
+	string_builder* payload = 0
+	if (delta): payload = win_interactive_history_control(batch.generation, batch.document, delta)
+	else: payload = win_interactive_input_encode(batch)
 	free(batch)
 	if (payload == 0 || payload.length > worker.limit - 24):
 		string_free(payload)
@@ -288,8 +313,13 @@ int win_interactive_send_input(win_interactive_worker* worker):
 	if (win_interactive_request(worker, 1, 0, c"") == 0):
 		string_free(payload)
 		return 0
-	win_interactive_header(worker.outgoing, worker.sequence, 5)
-	save_int32(worker.outgoing.data + 20, 2)
+	int kind = 5
+	int revision = 2
+	if (delta):
+		kind = 6
+		revision = 3
+	win_interactive_header(worker.outgoing, worker.sequence, kind)
+	save_int32(worker.outgoing.data + 20, revision)
 	save_int32(worker.outgoing.data + 8, payload.length)
 	string_append_bytes(worker.outgoing, payload.data, payload.length)
 	string_free(payload)
@@ -306,7 +336,9 @@ int win_interactive_validate(win_interactive_worker* worker):
 	if (scripts < 0 || scripts > 100000 || resources < 0 || resources > 100000): return 0
 	int text_at = 32
 	int kind = load_int32(data + 16)
-	if (kind == 101 || kind == 102):
+	worker.pending_history_current = -1
+	if ((worker.require_history || worker.history.length) && kind != 103): return 0
+	if (kind == 101 || kind == 102 || kind == 103):
 		if (worker.generation == 0 || size < 39): return 0
 		int count = load_int32(data + 32)
 		if (count < 0 || count > WIN_INTERACTIVE_CANVASES || size < 39 + count * 4): return 0
@@ -319,8 +351,8 @@ int win_interactive_validate(win_interactive_worker* worker):
 				if (worker.frame_nodes[j] == id): return 0
 			worker.frame_nodes[i] = id
 	else if (kind != 100 || worker.generation > 0): return 0
-	if (kind == 102):
-		if (size < text_at + 39 || load_int32(data + 20) != 2): return 0
+	if (kind == 102 || kind == 103):
+		if (size < text_at + 39 || load_int32(data + 20) != kind - 100): return 0
 		int generation = load_int32(data + text_at)
 		int document = load_int32(data + text_at + 4)
 		int focus = load_int32(data + text_at + 8)
@@ -330,14 +362,22 @@ int win_interactive_validate(win_interactive_worker* worker):
 		int scroll = load_int32(data + text_at + 24)
 		int width = load_int32(data + text_at + 28)
 		int height = load_int32(data + text_at + 32)
-		if (generation != worker.generation || document < 1 || focus < 0 || focus > 20000 || first_unit < 0 || last_unit < first_unit || last_unit > 65536 || direction < 0 || direction > 2 || scroll < 0 || scroll > 16777216 || width < 1 || width > 4096 || height < 1 || height > 4096): return 0
-		worker.document_generation = document
-		worker.focus_node = focus
-		worker.selection_start = first_unit
-		worker.selection_end = last_unit
-		worker.selection_direction = direction
-		worker.scroll_y = scroll
+		if (generation != worker.generation || document < 1 || document < worker.document_generation || focus < 0 || focus > 20000 || first_unit < 0 || last_unit < first_unit || last_unit > 65536 || direction < 0 || direction > 2 || scroll < 0 || scroll > 16777216 || width < 1 || width > 4096 || height < 1 || height > 4096): return 0
+		worker.pending_document_generation = document
+		worker.pending_focus_node = focus
+		worker.pending_selection_start = first_unit
+		worker.pending_selection_end = last_unit
+		worker.pending_selection_direction = direction
+		worker.pending_scroll_y = scroll
 		text_at = text_at + 36
+	int history_at = 0
+	int history_length = 0
+	if (kind == 103):
+		if (size - text_at < 4): return 0
+		history_length = load_int32(data + text_at)
+		history_at = text_at + 4
+		if (history_length < 8 || history_length > size - history_at - 3 || win_interactive_history_validate(data + history_at, history_length, worker.pending_document_generation) == 0): return 0
+		text_at = history_at + history_length
 	int first = -1
 	int second = -1
 	int last = -1
@@ -349,11 +389,14 @@ int win_interactive_validate(win_interactive_worker* worker):
 			else: return 0
 	if (first < 0 || second < 0 || last != size - 1): return 0
 	if (utf8_validate_bytes(data + text_at, first - text_at) == 0 || utf8_validate_bytes(data + first + 1, second - first - 1) == 0 || utf8_validate_bytes(data + second + 1, last - second - 1) == 0): return 0
-	worker.address = data + text_at
-	worker.title = data + first + 1
-	worker.html = data + second + 1
-	worker.script_failures = scripts
-	worker.resource_failures = resources
+	if (history_length):
+		worker.pending_history_current = win_interactive_history_read_validated(worker.pending_history, data + history_at)
+		if (worker.pending_history_current < 0 || strcmp(worker.pending_history[worker.pending_history_current].address, data + text_at) != 0): return 0
+	worker.pending_address = data + text_at
+	worker.pending_title = data + first + 1
+	worker.pending_html = data + second + 1
+	worker.pending_script_failures = scripts
+	worker.pending_resource_failures = resources
 	return 1
 
 # ACKs share the request socket, but only one writer/state is active at a time.
@@ -449,6 +492,27 @@ int win_interactive_storage_poll(win_interactive_worker* worker):
 	win_storage_result_free(result)
 	return 0
 
+# Focus/document identity and history publish with the complete frame set.
+# Input acquired while pixels are in flight still belongs to the old display.
+void win_interactive_publish(win_interactive_worker* worker):
+	worker.document_generation = worker.pending_document_generation
+	worker.focus_node = worker.pending_focus_node
+	worker.selection_start = worker.pending_selection_start
+	worker.selection_end = worker.pending_selection_end
+	worker.selection_direction = worker.pending_selection_direction
+	worker.scroll_y = worker.pending_scroll_y
+	worker.address = worker.pending_address
+	worker.title = worker.pending_title
+	worker.html = worker.pending_html
+	worker.script_failures = worker.pending_script_failures
+	worker.resource_failures = worker.pending_resource_failures
+	if (worker.pending_history_current >= 0):
+		list[win_interactive_history_entry*] previous = worker.history
+		worker.history = worker.pending_history
+		worker.pending_history = previous
+		worker.history_current = worker.pending_history_current
+		win_interactive_history_clear(worker.pending_history)
+
 int win_interactive_poll(win_interactive_worker* worker):
 	win_storage_job_poll(worker.local_store)
 	if (worker.child == 0): return -1
@@ -475,6 +539,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 		list[win_frame_surface*] previous = worker.surfaces
 		worker.surfaces = worker.pending_surfaces
 		worker.pending_surfaces = previous
+		win_interactive_publish(worker)
 		worker.busy = 0
 		worker.status = 1
 		return 1
@@ -522,7 +587,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 			if (length < 11 || length > worker.limit - 24):
 				win_interactive_fail(worker, 5, c"Interactive declared size exceeds limit")
 				return -1
-			if (starts_with(data, c"WINT0001") == 0 || load_int32(data + 12) != worker.sequence || (load_int32(data + 16) != 100 && load_int32(data + 16) != 101 && load_int32(data + 16) != 102) || (load_int32(data + 20) != 0 && (load_int32(data + 16) != 102 || load_int32(data + 20) != 2)) || worker.incoming.length > length + 24):
+			if (starts_with(data, c"WINT0001") == 0 || load_int32(data + 12) != worker.sequence || (load_int32(data + 16) != 100 && load_int32(data + 16) != 101 && load_int32(data + 16) != 102 && load_int32(data + 16) != 103) || (load_int32(data + 20) != 0 && ((load_int32(data + 16) != 102 || load_int32(data + 20) != 2) && (load_int32(data + 16) != 103 || load_int32(data + 20) != 3))) || worker.incoming.length > length + 24):
 				win_interactive_fail(worker, 4, c"Invalid interactive response")
 				return -1
 			if (worker.incoming.length == length + 24):
@@ -551,5 +616,9 @@ void win_interactive_free(win_interactive_worker* worker):
 	__w_list_free(cast(__w_list*, worker.surfaces))
 	__w_list_free(cast(__w_list*, worker.pending_surfaces))
 	for win_interactive_input* batch in worker.input_queue: free(batch)
+	win_interactive_history_clear(worker.pending_history)
+	__w_list_free(cast(__w_list*, worker.pending_history))
+	win_interactive_history_clear(worker.history)
+	__w_list_free(cast(__w_list*, worker.history))
 	__w_list_free(cast(__w_list*, worker.input_queue))
 	free(worker)

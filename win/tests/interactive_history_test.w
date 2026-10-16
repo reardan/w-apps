@@ -106,6 +106,30 @@ int main():
 	assert_equal(2, worker.document_generation)
 	assert_equal(7, worker.focus_node)
 	assert_equal(2, worker.history.length)
+	# The graphics lifecycle can request reload before any parent entry exists.
+	win_browser browser
+	win_browser_init(&browser, c"", c"")
+	win_commit_address(&browser, c"http://example.test/initial", -2)
+	assert_equal(1, browser.history.length)
+	assert_equal(0, browser.current)
+	win_commit_address(&browser, c"http://example.test/reloaded", -2)
+	assert_equal(1, browser.history.length)
+	assert_strings_equal(c"http://example.test/reloaded", browser.history[0].address)
+	win_browser_free(&browser)
+	win_browser_init(&browser, c"", c"")
+	browser.interactive = worker
+	browser.pending_history = -2
+	win_browser_history_snapshot(&browser, 1)
+	assert_equal(2, browser.history.length)
+	assert_equal(1, browser.current)
+	assert_equal(9, browser.history[0].worker_generation)
+	assert_strings_equal(c"http://example.test/new", browser.address)
+	# A later reload replaces the existing segment rather than adding entries.
+	win_browser_history_snapshot(&browser, 1)
+	assert_equal(2, browser.history.length)
+	assert_equal(1, browser.current)
+	browser.interactive = 0
+	win_browser_free(&browser)
 	history_snapshot(worker, wire, c"http://example.test/wrong")
 	assert_equal(0, win_interactive_validate(worker))
 	assert_equal(2, worker.history.length)

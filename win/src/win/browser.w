@@ -174,6 +174,8 @@ void win_stop(win_browser* b):
 	win_status(b, c"Loading stopped")
 
 void win_commit_address(win_browser* b, char* address, int target):
+	# Reload before the first committed document still creates its initial entry.
+	if (target == -2 && b.current < 0): target = -1
 	free(b.address)
 	b.address = strclone(address)
 	if (target >= 0): b.current = target

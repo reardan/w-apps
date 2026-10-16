@@ -11,6 +11,11 @@ struct win_storage_bridge:
 	int sequence
 	int failed
 
+void win_storage_bridge_init(win_storage_bridge* bridge, int generation):
+	bridge.generation = generation
+	bridge.sequence = 0
+	bridge.failed = 0
+
 void win_storage_wire_header(string_builder* data, int sequence, int kind):
 	string_append(data, c"WINT0001")
 	for i in range(16): string_append_char(data, 0)

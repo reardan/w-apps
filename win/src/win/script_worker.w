@@ -424,7 +424,7 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	win_browser browser
 	win_browser_init(&browser, executable, home)
 	win_storage_bridge bridge
-	bridge.generation = generation
+	win_storage_bridge_init(&bridge, generation)
 	if (win_worker_storage_origin != 0):
 		browser.storage_call = win_storage_bridge_call
 		browser.storage_context = &bridge

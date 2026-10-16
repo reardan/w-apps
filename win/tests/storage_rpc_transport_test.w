@@ -47,6 +47,15 @@ int storage_fake_child(char* mode):
 	return ok == 0
 
 int main(int argc, int argv):
+	# Initialization must not depend on fresh/zeroed stack storage.
+	win_storage_bridge bridge
+	bridge.generation = -71
+	bridge.sequence = 2147483647
+	bridge.failed = 1
+	win_storage_bridge_init(&bridge, 19)
+	assert_equal(19, bridge.generation)
+	assert_equal(0, bridge.sequence)
+	assert_equal(0, bridge.failed)
 	args_init(argc, argv)
 	args_declare_bool(c"interactive-worker")
 	if (args_has_flag(c"interactive-worker")): return storage_fake_child(args_value(c"page"))

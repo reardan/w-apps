@@ -145,12 +145,20 @@ void workflow_scenario(workflow_driver* driver):
 	workflow_wait(driver, c"theme", 0)
 	if (strcmp(win_attr(workflow_node(driver, c"theme"), c"value"), c"green") != 0): workflow_click(driver, c"theme")
 	assert_strings_equal(c"green", win_attr(workflow_node(driver, c"theme"), c"value"))
+	win_script* retained_script = driver.browser.script
+	win_page* retained_page = driver.browser.page
+	int retained_generation = driver.browser.document_generation
 	win_history_go(&driver.browser, -1)
 	workflow_wait(driver, c"name", 0)
+	workflow_wait(driver, c"result", c"Cancelled")
+	assert_strings_equal(c"slow", win_attr(workflow_node(driver, c"name"), c"value"))
 	assert_strings_equal(c"Workflow: form", driver.browser.page.title)
 	win_history_go(&driver.browser, 1)
 	workflow_wait(driver, c"theme", 0)
 	assert_strings_equal(c"Workflow: settings", driver.browser.page.title)
+	workflow_wait(driver, c"result", c"Cancelled")
+	assert1(driver.browser.script == retained_script && driver.browser.page == retained_page)
+	assert_equal(retained_generation, driver.browser.document_generation)
 	assert_strings_equal(c"green", win_attr(workflow_node(driver, c"theme"), c"value"))
 
 int main(int argc, int argv):

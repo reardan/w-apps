@@ -166,7 +166,7 @@ typography and right-edge field cropping. Pixel comparison found no channel
 difference above 16 in either 360×360 capture; 151 of 280,800 pixels exceeded
 that threshold in the edited 390×720 capture. Fixed positioning is now implemented and the same test also captures the actual
 parent viewport, asserting zero outer scroll. Visually inspected parent captures
-match the canvas origin and responsive size. They still differ at widget overlays:
+match the canvas origin and responsive size. They retain differences around text and rounded edges:
 4,692/280,800 edited pixels and 1,952/129,600 narrow pixels exceed channel delta 16;
 opacity and pointer-events remain unsupported. This is bounded app evidence,
 not full CSS fidelity. Native screenshots and source hashes

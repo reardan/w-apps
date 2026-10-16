@@ -56,7 +56,7 @@ def main():
                           '--narrow-screenshot', OUTPUT / 'workflow-360x640.ppm'])
             assert '"status":"PASS"' in result.stdout, result.stdout
             report['checks'].extend(['JSON POST success', 'HTTP failure', 'Abort without late success',
-                                     'Theme change', 'Routing/back/forward', 'Complete workflow at 800x600 and 360x640', 'Responsive native GL screenshots', 'Reload persistence'])
+                                     'Theme change', 'Routing/back/forward preserving realm, name and result', 'Complete workflow at 800x600 and 360x640', 'Responsive native GL screenshots', 'Reload persistence'])
             for origin, expected in ((url, 'green'), (url.replace('127.0.0.1', 'localhost'), 'blue')):
                 result = run([*base, '--page', origin + '?view=settings', '--check-theme', expected])
                 assert '"status":"PASS"' in result.stdout, result.stdout

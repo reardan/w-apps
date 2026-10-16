@@ -427,10 +427,16 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	style.pre = inherited.pre
 	style.align = inherited.align
 	style.hidden = inherited.hidden
-	int block = win_block(node) || win_tag(node, c"body") || win_tag(node, c"form") || win_tag(node, c"fieldset") || win_tag(node, c"table") || win_tag(node, c"tr") || win_tag(node, c"hr")
-	if (block && win_tag(node, c"body") == 0):
+	int block = win_block(node) || win_tag(node, c"html") || win_tag(node, c"body") || win_tag(node, c"form") || win_tag(node, c"fieldset") || win_tag(node, c"table") || win_tag(node, c"tr") || win_tag(node, c"hr")
+	if (block && win_tag(node, c"body") == 0 && win_tag(node, c"html") == 0):
 		style.margin_top = 10
 		style.margin_bottom = 8
+	# Reader spacing is a UA body default, so author CSS can override it.
+	if (win_tag(node, c"body")):
+		style.margin_top = 20
+		style.margin_right = 28
+		style.margin_bottom = 28
+		style.margin_left = 28
 	if (win_tag(node, c"h1")): style.size = 36
 	if (win_tag(node, c"h2")): style.size = 28
 	if (win_tag(node, c"h3")): style.size = 23
@@ -1003,16 +1009,42 @@ void win_page_set_viewport(win_page* page, int width, int height):
 	page.viewport_width = width
 	page.viewport_height = height
 
+# Root/body solid backgrounds propagate to the document canvas. Remove the
+# source box's paint to avoid compositing translucent backgrounds twice.
+# https://www.w3.org/TR/css-backgrounds-3/#special-backgrounds
+void win_page_canvas_background(win_page* page, html_node* root, win_style root_style, html_node* body, win_style body_style):
+	if (root == 0 || root_style.display == 0): return
+	html_node* source = root
+	win_style canvas = root_style
+	if (canvas.background.a == 0.0 && body != 0):
+		source = body
+		canvas = body_style
+	if (canvas.display == 0 || canvas.background.a == 0.0): return
+	win_box* source_box = win_page_node_box(page, source)
+	if (source_box != 0): source_box.color.a = 0.0
+	win_style paint = win_default_style()
+	paint.background = canvas.background
+	float32 width = cast(float32, page.width)
+	if (page.viewport_width > page.width): width = cast(float32, page.viewport_width)
+	float32 height = page.height
+	if (height < cast(float32, page.viewport_height)): height = cast(float32, page.viewport_height)
+	win_box* background = win_box_add(page, page.html.root, paint, 0.0, 0.0, width, height)
+	int at = page.boxes.length - 1
+	while (at > 0):
+		page.boxes[at] = page.boxes[at - 1]
+		at = at - 1
+	page.boxes[0] = background
+
 void win_page_layout(win_page* page, int width):
 	if (width < 160): width = 160
 	win_runs_clear(page)
 	win_height_measures_clear(page)
 	page.width = width
 	if (page.viewport_explicit == 0): page.viewport_width = width
-	page.left = 28.0
-	page.right = cast(float32, width) - 28.0
+	page.left = 0.0
+	page.right = cast(float32, width)
 	page.x = page.left
-	page.y = 20.0
+	page.y = 0.0
 	page.align = 0
 	page.layout_node = 0
 	page.line_start = 0
@@ -1023,12 +1055,26 @@ void win_page_layout(win_page* page, int width):
 	page.truncated = 0
 	win_layout_node(page, page.html.root, win_default_style(), c"")
 	win_line_end(page, 0)
-	float32 bottom = page.y
+	html_node* root = page.html.root.first_child
+	while (root != 0 && win_tag(root, c"html") == 0): root = root.next_sibling
+	html_node* body = 0
+	win_style root_style = win_default_style()
+	win_style body_style = win_default_style()
+	if (root != 0):
+		root_style = win_node_style(page, root, root_style)
+		body = root.first_child
+		while (body != 0 && win_tag(body, c"body") == 0): body = body.next_sibling
+		if (body != 0): body_style = win_node_style(page, body, root_style)
+	float32 bottom = 0.0
 	for i in range(page.boxes.length):
-		if (page.boxes[i].y + page.boxes[i].height > bottom): bottom = page.boxes[i].y + page.boxes[i].height
+		# The root's flow height already includes the body's bottom margin.
+		if (page.boxes[i].node != root && page.boxes[i].y + page.boxes[i].height > bottom): bottom = page.boxes[i].y + page.boxes[i].height
 	for i in range(page.runs.length):
 		if (page.runs[i].y + page.runs[i].height > bottom): bottom = page.runs[i].y + page.runs[i].height
-	page.height = bottom + 28.0
+	if (body != 0 && body_style.display != 0 && bottom > 0.0): bottom = bottom + body_style.margin_bottom
+	page.height = page.y
+	if (bottom > page.height): page.height = bottom
+	win_page_canvas_background(page, root, root_style, body, body_style)
 
 char* win_page_hit(win_page* page, float32 x, float32 y):
 	for i in range(page.runs.length):

@@ -69,6 +69,9 @@ def main():
                 assert (width, height) == tuple(map(int, viewport.split('x')))
                 assert magic == b'P6' and maximum == b'255' and len(pixels) == width * height * 3
                 assert len(set(pixels)) > 30, 'native screenshot is blank'
+                accent_pixels = sum(pixels[i:i+3] == bytes((40, 99, 72)) for i in range(0, len(pixels), 3))
+                assert accent_pixels > 1000, ('selected green theme is not painted', viewport, accent_pixels)
+                report.setdefault('green_accent_pixels', {})[viewport] = accent_pixels
         report['status'] = 'PASS'
     except subprocess.CalledProcessError as error:
         report.update(status='FAIL', command=error.cmd, stdout=error.stdout, stderr=error.stderr)

@@ -49,3 +49,8 @@ Playwright 1.58 and Chromium 145.0.7632.6. Native input acceptance does not test
 platform keyboard translation or a complete IME. The initial loading text remains
 below the rendered root in both engines; it is part of this unchanged fixture's
 Preact reconciliation behavior.
+
+The isolated counterpart is `python3 win/tests/isolated_workflow_integration.py`.
+It drives the same portable controls through the parent queue and worker-owned
+DOM/JavaScript state, with durable parent storage. Both drivers require visible
+green theme pixels in their actual parent-window screenshots.

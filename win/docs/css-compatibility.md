@@ -193,6 +193,13 @@ coordinates. `fixed_layout_test.w` and `fixed_layout_integration.py` cover geome
 resize, scroll and full-viewport native paint. Generic containers no longer receive
 synthetic margins; semantic paragraph/heading/list defaults remain.
 
+Native form controls honor computed foreground color and explicit CSS backgrounds
+and borders, including transparent and alpha backgrounds. Widget painting does not
+cover author paint or apply alpha twice; unstyled controls retain the native theme.
+Focus indicators and editing behavior remain native. Pixel tests cover CSS custom
+property updates and password masking with transparent backgrounds. Native control
+geometry and font metrics still differ from a full browser engine.
+
 Inline backgrounds/borders, margin collapsing, floats, relative/absolute/sticky
 positioning, z-index/full stacking, opacity, pointer-events, transforms,
 animations, generated content, table layout, vertical writing and

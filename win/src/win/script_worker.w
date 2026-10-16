@@ -394,6 +394,11 @@ void win_interactive_child_event(win_browser* browser, list[html_node*] nodes, i
 			while (link != 0 && win_tag(link, c"a") == 0): link = link.parent
 			if (link != 0 && win_attr(link, c"href")[0] != 0): win_navigate(browser, win_attr(link, c"href"), win_browser_base(browser), -1)
 
+# Bootstrap/navigation must settle before a complete document snapshot, but an
+# ordinary Fetch must not block native input (including its own Abort button).
+int win_interactive_document_loading(win_browser* browser):
+	return browser.load != 0 || win_resources_done(browser.resources) == 0 || (browser.script != 0 && browser.script.ready == 0) || browser.traversals.length > 0
+
 int win_script_interactive_execute_config(char* executable, char* address, char* home, int limit, int generation, int width, int height, int budget):
 	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT || generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX): return 2
 	if (win_sandbox_requested()):
@@ -438,7 +443,7 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	int running = 1
 	while (running):
 		win_browser_poll(&browser)
-		while (win_browser_loading(&browser)):
+		while (win_interactive_document_loading(&browser)):
 			win_browser_poll(&browser)
 			sleep_ms(2)
 		if (browser.storage_origin_denied):

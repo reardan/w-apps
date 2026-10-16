@@ -5,6 +5,8 @@ import pathlib
 import subprocess
 import sys
 import threading
+import tempfile
+import json
 
 WIN = str(pathlib.Path(sys.argv[1]).resolve())
 requests = []
@@ -17,6 +19,18 @@ document.title=label;
 <script type="module" src="second.js"></script>"""),
     '/dep.js': ('text/javascript', "document.body.setAttribute('data-count','once'); export const label='module-loaded';"),
     '/second.js': ('text/javascript', "import {label} from './dep.js'; if(document.title!==label) throw 'order'; document.title=label+'-twice';"),
+    '/async.html': ('text/html', """<title>waiting</title>
+<script type="module">
+import {label} from './async-dep.js';
+document.title = label;
+document.addEventListener('DOMContentLoaded', () => { document.title += '-ready'; });
+</script><script type="module">document.title += '-second';</script>"""),
+    '/async-dep.js': ('text/javascript', "await new Promise(resolve=>setTimeout(resolve,20)); const response=await fetch('./answer.txt'); export const label=await response.text();"),
+    '/answer.txt': ('text/plain', 'awaited'),
+    '/rejected.html': ('text/html', """<title>waiting</title>
+<script type="module">import {label} from './rejected-dep.js'; document.title='should-not-run';</script>
+<script type="module">document.title='continued';</script>"""),
+    '/rejected-dep.js': ('text/javascript', "await Promise.reject(new Error('dependency rejected')); export const label='unreachable';"),
 }
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -43,6 +57,20 @@ try:
     assert result.stdout.splitlines()[1] == 'module-loaded-twice', (result.stdout, result.stderr)
     assert requests.count('/dep.js') == 1, requests
     assert requests.count('/second.js') == 1, requests
+    with tempfile.TemporaryDirectory() as directory:
+        for path, title, failures in [('/async.html', 'awaited-second-ready', 0),
+                                      ('/rejected.html', 'continued', 1)]:
+            report = pathlib.Path(directory) / 'report.json'
+            result = subprocess.run([WIN, '--dump', '--report', str(report), '--page',
+                                     f'http://127.0.0.1:{server.server_port}{path}'],
+                                    text=True, capture_output=True, timeout=20)
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            data = json.loads(report.read_text())
+            assert data['title'] == title, (path, data)
+            assert data['script_failures'] == failures, (path, data)
+            assert data['resource_failures'] == 0, (path, data)
+        assert requests.count('/async-dep.js') == 1, requests
+        assert requests.count('/answer.txt') == 1, requests
 finally:
     server.shutdown()
     server.server_close()

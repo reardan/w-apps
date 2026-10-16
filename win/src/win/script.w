@@ -46,6 +46,7 @@ struct win_script:
 	win_wasm_realm* wasm
 	win_modules* modules
 	win_module_source* active_module
+	js_module* evaluating_module
 	list[win_script_timer*] animation_frames
 	int animation_id
 	int time_origin
@@ -1163,6 +1164,7 @@ void win_script_checkpoint(win_script* script):
 
 void win_script_stop(win_script* script):
 	if (script == 0): return
+	js_runtime_async_cancel(script.runtime)
 	for i in range(script.timers.length): win_script_timer_free(script, script.timers[i])
 	while (script.timers.length > 0): script.timers.pop()
 	for i in range(script.animation_frames.length): win_script_timer_free(script, script.animation_frames[i])
@@ -1703,11 +1705,21 @@ int win_script_run_pending(win_script* script, win_resources* resources):
 				else if (script.active_module != 0):
 					win_script* previous = win_active_script
 					win_active_script = script
-					win_modules_evaluate(script.modules, script.active_module.source.identifier, 1000000)
-					win_script_result(script, script.runtime.completion)
+					if (script.evaluating_module == 0):
+						script.evaluating_module = win_modules_evaluate_async(script.modules, script.active_module.source.identifier, 1000000)
+						if (script.evaluating_module == 0): win_script_result(script, script.runtime.completion)
 					win_script_sync(script)
 					win_script_checkpoint(script)
 					win_active_script = previous
+					js_module* evaluated = script.evaluating_module
+					# Keep the script pending while timers, Fetch and Promise jobs
+					# continue through the ordinary browser event loop.
+					if (evaluated != 0 && evaluated.state == 2): return 0
+					if (evaluated != 0 && evaluated.state == 4):
+						script.failures = script.failures + 1
+						free(script.error)
+						script.error = strclone(evaluated.error_message)
+					script.evaluating_module = 0
 				script.active_module = 0
 			script.next_script = script.next_script + 1
 			return 1
@@ -1738,6 +1750,8 @@ int win_script_run_pending(win_script* script, win_resources* resources):
 
 void win_script_free(win_script* script):
 	if (script == 0): return
+	# Suspended frames must unwind while every host record is still alive.
+	js_runtime_async_cancel(script.runtime)
 	for i in range(script.timers.length): win_script_timer_free(script, script.timers[i])
 	__w_list_free(cast(__w_list*, script.timers))
 	for i in range(script.animation_frames.length): win_script_timer_free(script, script.animation_frames[i])

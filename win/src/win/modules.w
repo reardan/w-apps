@@ -120,7 +120,9 @@ win_module_source* win_modules_add_inline(win_modules* context, char* identifier
 	return entry
 
 void win_modules_scan(win_modules* context, win_module_source* entry):
-	pg_parse_result* parsed = js_parse_with_limits(entry.source.source, entry.source.length, entry.source.identifier, 1, context.engine.runtime.parse_limits)
+	js_parse_limits limits = *context.engine.runtime.parse_limits
+	limits.top_level_await = 1
+	pg_parse_result* parsed = js_parse_with_limits(entry.source.source, entry.source.length, entry.source.identifier, 1, &limits)
 	entry.scanned = 1
 	if (parsed.success == 0):
 		string_builder* message = string_from(entry.source.identifier)
@@ -190,9 +192,14 @@ js_module* win_modules_evaluate(win_modules* context, char* identifier, int budg
 	if (context.stopped || context.error != 0): return 0
 	return js_modules_evaluate(context.engine, identifier, c"", budget)
 
+js_module* win_modules_evaluate_async(win_modules* context, char* identifier, int budget):
+	if (context.stopped || context.error != 0): return 0
+	return js_modules_evaluate_async(context.engine, identifier, c"", budget)
+
 void win_modules_stop(win_modules* context):
 	if (context == 0): return
 	context.stopped = 1
+	js_runtime_async_cancel_owner(context.engine.runtime, context.engine)
 	for i in range(context.sources.length):
 		win_load_free(context.sources[i].load)
 		context.sources[i].load = 0

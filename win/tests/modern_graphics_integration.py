@@ -43,7 +43,7 @@ try:
     (OUTPUT / 'M1-cycles.json').write_text(json.dumps(report, indent=2) + '\n')
     shot = OUTPUT / 'M1.ppm'
     diagnostics_path = OUTPUT / 'M1-window.json'
-    result = subprocess.run(display + [WIN, '--page', url, '--frames', '180',
+    result = subprocess.run(display + [WIN, '--page', url, '--reftest',
         '--screenshot', str(shot), '--report', str(diagnostics_path)],
         capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, (result.stdout, result.stderr)

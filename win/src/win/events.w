@@ -36,6 +36,14 @@ void win_event_write(js_runtime* rt, js_value* event, char* name, js_value* valu
 	else: js_runtime_define_data(rt, event, key, value, 0, 1, 0)
 	js_text_free(key)
 
+int win_event_cancelled(js_value* event):
+	# Dispatch cleanup must still observe cancellation after a terminal limit.
+	# This native readonly data field needs no interpreter property access.
+	js_text* key = js_runtime_key(c"defaultPrevented")
+	js_value* property = js_runtime_property(event, key)
+	js_text_free(key)
+	return property != 0 && property.value != 0 && js_runtime_truth(property.value)
+
 void win_event_prevent(js_runtime* rt, js_value* event):
 	if (js_runtime_truth(js_runtime_get(rt, event, c"cancelable")) && win_event_flag(event, WIN_EVENT_PASSIVE) == 0):
 		win_event_write(rt, event, c"defaultPrevented", js_runtime_boolean(rt, 1))

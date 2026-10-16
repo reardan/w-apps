@@ -40,6 +40,17 @@ int main():
 	assert_equal(0, win_script_eval(script, expensive, strlen(expensive)))
 	assert_equal(5, script.runtime.completion.status)
 	event_eval(script, c"if(window.escapedBudget || limitEvent.currentTarget!==null || limitEvent.eventPhase!==0 || !inner.dispatchEvent(limitEvent)) throw 'terminal limit cleanup';")
+	# A terminal listener failure cannot undo an already requested cancellation.
+	event_eval(script, c"let exhaustedEvent; inner.addEventListener('submit',function(e){exhaustedEvent=e; e.preventDefault(); while(true){}},{once:true});")
+	html_node* target = 0
+	for win_dom_binding* binding in script.bindings:
+		if (strcmp(win_attr(binding.node, c"id"), c"inner") == 0): target = binding.node
+	assert1(target != 0)
+	assert1(win_script_set_execution_budget(script, 10000))
+	assert_equal(0, win_script_dispatch(script, target, c"submit"))
+	assert_equal(5, script.runtime.completion.status)
+	assert1(win_script_set_execution_budget(script, WIN_EXECUTION_DEFAULT))
+	event_eval(script, c"if(!exhaustedEvent.defaultPrevented || exhaustedEvent.currentTarget!==null || exhaustedEvent.eventPhase!==0) throw 'cancellation lost on limit';")
 	win_script_free(script)
 	win_page_free(page)
 	println(c"Win Event constructor and reentrant synthetic dispatch: OK")

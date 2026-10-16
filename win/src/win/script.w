@@ -1809,7 +1809,7 @@ int win_script_dispatch_event(win_script* script, html_node* node, js_value* eve
 	__w_list_free(cast(__w_list*, args))
 	free(name)
 	if (rt.remaining <= 0 && rt.completion.status == 0): js_runtime_fail(rt, 5, c"Event dispatch execution limit")
-	return js_runtime_truth(js_runtime_get(rt, event, c"defaultPrevented")) == 0
+	return win_event_cancelled(event) == 0
 
 js_value* win_script_dispatch_host(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)

@@ -456,6 +456,7 @@ int win_dom_has(void* runtime, void* context, js_value* receiver, js_text* key):
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (win_dom_tree_key(b, key) != 0): return 1
 	if (b.node == script.window_node): return win_web_viewport_has(key)
 	if (b.node == script.page.html.root):
 		if (js_runtime_key_is(key, c"activeElement") || js_runtime_key_is(key, c"title") || js_runtime_key_is(key, c"readyState")): return 1

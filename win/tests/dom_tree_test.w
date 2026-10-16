@@ -17,12 +17,10 @@ int main():
 	tree_eval(script, c"const upper=document.createElement('ARTICLE');const ns=document.createElementNS('http://www.w3.org/1999/xhtml','section');if(upper.localName!=='article'||upper.tagName!=='ARTICLE'||ns.localName!=='section')throw 'creation';let invalid=false;try{document.createElement('bad name');}catch(e){invalid=e.name==='InvalidCharacterError';}if(!invalid)throw 'invalid name';let receiver=false;const insert=root.insertBefore;try{insert(b,null);}catch(e){receiver=true;}if(!receiver)throw 'receiver';const head=document.head;document.documentElement.removeChild(head);if(document.head!==null||head.ownerDocument!==document)throw 'live head';document.documentElement.insertBefore(head,document.body);if(document.head!==head)throw 'restore head';")
 	tree_eval(script, c"let calls=0;a.addEventListener('saved',function(){calls++;});root.removeChild(a);root.appendChild(a);a.dispatchEvent(new Event('saved'));if(calls!==1)throw 'identity listeners';const style=document.createElement('style');style.textContent='#root{padding:9px}';root.insertBefore(style,root.firstChild);if(getComputedStyle(root).paddingLeft!=='9px')throw 'insert styles';root.removeChild(style);if(getComputedStyle(root).paddingLeft==='9px')throw 'remove styles';")
 	assert_equal(0, script.failures)
+	tree_eval(script, c"if(!('documentElement' in document)||!('childNodes' in root)||!('nodeType' in text)||!('data' in text)||('data' in root)||!('0' in nodes)||('99' in nodes)||!('length' in nodes)||!('item' in nodes))throw 'tree presence';")
 	# Exhaustion is checked before removing the child from its existing parent.
-	js_value* root = js_runtime_get(script.runtime, script.runtime.global, c"root")
-	# Top-level lexical declarations are not global object properties: use a host-visible alias.
 	tree_eval(script, c"window.treeRoot=root;window.treeOther=other;window.treeA=a;")
 	js_value* window = js_runtime_get(script.runtime, script.runtime.global, c"window")
-	root = js_runtime_get(script.runtime, window, c"treeRoot")
 	js_value* target = js_runtime_get(script.runtime, window, c"treeOther")
 	js_value* child = js_runtime_get(script.runtime, window, c"treeA")
 	win_dom_binding* binding = 0

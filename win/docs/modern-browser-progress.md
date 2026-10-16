@@ -22,8 +22,8 @@ an outstanding implementation program, not a support claim.
   the published tarball SHA-256. `python3 win/tests/workflow_server.py` serves the
   local API and app; the README defines success/failure/abort, routing, restart
   persistence, origin separation and responsive acceptance steps.
-- M4: repeat these scenarios in isolated mode after frame and shared-state IPC
-  exist. It is still unsupported; process separation is not an OS sandbox.
+- M4: M1 now renders through isolated worker canvas frames. M2/M3 input and
+  shared-state parity remain outstanding; process separation is not an OS sandbox.
 
 Run `python3 win/tests/modern_hosts.py` for machine-readable startup probes of
 the unchanged graphics/mobile hosts and the Preact workflow. `--record` records failures without a
@@ -80,12 +80,14 @@ Each track uses a separate worktree and generated-output directory.
   Flexible allocation is shared between row and column axes; final heights
   reach nested descendants before paint/hit geometry is produced. Reference
   renders compare native pixels with equivalent explicit CSS.
-- Frame IPC: current `WINT0001` remains HTML snapshots only. The separate WFRM v1
-  prototype now validates generation/sequence IDs, bounded dimensions/stride/
-  payload, RGBA8 ownership and matching acknowledgment/backpressure. A partial
-  send requires reconnecting before changing generation. Fragmented real-socket
-  tests pass on x86/x64. It is not wired into browser presentation and supplies
-  no OS sandbox.
+- Frame IPC: `WINT0001` retains the legacy HTML message and adds an atomic
+  snapshot/canvas manifest. WFRM v1 transports bounded RGBA8 surfaces with
+  generation/sequence validation and matching acknowledgments. Parent polling
+  moves at most 64 KiB in either direction and presents completed generations
+  without a parent script realm. Integrated acceptance passed 36 painted frames
+  with 36 pixel changes, resize, three worker lifetimes, crash/reap, partial
+  cancellation and descriptor cleanup. See [the protocol](isolated-graphics.md).
+  Raw pointer/key forwarding, shared storage and an OS sandbox remain gaps.
 
 ## Initial evidence and toolchain
 
@@ -139,14 +141,20 @@ profiling measured 100,437,402 shared instructions for `_start`, 121,537,963 for
 the first frame, and 3,874,919 for subsequent frames. On this host, pinned-thread
 CPU measurements are roughly 2.3 seconds, 2.6 seconds and 93 ms respectively.
 `--execution-budget 200000000` is an explicit bounded experiment; the default
-remains unchanged. Mouse pointer/capture and native focus/text integration are
-being implemented before claiming M2 acceptance. No host or bridge is rewritten.
+remains unchanged. Mouse pointer/capture and native focus/UTF-16 selection now have focused tests.
+Keyboard/beforeinput delivery and end-to-end editing are still being implemented
+before claiming M2 acceptance. Author body margins now control the page origin
+and root/body backgrounds cover the viewport; see [root layout](root-layout.md). No host or bridge is rewritten.
 
-M3's pinned Preact workflow still fails in AST lowering (`for(var ... in ...)`
-near column 143); for-in enumeration is in progress, followed by observable loose
-equality/coercion and the bundle's module/DOM requirements. The complete native
-API/interaction/persistence scenario does not pass yet. M4 lacks wired canvas
-frames, shared worker state and an OS sandbox. M5 remains measured feature-family
+M3's pinned Preact now lowers and links unchanged after bounded for-in, abstract
+equality, property presence, mutable live exports, and Array constructor/isArray
+support. Ordinary function prototypes/construction now pass focused tests; the next
+integrated runtime blocker is Function.prototype.bind. Shared callable methods
+and arguments support are under implementation. Live HTML DOM tree APIs and
+side-effect-free native property presence have also landed.
+History push/replace/traversal and bounded JSON-tree state pass native and worker
+HTTP tests. The complete native API/interaction/persistence scenario does not
+pass yet. M4 still lacks input/shared-state parity and an OS sandbox. M5 remains measured feature-family
 work; the current selected Test262 gate has 43 PASS/10 UNSUPPORTED variants.
 
 The complete roadmap's remaining language, CSS/layout, networking, cookie/CORS,
@@ -159,3 +167,9 @@ reusable wasm loader now accepts explicit source/instruction budgets; its defaul
 1 MiB/524,288 limits remain. Win selects 4 MiB/1,048,576 and retains its aggregate
 source/memory limits. Fetch accepts up to 4 MiB so the unmodified binary reaches
 the loader; other resource classes keep their existing limits.
+
+The ordinary-function dependency checkpoint is `d2aa82ff`; focus, CSS root
+layout, DOM tree APIs and native presence are integrated through application
+`7ee65aa`. Feature-selected W tests and
+focused Win tests pass; a new full exact-revision suite is still required after
+the remaining runtime/DOM/input integrations.

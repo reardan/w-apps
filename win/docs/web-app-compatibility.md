@@ -79,9 +79,11 @@ acceptance. Its exact entry point and measured bottlenecks are in the progress n
   not a complete WebGL2 implementation or a GPU-process sandbox.
 
 Interactive isolation is separately available through `--isolated-interactive`.
-Its DOM snapshots do not transport canvas surfaces; use the default interactive
-path for wasm/WebGL. See [process isolation](script-isolation.md) for its current
-input, storage, and lifecycle limitations.
+It presents atomic DOM snapshots and bounded RGBA8 canvas surfaces from the
+worker, with generation validation and acknowledgement backpressure. The unchanged
+graphics host passes sustained rendering and resize in this mode. See
+[isolated graphics](isolated-graphics.md) and [process isolation](script-isolation.md)
+for the remaining input, shared-storage and OS-sandbox limitations.
 
 ## Verification
 

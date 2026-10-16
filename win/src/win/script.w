@@ -10,6 +10,7 @@ import win.wasm
 import win.web_host
 import win.text_selection
 import win.events
+import win.pointer
 import win.abort
 import lib.time
 import libs.extras.javascript.runtime
@@ -42,6 +43,7 @@ struct win_script_timer:
 
 struct win_script:
 	int execution_budget
+	win_pointer_state pointer
 	win_abort_context* aborts
 	win_web_viewport viewport
 	int layout_width
@@ -573,6 +575,10 @@ void win_script_sync(win_script* script):
 		win_page_refresh_styles(script.page)
 		script.styles_dirty = 0
 
+js_value* win_dom_pointer_set(void* runtime, void* context, js_value* receiver, list[js_value*] args);
+js_value* win_dom_pointer_release(void* runtime, void* context, js_value* receiver, list[js_value*] args);
+js_value* win_dom_pointer_has(void* runtime, void* context, js_value* receiver, list[js_value*] args);
+
 js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime* rt = script.runtime
 	if (node == 0): return js_runtime_alloc(rt, 1)
@@ -595,6 +601,10 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime_root(rt, object)
 	js_runtime_set(rt, object, c"dispatchEvent", js_runtime_host_callable(rt, b, win_script_dispatch_host))
 	if (node.kind == HTML_START): js_runtime_set(rt, object, c"replaceChildren", js_runtime_host_callable(rt, b, win_dom_replace_children))
+	if (node.kind == HTML_START):
+		js_runtime_set(rt, object, c"setPointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_set))
+		js_runtime_set(rt, object, c"releasePointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_release))
+		js_runtime_set(rt, object, c"hasPointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_has))
 	if (win_text_selection_control(node)):
 		js_runtime_set(rt, object, c"setSelectionRange", js_runtime_host_callable(rt, b, win_dom_selection_range))
 	js_runtime_set_host_hooks(rt, b.object, b, win_dom_get, win_dom_set)
@@ -1636,6 +1646,157 @@ js_value* win_script_dispatch_host(void* runtime, void* context, js_value* recei
 	if (win_event_flag(args[0], WIN_EVENT_DISPATCHING) == 0): win_event_write(rt, args[0], c"isTrusted", js_runtime_boolean(rt, 0))
 	int allowed = win_script_dispatch_event(script, binding.node, args[0])
 	return js_runtime_boolean(rt, allowed)
+
+# Capture ownership is pending until the next pointer event; hasPointerCapture
+# observes that pending override immediately, as required by Pointer Events.
+js_value* win_dom_pointer_capture(js_runtime* rt, win_dom_binding* binding, js_value* receiver, list[js_value*] args, int operation):
+	win_script* script = cast(win_script*, binding.context)
+	if (receiver != binding.object || args.length == 0 || args[0].kind != 3):
+		js_runtime_fail(rt, 2, c"Pointer capture requires an Element and pointer ID")
+		return rt.undefined_value
+	int id = js_binary_uint(args[0].number, 32)
+	if (operation == 2): return js_runtime_boolean(rt, id == 1 && script.pointer.pending == binding.node)
+	if (id != 1 || script.pointer.present == 0):
+		win_pointer_error(rt, c"NotFoundError", c"Pointer is not active")
+		return rt.undefined_value
+	if (operation == 1):
+		if (script.pointer.pending == binding.node): script.pointer.pending = 0
+	else:
+		if (win_pointer_connected(script.page, binding.node) == 0):
+			win_pointer_error(rt, c"InvalidStateError", c"Capture target is disconnected")
+			return rt.undefined_value
+		if (script.pointer.buttons != 0): script.pointer.pending = binding.node
+	return rt.undefined_value
+
+js_value* win_dom_pointer_set(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	return win_dom_pointer_capture(cast(js_runtime*, runtime), cast(win_dom_binding*, context), receiver, args, 0)
+
+js_value* win_dom_pointer_release(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	return win_dom_pointer_capture(cast(js_runtime*, runtime), cast(win_dom_binding*, context), receiver, args, 1)
+
+js_value* win_dom_pointer_has(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	return win_dom_pointer_capture(cast(js_runtime*, runtime), cast(win_dom_binding*, context), receiver, args, 2)
+
+int win_script_pointer_dispatch(win_script* script, html_node* node, char* name, int button, int delta, int delta_mode):
+	if (script == 0 || node == 0): return 1
+	if (script.runtime.running && script.runtime.completion.status != 0): return 0
+	js_runtime* rt = script.runtime
+	int nested = rt.running
+	win_script* previous = win_active_script
+	win_active_script = script
+	if (nested == 0):
+		js_runtime_collect(rt)
+		if (js_runtime_begin(rt, script.execution_budget) == 0):
+			win_active_script = previous
+			return 0
+	rt.running = 1
+	js_value* event = win_pointer_event(rt, &script.pointer, name, button, &script.viewport, cast(float64, time_monotonic_ms() - script.time_origin), delta, delta_mode)
+	js_runtime_root(rt, event)
+	int allowed = 0
+	if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
+	js_runtime_unroot(rt, event)
+	rt.running = nested
+	if (nested == 0):
+		win_script_result(script, rt.completion)
+		if (rt.completion.status != 5): win_script_checkpoint(script)
+	win_active_script = previous
+	return allowed
+
+void win_script_pointer_capture_update(win_script* script):
+	win_pointer_state* state = &script.pointer
+	if (state.pending != 0 && win_pointer_connected(script.page, state.pending) == 0): state.pending = 0
+	html_node* pending = state.pending
+	html_node* previous = state.capture
+	if (pending == previous): return
+	state.capture = pending
+	if (previous != 0):
+		if (win_pointer_connected(script.page, previous) == 0): previous = script.page.html.root
+		win_script_pointer_dispatch(script, previous, c"lostpointercapture", 0 - 1, 0, 0)
+	if (pending != 0 && win_pointer_connected(script.page, pending)):
+		win_script_pointer_dispatch(script, pending, c"gotpointercapture", 0 - 1, 0, 0)
+
+void win_script_pointer_cancel_inner(win_script* script):
+	if (script == 0): return
+	win_pointer_state* state = &script.pointer
+	html_node* target = state.capture
+	if (target == 0): target = state.pressed
+	int buttons = state.buttons
+	state.buttons = 0
+	state.cancelled = 1
+	state.pressed = 0
+	if (buttons && target != 0): win_script_pointer_dispatch(script, target, c"pointercancel", 0 - 1, 0, 0)
+	state.pending = 0
+	win_script_pointer_capture_update(script)
+	state.capture = 0
+	state.present = 0
+
+# One native pointer sample owns capture transitions, dispatch and checkpoint.
+# kind zero is the backend's latest motion snapshot; queued edges retain order.
+int win_script_pointer_input(win_script* script, html_node* hit, int kind, int code, int x, int y, int mods):
+	if (script == 0): return 1
+	js_runtime* rt = script.runtime
+	int nested = rt.running
+	win_script* previous = win_active_script
+	win_active_script = script
+	if (nested == 0):
+		js_runtime_collect(rt)
+		if (js_runtime_begin(rt, script.execution_budget) == 0):
+			win_active_script = previous
+			return 0
+	rt.running = 1
+	win_pointer_state* state = &script.pointer
+	state.x = x
+	state.y = y
+	state.mods = mods
+	int allowed = 1
+	if (kind == GFX_EVENT_POINTER_CANCEL): win_script_pointer_cancel_inner(script)
+	else:
+		state.present = 1
+		if (kind == GFX_EVENT_SCROLL || kind == GFX_EVENT_SCROLL_PIXELS):
+			int delta = code
+			int mode = 0
+			if (kind == GFX_EVENT_SCROLL):
+				delta = 0 - code
+				mode = 1
+			allowed = win_script_pointer_dispatch(script, hit, c"wheel", 0, delta, mode)
+		else:
+			int button = code - 1
+			int mask = win_pointer_button_mask(button)
+			int before = state.buttons
+			char* name = c"pointermove"
+			if (kind == GFX_EVENT_MOUSE_DOWN && mask):
+				state.cancelled = 0
+				state.buttons = state.buttons | mask
+				if (before == 0):
+					state.pressed = hit
+					name = c"pointerdown"
+			else if (kind == GFX_EVENT_MOUSE_UP && mask):
+				state.buttons = state.buttons & ~mask
+				if (state.buttons == 0): name = c"pointerup"
+				if ((before & mask) == 0): name = 0
+			else: button = 0 - 1
+			win_script_pointer_capture_update(script)
+			html_node* target = state.capture
+			if (target == 0): target = hit
+			if (rt.completion.status == 0 && name != 0): allowed = win_script_pointer_dispatch(script, target, name, button, 0, 0)
+			if (kind == GFX_EVENT_MOUSE_UP && state.buttons == 0):
+				state.pressed = 0
+				state.pending = 0
+				win_script_pointer_capture_update(script)
+	rt.running = nested
+	if (nested == 0):
+		win_script_result(script, rt.completion)
+		if (rt.completion.status != 5): win_script_checkpoint(script)
+	win_active_script = previous
+	return allowed
+
+void win_script_pointer_cancel(win_script* script):
+	if (script == 0): return
+	if (script.pointer.buttons == 0 && script.pointer.capture == 0 && script.pointer.pending == 0):
+		script.pointer.present = 0
+		script.pointer.cancelled = 1
+		return
+	win_script_pointer_input(script, 0, GFX_EVENT_POINTER_CANCEL, 0, script.pointer.x, script.pointer.y, script.pointer.mods)
 
 # Native entry owns the task boundary. JS dispatchEvent shares its enclosing task.
 int win_script_dispatch(win_script* script, html_node* node, char* name):

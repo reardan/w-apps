@@ -20,6 +20,7 @@ struct win_browser:
 	js_value* history_object
 	list[int] traversals
 	int execution_budget
+	win_native_input native_input
 	int isolated
 	win_interactive_worker* interactive
 	int interactive_sequence
@@ -105,6 +106,8 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	ui_scroll_init(&b.scroll)
 
 void win_browser_free(win_browser* b):
+	win_script_pointer_cancel(b.script)
+	win_native_clear(&b.native_input)
 	win_interactive_free(b.interactive)
 	free(b.interactive_html)
 	win_load_free(b.load)
@@ -132,6 +135,8 @@ void win_browser_free(win_browser* b):
 void win_stop(win_browser* b):
 	b.history_pop_pending = 0
 	while (b.traversals.length > 0): b.traversals.pop()
+	win_script_pointer_cancel(b.script)
+	win_native_clear(&b.native_input)
 	win_interactive_free(b.interactive)
 	b.interactive = 0
 	win_fetch_stop(b.fetches)
@@ -241,6 +246,8 @@ void win_browser_poll_document(win_browser* b):
 		win_page* page = win_page_parse(b.load.source, b.load.length)
 		if (page == 0): win_status(b, c"Invalid UTF-8 or HTML document exceeds parser limits")
 		else:
+			win_script_pointer_cancel(b.script)
+			win_native_clear(&b.native_input)
 			if (b.script != 0): js_runtime_async_cancel(b.script.runtime)
 			win_fetch_free(b.fetches)
 			b.fetches = 0
@@ -484,6 +491,50 @@ html_node* win_browser_node_hit(win_page* page, float32 x, float32 y):
 		i = i - 1
 	return 0
 
+html_node* win_browser_pointer_hit(win_browser* b, ui_rect viewport, int x, int y):
+	if (b.page == 0 || ui_rect_contains(viewport, cast(float32, x), cast(float32, y)) == 0): return 0
+	html_node* node = win_browser_node_hit(b.page, cast(float32, x) - viewport.x, cast(float32, y) - viewport.y + b.scroll.offset_y)
+	while (node != 0 && node.kind != HTML_START): node = node.parent
+	if (node == 0): node = b.page.html.root
+	return node
+
+void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport):
+	if (b.isolated || b.script == 0):
+		win_native_clear(&b.native_input)
+		return
+	if (b.native_input.overflow):
+		# A dropped release must never leave capture or a pressed button stuck.
+		win_script_pointer_cancel(b.script)
+		ctx.input.mouse_pressed = 0
+		ctx.input.mouse_released = 0
+		ctx.input.mouse_down = 0
+		ctx.input.mouse_right_pressed = 0
+		ctx.active = 0
+		win_native_clear(&b.native_input)
+		return
+	int count = b.native_input.count
+	b.native_input.count = 0
+	for i in range(count):
+		gfx_event* event = &b.native_input.events[i]
+		int kind = event.kind
+		if (kind != GFX_EVENT_MOUSE_DOWN && kind != GFX_EVENT_MOUSE_UP && kind != GFX_EVENT_POINTER_CANCEL && kind != GFX_EVENT_SCROLL && kind != GFX_EVENT_SCROLL_PIXELS): continue
+		html_node* hit = win_browser_pointer_hit(b, viewport, event.x, event.y)
+		int allowed = win_script_pointer_input(b.script, hit, kind, event.code, event.x - cast(int, viewport.x), event.y - cast(int, viewport.y), event.mods)
+		if (allowed == 0):
+			if (kind == GFX_EVENT_SCROLL): ctx.input.scroll_y = ctx.input.scroll_y - event.code
+			if (kind == GFX_EVENT_SCROLL_PIXELS): ctx.input.scroll_pixels_y = ctx.input.scroll_pixels_y - event.code
+		if (b.script.runtime.completion.status == 5):
+			b.script.pointer.buttons = 0
+			b.script.pointer.pending = 0
+			b.script.pointer.capture = 0
+			b.script.pointer.pressed = 0
+			return
+	int x = ctx.input.mouse_x - cast(int, viewport.x)
+	int y = ctx.input.mouse_y - cast(int, viewport.y)
+	if (b.script.pointer.present == 0 || b.script.pointer.x != x || b.script.pointer.y != y):
+		html_node* hit = win_browser_pointer_hit(b, viewport, ctx.input.mouse_x, ctx.input.mouse_y)
+		win_script_pointer_input(b.script, hit, 0, 0, x, y, ctx.input.mods)
+
 int win_address_editor(win_browser* b, ui_context* ctx, ui_rect area):
 	int submitted = 0
 	int id = ctx.next_id
@@ -583,6 +634,11 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 			win_page_layout(b.page, b.width)
 			b.script.dirty = 0
 		if (b.page.width != b.width): win_page_layout(b.page, b.width)
+		win_browser_sync_viewport(b)
+		win_browser_pointer_frame(b, ctx, viewport)
+		if (b.script != 0 && b.script.dirty):
+			win_page_layout(b.page, b.width)
+			b.script.dirty = 0
 		if ((ctx.input.scroll_y != 0 || ctx.input.scroll_pixels_y != 0) && ui_rect_contains(viewport, cast(float32, ctx.input.scroll_at_x), cast(float32, ctx.input.scroll_at_y))): b.restore_pending = 0
 		if (ctx.input.mouse_pressed && cast(float32, ctx.input.press_x) >= viewport.x + viewport.w - 16.0 && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))): b.restore_pending = 0
 		ui_scroll_begin(ctx, viewport, &b.scroll)
@@ -594,7 +650,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		if (ui_rect_contains(viewport, mx, my)):
 			char* link = win_page_hit(b.page, mx - viewport.x, my - y_offset)
 			if (link[0] != 0): ctx.pointer_mode = 1
-			if (ctx.input.mouse_released && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))):
+			if (ctx.input.mouse_released && (b.script == 0 || b.script.pointer.cancelled == 0) && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))):
 				html_node* target = win_browser_node_hit(b.page, mx - viewport.x, my - y_offset)
 				html_node* pressed = win_browser_node_hit(b.page, cast(float32, ctx.input.press_x) - viewport.x, cast(float32, ctx.input.press_y) - y_offset)
 				if (target != 0 && target == pressed && win_form_control(target) == 0):

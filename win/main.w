@@ -189,7 +189,7 @@ int main(int argc, int argv):
 			code = 1
 	while (code == 0 && gfx_window_poll(window)):
 		win_app_poll(&app)
-		ui_begin_window(&ctx, window)
+		win_app_begin_window(&app, &ctx, window)
 		if (reftest):
 			ui_rect viewport = ui_rect_new(0.0, 0.0, 800.0, 600.0)
 			ui_render_rect(ctx.rndr, viewport, ui_gray(1.0))

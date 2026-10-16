@@ -59,6 +59,23 @@ void win_app_free(win_app* app):
 	free(app.executable)
 	free(app.home)
 
+# Drain once: native widget input and DOM input share the same ordered edges.
+void win_app_begin_window(win_app* app, ui_context* ctx, gfx_window* window):
+	gfx_event event
+	win_browser* tab = app.tabs[app.selected]
+	while (gfx_window_next_event(window, &event)):
+		ui_feed_event(ctx, &event)
+		win_native_push(&tab.native_input, &event)
+	ctx.input.mouse_x = window.mouse_x
+	ctx.input.mouse_y = window.mouse_y
+	ui_begin(ctx, window.width, window.height)
+
+void win_app_cancel_background_input(win_app* app):
+	for i in range(app.tabs.length):
+		if (i == app.selected): continue
+		win_script_pointer_cancel(app.tabs[i].script)
+		win_native_clear(&app.tabs[i].native_input)
+
 void win_app_frame(win_app* app, ui_context* ctx, int width, int height):
 	int previous = app.selected
 	# Reserve independent ID ranges for browser controls and the tab strip.
@@ -100,6 +117,7 @@ void win_app_frame(win_app* app, ui_context* ctx, int width, int height):
 		ctx.active = 0
 		ctx.popup_depth = 0
 	ctx.next_id = 1
+	win_app_cancel_background_input(app)
 	win_browser* tab = app.tabs[app.selected]
 	win_browser_frame(tab, ctx, width, height)
 	if (tab.new_tab != 0):

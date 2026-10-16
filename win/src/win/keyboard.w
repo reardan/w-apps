@@ -157,6 +157,12 @@ void win_keyboard_edit_inner(win_script* script, win_forms* forms, ui_context* c
 		control.editor.sel_anchor = 0
 		win_input_after(script, forms, ctx)
 		return
+	if (event.kind == GFX_EVENT_NAV && event.code != GFX_NAV_DELETE):
+		win_keyboard_remove_default(ctx, event)
+		win_input_before(script, forms, ctx)
+		ui_textarea_nav(&control.editor, event.code, event.mods, win_tag(target, c"textarea"))
+		win_input_after(script, forms, ctx)
+		return
 	if (win_form_has(target, c"readonly")): return
 	char* input_type = c"insertText"
 	char[5] text

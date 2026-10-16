@@ -7,6 +7,10 @@ const int WIN_FORM_LIMIT = 65536
 const int WIN_CONTROL_LIMIT = 512
 
 struct win_control:
+	int selection_revision
+	int native_caret
+	int native_anchor
+	int native_length
 	html_node* node
 	ui_textarea_state editor
 	char* initial_value
@@ -14,6 +18,8 @@ struct win_control:
 	int id
 
 struct win_forms:
+	int focus_revision
+	int native_focus
 	win_page* page
 	list[win_control*] controls
 	html_node* clicked
@@ -119,6 +125,7 @@ void win_forms_discover(win_forms* forms, html_node* node):
 		win_control* c = new win_control()
 		c.node = node
 		c.id = 1000 + forms.controls.length
+		c.selection_revision = 0 - 1
 		ui_textarea_init(&c.editor)
 		if (win_tag(node, c"textarea") && win_form_has(node, c"value") == 0):
 			char* text = win_form_text(node)
@@ -146,6 +153,7 @@ void win_forms_discover(win_forms* forms, html_node* node):
 
 win_forms* win_forms_new(win_page* page):
 	win_forms* forms = new win_forms()
+	forms.focus_revision = 0 - 1
 	forms.page = page
 	forms.controls = new list[win_control*]
 	win_forms_discover(forms, page.html.root)

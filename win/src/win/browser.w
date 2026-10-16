@@ -4,6 +4,7 @@ import win.loader
 import win.resources
 import win.forms
 import win.script
+import win.input
 import win.fetch
 import win.history_state
 import graphics.ui.widgets
@@ -67,6 +68,7 @@ void win_status(win_browser* browser, char* text):
 	browser.status = strclone(text)
 
 void win_browser_init(win_browser* b, char* executable, char* home):
+	win_native_clear(&b.native_input)
 	b.execution_budget = WIN_EXECUTION_DEFAULT
 	b.document_generation = 0
 	b.history_pop_pending = 0
@@ -545,6 +547,14 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 		if (kind != GFX_EVENT_MOUSE_DOWN && kind != GFX_EVENT_MOUSE_UP && kind != GFX_EVENT_POINTER_CANCEL && kind != GFX_EVENT_SCROLL && kind != GFX_EVENT_SCROLL_PIXELS): continue
 		html_node* hit = win_browser_pointer_hit(b, viewport, event.x, event.y)
 		int allowed = win_script_pointer_input(b.script, hit, kind, event.code, event.x - cast(int, viewport.x), event.y - cast(int, viewport.y), event.mods)
+		if (kind == GFX_EVENT_MOUSE_DOWN && event.code == 1):
+			if (allowed):
+				html_node* focus = hit
+				while (focus != 0 && win_focus_eligible(b.page, focus) == 0): focus = focus.parent
+				win_script_focus_input(b.script, focus, 1)
+			else:
+				ctx.input.mouse_pressed = 0
+				ctx.active = 0
 		if (allowed == 0):
 			if (kind == GFX_EVENT_SCROLL): ctx.input.scroll_y = ctx.input.scroll_y - event.code
 			if (kind == GFX_EVENT_SCROLL_PIXELS): ctx.input.scroll_pixels_y = ctx.input.scroll_pixels_y - event.code
@@ -559,6 +569,35 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 	if (b.script.pointer.present == 0 || b.script.pointer.x != x || b.script.pointer.y != y):
 		html_node* hit = win_browser_pointer_hit(b, viewport, ctx.input.mouse_x, ctx.input.mouse_y)
 		win_script_pointer_input(b.script, hit, 0, 0, x, y, ctx.input.mods)
+
+void win_browser_focus_scroll(win_browser* b, ui_rect viewport):
+	if (b.script == 0 || b.script.focus_scroll == 0): return
+	b.script.focus_scroll = 0
+	html_node* node = b.script.active_focus
+	if (node == 0): return
+	float32 top = 0.0
+	float32 height = 0.0
+	win_box* box = win_page_node_box(b.page, node)
+	if (box != 0):
+		top = box.y
+		height = box.height
+	else:
+		for i in range(b.page.runs.length):
+			win_run* run = b.page.runs[i]
+			if (run.node == node):
+				top = run.y
+				height = run.height
+				break
+	if (height <= 0.0): return
+	float32 offset = b.scroll.offset_y
+	if (top < offset): offset = top
+	else if (top + height > offset + viewport.h): offset = top + height - viewport.h
+	float32 maximum = b.page.height - viewport.h
+	if (maximum < 0.0): maximum = 0.0
+	if (offset > maximum): offset = maximum
+	if (offset < 0.0): offset = 0.0
+	b.scroll.offset_y = offset
+	win_browser_sync_viewport(b)
 
 int win_address_editor(win_browser* b, ui_context* ctx, ui_rect area):
 	int submitted = 0
@@ -669,6 +708,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		if (b.script != 0 && b.script.dirty):
 			win_page_layout(b.page, b.width)
 			b.script.dirty = 0
+		win_browser_focus_scroll(b, viewport)
 		if ((ctx.input.scroll_y != 0 || ctx.input.scroll_pixels_y != 0) && ui_rect_contains(viewport, cast(float32, ctx.input.scroll_at_x), cast(float32, ctx.input.scroll_at_y))): b.restore_pending = 0
 		if (ctx.input.mouse_pressed && cast(float32, ctx.input.press_x) >= viewport.x + viewport.w - 16.0 && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))): b.restore_pending = 0
 		ui_scroll_begin(ctx, viewport, &b.scroll)
@@ -686,7 +726,9 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 				if (target != 0 && target == pressed && win_form_control(target) == 0):
 					click_target = target
 					if (link[0] != 0): activate = strclone(link)
+		if (b.isolated == 0): win_input_before(b.script, b.forms, ctx)
 		win_forms_draw(b.forms, ctx, viewport.x, y_offset)
+		if (b.isolated == 0): win_input_after(b.script, b.forms, ctx)
 		ui_scroll_end(ctx, &b.scroll)
 		win_browser_sync_viewport(b)
 	else:

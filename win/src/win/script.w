@@ -11,11 +11,13 @@ import win.web_host
 import win.text_selection
 import win.events
 import win.pointer
+import win.focus
 import win.abort
 import lib.time
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
+	int selection_revision
 	win_text_selection selection
 	js_value* computed
 	win_canvas* canvas
@@ -42,6 +44,11 @@ struct win_script_timer:
 	list[js_value*] args
 
 struct win_script:
+	html_node* active_focus
+	int focus_revision
+	int focus_serial
+	int focus_depth
+	int focus_scroll
 	int execution_budget
 	win_pointer_state pointer
 	win_abort_context* aborts
@@ -379,7 +386,9 @@ js_value* win_dom_selection_range(void* runtime, void* context, js_value* receiv
 		direction = win_text_selection_direction(args[2])
 	if (rt.completion.status != 0): return rt.undefined_value
 	int length = win_text_selection_length(rt, win_attr(b.node, c"value"))
-	if (length >= 0): win_text_selection_range(&b.selection, length, start, end, direction)
+	if (length >= 0):
+		win_text_selection_range(&b.selection, length, start, end, direction)
+		b.selection_revision = b.selection_revision + 1
 	return rt.undefined_value
 
 int win_dom_selection_key(js_text* key):
@@ -390,11 +399,19 @@ int win_dom_selection_key(js_text* key):
 
 # All listed properties operate on native state at the property access itself.
 # Unknown properties fall back to the runtime's ordinary object semantics.
+js_value* win_dom_focus(void* runtime, void* context, js_value* receiver, list[js_value*] args);
+js_value* win_dom_blur(void* runtime, void* context, js_value* receiver, list[js_value*] args);
+html_node* win_script_active_element(win_script* script);
+js_value* win_script_wrap(win_script* script, html_node* node);
+
 js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text* key):
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return win_script_wrap(script, win_script_active_element(script))
+	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")): return js_runtime_number(rt, cast(float64, win_focus_tab_index(b.node)))
+	if (win_text_selection_control(b.node) && js_runtime_key_is(key, c"readOnly")): return js_runtime_boolean(rt, win_form_has(b.node, c"readonly"))
 	if (win_text_selection_control(b.node) && win_dom_selection_key(key)):
 		if (win_text_selection_applies(b.node) == 0): return js_runtime_alloc(rt, 1)
 		int length = win_text_selection_length(rt, win_attr(b.node, c"value"))
@@ -436,6 +453,21 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return 1
+	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")):
+		if (value.kind != 3):
+			js_runtime_fail(rt, 6, c"tabIndex numeric coercion is unsupported")
+			return -1
+		int index = js_binary_uint(value.number, 32)
+		if (index >= 2147483648.0): index = cast(int, cast(float64, index) - 4294967296.0)
+		char* text = itoa(index)
+		win_dom_set_attr(b.node, c"tabindex", text)
+		free(text)
+		return 1
+	if (win_text_selection_control(b.node) && js_runtime_key_is(key, c"readOnly")):
+		if (js_runtime_truth(value)): win_dom_set_attr(b.node, c"readonly", c"")
+		else: win_form_unset(b.node, c"readonly")
+		return 1
 	int selection_key = win_dom_selection_key(key)
 	if (win_text_selection_control(b.node) && selection_key):
 		if (win_text_selection_applies(b.node) == 0):
@@ -458,6 +490,7 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 			else: end = index
 		if (rt.completion.status != 0): return -1
 		win_text_selection_range(&b.selection, length, start, end, direction)
+		b.selection_revision = b.selection_revision + 1
 		return 1
 	if (win_tag(b.node, c"canvas") && (js_runtime_key_is(key, c"width") || js_runtime_key_is(key, c"height"))):
 		if (value.kind != 3 || value.number < 0.0 || value.number > 4096.0 || value.number != value.number):
@@ -515,6 +548,7 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 							free(text)
 							return -1
 						win_text_selection_range(&b.selection, length, length, length, 0)
+						b.selection_revision = b.selection_revision + 1
 					win_dom_set_attr(b.node, win_dom_attribute(k), text)
 				else: js_runtime_fail(rt, 5, c"DOM mutation allocation limit")
 				free(text)
@@ -602,6 +636,8 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	js_runtime_set(rt, object, c"dispatchEvent", js_runtime_host_callable(rt, b, win_script_dispatch_host))
 	if (node.kind == HTML_START): js_runtime_set(rt, object, c"replaceChildren", js_runtime_host_callable(rt, b, win_dom_replace_children))
 	if (node.kind == HTML_START):
+		js_runtime_set(rt, object, c"focus", js_runtime_host_callable(rt, b, win_dom_focus))
+		js_runtime_set(rt, object, c"blur", js_runtime_host_callable(rt, b, win_dom_blur))
 		js_runtime_set(rt, object, c"setPointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_set))
 		js_runtime_set(rt, object, c"releasePointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_release))
 		js_runtime_set(rt, object, c"hasPointerCapture", js_runtime_host_callable(rt, b, win_dom_pointer_has))
@@ -1646,6 +1682,101 @@ js_value* win_script_dispatch_host(void* runtime, void* context, js_value* recei
 	if (win_event_flag(args[0], WIN_EVENT_DISPATCHING) == 0): win_event_write(rt, args[0], c"isTrusted", js_runtime_boolean(rt, 0))
 	int allowed = win_script_dispatch_event(script, binding.node, args[0])
 	return js_runtime_boolean(rt, allowed)
+
+html_node* win_script_active_element(win_script* script):
+	if (script.active_focus != 0 && win_pointer_connected(script.page, script.active_focus) == 0):
+		script.active_focus = 0
+		script.focus_revision = script.focus_revision + 1
+		script.focus_serial = script.focus_serial + 1
+	if (script.active_focus != 0): return script.active_focus
+	return win_focus_fallback(script.page)
+
+void win_script_focus_event(win_script* script, html_node* node, html_node* related, char* name, int bubbles):
+	js_runtime* rt = script.runtime
+	if (rt.completion.status != 0): return
+	js_value* event = win_event_new(rt, win_web_string(rt, name), bubbles, 0, 1, cast(float64, time_monotonic_ms() - script.time_origin))
+	js_runtime_root(rt, event)
+	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+	win_event_write(rt, event, c"relatedTarget", win_script_wrap(script, related))
+	if (rt.completion.status == 0): win_script_dispatch_event(script, node, event)
+	js_runtime_unroot(rt, event)
+
+void win_script_focus_inner(win_script* script, html_node* node, int prevent_scroll):
+	js_runtime* rt = script.runtime
+	if (rt.completion.status != 0): return
+	win_script_sync(script)
+	if (node != 0 && win_focus_eligible(script.page, node) == 0): return
+	win_script_active_element(script)
+	if (script.active_focus == node): return
+	if (script.focus_depth >= 32 || rt.remaining < script.page.html.node_count):
+		js_runtime_fail(rt, 5, c"Focus transition budget")
+		return
+	rt.remaining = rt.remaining - script.page.html.node_count
+	html_node* previous = script.active_focus
+	script.focus_serial = script.focus_serial + 1
+	int serial = script.focus_serial
+	script.active_focus = 0
+	script.focus_revision = script.focus_revision + 1
+	if (previous != 0):
+		win_script_focus_event(script, previous, node, c"blur", 0)
+		if (serial != script.focus_serial || rt.completion.status != 0): return
+		win_script_focus_event(script, previous, node, c"focusout", 1)
+		if (serial != script.focus_serial || rt.completion.status != 0): return
+	if (node != 0 && win_focus_eligible(script.page, node)):
+		script.active_focus = node
+		script.focus_revision = script.focus_revision + 1
+		script.focus_scroll = prevent_scroll == 0
+		win_script_focus_event(script, node, previous, c"focus", 0)
+		if (serial != script.focus_serial || rt.completion.status != 0): return
+		win_script_focus_event(script, node, previous, c"focusin", 1)
+
+# JS focus shares its caller's task. Native widget changes enter one bounded
+# task, keeping reentrant focus events and their microtasks in the same scope.
+void win_script_focus_input(win_script* script, html_node* node, int prevent_scroll):
+	if (script == 0): return
+	js_runtime* rt = script.runtime
+	int nested = rt.running
+	win_script* previous = win_active_script
+	win_active_script = script
+	if (nested == 0):
+		js_runtime_collect(rt)
+		if (js_runtime_begin(rt, script.execution_budget) == 0):
+			win_active_script = previous
+			return
+	rt.running = 1
+	script.focus_depth = script.focus_depth + 1
+	win_script_focus_inner(script, node, prevent_scroll)
+	script.focus_depth = script.focus_depth - 1
+	rt.running = nested
+	if (nested == 0):
+		win_script_result(script, rt.completion)
+		if (rt.completion.status != 5): win_script_checkpoint(script)
+	win_active_script = previous
+
+js_value* win_dom_focus(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.object):
+		js_runtime_fail(rt, 2, c"focus requires its Element receiver")
+		return rt.undefined_value
+	int prevent_scroll = 0
+	if (args.length > 0 && args[0].kind != 0 && args[0].kind != 1):
+		if (js_runtime_object(args[0]) == 0):
+			js_runtime_fail(rt, 2, c"focus options require a dictionary")
+			return rt.undefined_value
+		prevent_scroll = js_runtime_truth(js_runtime_get(rt, args[0], c"preventScroll"))
+	if (rt.completion.status == 0): win_script_focus_input(cast(win_script*, b.context), b.node, prevent_scroll)
+	return rt.undefined_value
+
+js_value* win_dom_blur(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	if (receiver != b.object):
+		js_runtime_fail(rt, 2, c"blur requires its Element receiver")
+		return rt.undefined_value
+	win_script* script = cast(win_script*, b.context)
+	if (script.active_focus == b.node): win_script_focus_input(script, 0, 1)
+	return rt.undefined_value
 
 # Capture ownership is pending until the next pointer event; hasPointerCapture
 # observes that pending override immediately, as required by Pointer Events.

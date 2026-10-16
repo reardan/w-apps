@@ -66,4 +66,4 @@ implemented scope and remaining work.
 
 HTML is UTF-8 with a 1 MiB source/20,000-node limit. A page accepts at most 64 subresources, 16 MiB aggregate text resources, and 64 MiB decoded images. Each image allows 4 MiB input, 4096 pixels per dimension, and 16 MiB RGBA. HTTP workers have a 10-second total deadline and a 12-second parent watchdog. Tabs are limited to 32, histories to 128 entries, controls to 512, and encoded form data to 64 KiB. See the JavaScript compatibility document for interpreter and DOM limits.
 
-The [implementation plan](docs/implementation-plan.md) records the architecture and longer-term milestones.
+The [modern browser implementation plan](docs/modern-browser-plan.md) records the next parallel implementation waves and acceptance gates. The [original implementation plan](docs/implementation-plan.md) records the architecture and earlier milestones.

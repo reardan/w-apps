@@ -91,7 +91,10 @@ int main(int argc, int argv):
 			while (browser.interactive.child != 0 && time_monotonic_ms() < deadline):
 				win_browser_poll(&browser)
 				sleep_ms(2)
-			assert_equal(3, browser.interactive.status)
+			# A pending socket write can observe peer death before waitpid;
+			# either path must fail promptly and reap the killed worker.
+			assert1(browser.interactive.child == 0)
+			if (browser.interactive.status != 3): assert_equal(4, browser.interactive.status)
 		# Cancel while a real graphics frame is only partially transferred.
 		else:
 			assert1(win_interactive_request(browser.interactive, 1, 0, c""))

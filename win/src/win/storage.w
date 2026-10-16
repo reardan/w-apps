@@ -10,11 +10,30 @@ struct win_storage_entry:
 	char* key
 	char* value
 
+type win_storage_cancel_fn = fn(void*) -> void
+
 struct win_storage_context:
 	list[win_storage_entry*] entries
 	int bytes
 	char* path
 	int lock
+	void* pending
+	win_storage_cancel_fn* cancel_pending
+	int poisoned
+
+struct win_storage_result:
+	int kind               # JS primitive kinds: undefined0, null1, number3, string4
+	int number
+	char* text              # owned when kind4
+	int error              # SecurityError1, QuotaExceededError2, UnknownError3
+	char* message          # borrowed diagnostic
+
+type win_storage_call_fn = fn(void*, int, int, char*, char*, int) -> win_storage_result*
+
+void win_storage_result_free(win_storage_result* result):
+	if (result == 0): return
+	free(result.text)
+	free(result)
 
 win_storage_context* win_storage_new():
 	win_storage_context* store = new win_storage_context()
@@ -34,6 +53,7 @@ void win_storage_remove(win_storage_context* store, int index):
 
 void win_storage_free(win_storage_context* store):
 	if (store == 0): return
+	if (store.pending != 0 && store.cancel_pending != 0): store.cancel_pending(store.pending)
 	while (store.entries.length > 0): win_storage_remove(store, store.entries.length - 1)
 	__w_list_free(cast(__w_list*, store.entries))
 	if (store.lock >= 0):
@@ -184,3 +204,75 @@ int win_storage_open(win_storage_context* store, char* path):
 	store.path = strclone(path)
 	store.lock = lock
 	return 1
+
+# Shared operation semantics for native calls and the parent-owned IPC service.
+# A candidate without a path can be mutated before asynchronous publication.
+win_storage_result* win_storage_execute(win_storage_context* store, char* origin, int operation, char* key, char* value, int key_index, int durable):
+	win_storage_result* result = new win_storage_result()
+	if (store == 0 || origin == 0 || origin[0] == 0):
+		result.error = 1
+		result.message = c"Storage requires an HTTP(S) origin"
+		return result
+	if (store.poisoned || operation < 0 || operation > 5):
+		result.error = 3
+		result.message = c"Storage state is unavailable"
+		return result
+	win_storage_context* previous = 0
+	if (durable && operation >= 1 && operation <= 3 && store.path != 0):
+		previous = win_storage_snapshot(store)
+		if (previous == 0):
+			result.error = 3
+			result.message = c"Cannot snapshot persistent storage"
+			return result
+	int found = -1
+	int count = 0
+	if (operation == 0 || operation == 4): result.kind = 1
+	for i in range(store.entries.length):
+		win_storage_entry* entry = store.entries[i]
+		if (strcmp(entry.origin, origin) != 0): continue
+		if (strcmp(entry.key, key) == 0): found = i
+		if (operation == 4 && key_index == count):
+			result.kind = 4
+			result.text = strclone(entry.key)
+		count = count + 1
+	if (operation == 5):
+		result.kind = 3
+		result.number = count
+	if (operation == 0 && found >= 0):
+		result.kind = 4
+		result.text = strclone(store.entries[found].value)
+	if (operation == 2 && found >= 0): win_storage_remove(store, found)
+	if (operation == 3):
+		int i = store.entries.length - 1
+		while (i >= 0):
+			if (strcmp(store.entries[i].origin, origin) == 0): win_storage_remove(store, i)
+			i = i - 1
+	if (operation == 1):
+		int extra = strlen(value)
+		if (found >= 0): extra = extra - strlen(store.entries[found].value)
+		else: extra = extra + strlen(key) + strlen(origin)
+		if (strlen(key) > 65536 || strlen(value) > 65536 || store.bytes + extra > 1048576 || (found < 0 && store.entries.length >= 1024)):
+			result.error = 2
+			result.message = c"Storage quota exceeded"
+		else:
+			win_storage_entry* entry = 0
+			if (found >= 0):
+				entry = store.entries[found]
+				free(entry.value)
+			else:
+				entry = new win_storage_entry()
+				entry.origin = strclone(origin)
+				entry.key = strclone(key)
+				store.entries.push(entry)
+			entry.value = strclone(value)
+			store.bytes = store.bytes + extra
+	if (previous != 0):
+		if (result.error == 0):
+			int committed = win_storage_commit(store)
+			if (committed <= 0):
+				if (committed == 0): win_storage_swap(store, previous)
+				result.error = 2
+				if (committed < 0): result.error = 3
+				result.message = c"Persistent storage write failed"
+		win_storage_free(previous)
+	return result

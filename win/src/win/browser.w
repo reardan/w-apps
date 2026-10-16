@@ -34,6 +34,10 @@ struct win_browser:
 	win_forms* forms
 	win_script* script
 	win_fetch_context* fetches
+	int storage_origin_denied
+	win_storage_call_fn* storage_call
+	void* storage_context
+	char* storage_origin_lock # borrowed child capability, never derived from page input
 	win_storage_context* local_storage
 	win_storage_context* session_storage
 	int owns_local_storage
@@ -78,6 +82,10 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.history_object = 0
 	b.traversals = new list[int]
 	b.isolated = 0
+	b.storage_origin_denied = 0
+	b.storage_origin_lock = 0
+	b.storage_call = 0
+	b.storage_context = 0
 	b.interactive = 0
 	b.interactive_sequence = -1
 	b.interactive_generation = 0
@@ -213,7 +221,8 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 		b.pending_history = target
 		b.interactive_sequence = -1
 		b.interactive_generation = b.interactive_generation + 1
-		b.interactive = win_interactive_start_config(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget)
+		if (b.local_storage.path != 0): b.interactive = win_interactive_start_owned(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget, b.local_storage, b.session_storage)
+		else: b.interactive = win_interactive_start_config(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget)
 		ui_textarea_set(&b.input, address)
 		win_status(b, c"Loading isolated content…")
 		free(address)
@@ -251,6 +260,12 @@ void win_history_go(win_browser* b, int delta):
 
 void win_browser_poll_document(win_browser* b):
 	if (b.load == 0 || win_load_poll(b.load) == 0): return
+	if (b.storage_origin_lock != 0 && b.load.error == 0):
+		char* origin = win_storage_origin(b.load.address)
+		if (strcmp(origin, b.storage_origin_lock) != 0):
+			b.storage_origin_denied = 1
+			b.load.error = strclone(c"Storage-enabled worker cannot navigate across origins")
+		free(origin)
 	if (b.load.error != 0): win_status(b, b.load.error)
 	else:
 		win_page* page = win_page_parse(b.load.source, b.load.length)
@@ -274,6 +289,8 @@ void win_browser_poll_document(win_browser* b):
 			b.script = win_script_new(page)
 			win_script_set_execution_budget(b.script, b.execution_budget)
 			b.script.modules = win_modules_new(b.script.runtime, b.executable, b.load.address)
+			b.script.storage_call = b.storage_call
+			b.script.storage_context = b.storage_context
 			win_script_bind_storage(b.script, b.local_storage, b.session_storage, b.load.address)
 			b.fetches = win_fetch_new(b.script.runtime, b.executable, b.load.address)
 			b.script_failures = 0

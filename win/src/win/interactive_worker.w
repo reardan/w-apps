@@ -8,11 +8,19 @@ import win.frame_surface
 import win.execution
 import win.sandbox
 import win.interactive_input
+import win.storage_rpc
 
 const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
 
 struct win_interactive_worker:
+	win_storage_context* local_store
+	win_storage_context* session_store
+	win_storage_job* storage_job
+	char* storage_origin
+	char* executable
+	int storage_sequence
+	int storage_wait
 	process* child
 	string_builder* incoming
 	string_builder* outgoing
@@ -66,8 +74,12 @@ void win_interactive_fail(win_interactive_worker* worker, int status, char* erro
 
 # Socketpair avoids SIGPIPE without changing the parent's signal dispositions.
 # Both directions are nonblocking; MSG_NOSIGNAL also covers peer death races.
-win_interactive_worker* win_interactive_start_config(char* executable, char* address, char* home, int timeout_ms, int max_bytes, int generation, int width, int height, int budget):
+win_interactive_worker* win_interactive_start_owned(char* executable, char* address, char* home, int timeout_ms, int max_bytes, int generation, int width, int height, int budget, win_storage_context* local_store, win_storage_context* session_store):
 	win_interactive_worker* worker = new win_interactive_worker()
+	worker.local_store = local_store
+	worker.session_store = session_store
+	worker.storage_origin = win_storage_origin(address)
+	worker.executable = strclone(executable)
 	worker.incoming = string_new()
 	worker.outgoing = string_new()
 	worker.timeout_ms = timeout_ms
@@ -83,7 +95,7 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	if (generation > 0):
 		worker.receiver = win_frame_receiver_new(generation)
 		worker.decoder = win_frame_decoder_new(WIN_INTERACTIVE_PIXELS)
-	if (generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX):
+	if ((local_store == 0) != (session_store == 0) || generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX):
 		win_interactive_fail(worker, 7, c"Invalid interactive graphics configuration")
 		return worker
 	if (timeout_ms <= 0 || timeout_ms > 120000 || max_bytes < 40 || max_bytes > WIN_INTERACTIVE_LIMIT):
@@ -113,7 +125,7 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	string_append_char(config, 0)
 	int budget_at = config.length
 	string_append_int(config, budget)
-	char*[19] argv
+	char*[21] argv
 	argv[0] = executable
 	argv[1] = c"--interactive-worker"
 	argv[2] = c"--page"
@@ -130,11 +142,16 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	argv[13] = config.data + height_at
 	argv[14] = c"--execution-budget"
 	argv[15] = config.data + budget_at
-	argv[16] = 0
+	int argc = 16
+	if (local_store != 0 && session_store != 0):
+		argv[argc] = c"--worker-storage-origin"
+		argv[argc + 1] = worker.storage_origin
+		argc = argc + 2
 	if (win_sandbox_requested()):
-		argv[16] = c"--sandbox-root"
-		argv[17] = win_sandbox_root
-		argv[18] = 0
+		argv[argc] = c"--sandbox-root"
+		argv[argc + 1] = win_sandbox_root
+		argc = argc + 2
+	argv[argc] = 0
 	int pid = fork()
 	if (pid == 0):
 		setpgid(0, 0)
@@ -167,6 +184,10 @@ win_interactive_worker* win_interactive_start_config(char* executable, char* add
 	worker.child.stderr_fd = -1
 	if (socket_set_nonblocking(parent_fd) < 0): win_interactive_fail(worker, 7, c"Cannot configure interactive socket")
 	return worker
+
+# Existing callers retain private ephemeral storage and unrestricted navigation.
+win_interactive_worker* win_interactive_start_config(char* executable, char* address, char* home, int timeout_ms, int max_bytes, int generation, int width, int height, int budget):
+	return win_interactive_start_owned(executable, address, home, timeout_ms, max_bytes, generation, width, height, budget, 0, 0)
 
 # Wire header: WINT0001, payload bytes, sequence, kind, revision (int32).
 # Legacy callers keep text snapshots and do not require an X display.
@@ -382,7 +403,54 @@ int win_interactive_poll_frames(win_interactive_worker* worker):
 			return 0
 	return 0
 
+# A pending request stays bounded in incoming while another tab commits. Reads
+# are serialized behind publication too. RPC progress never resets started.
+int win_interactive_storage_poll(win_interactive_worker* worker):
+	char* data = worker.incoming.data
+	if (worker.local_store == 0 || worker.session_store == 0 || win_storage_request_valid(data, worker.incoming.length, worker.generation, worker.storage_sequence + 1) == 0):
+		win_interactive_fail(worker, 4, c"Invalid storage request")
+		return -1
+	win_storage_context* owner = worker.local_store
+	if (load_le32(data + 28)): owner = worker.session_store
+	win_storage_result* result = 0
+	if (worker.storage_job != 0):
+		if (worker.storage_job.done == 0): return 0
+		result = worker.storage_job.result
+		worker.storage_job.result = 0
+		win_storage_job_release(worker.storage_job)
+		worker.storage_job = 0
+	else:
+		if (owner.pending != 0): return 0
+		int operation = load_le32(data + 32)
+		int key_length = load_le32(data + 40)
+		int value_length = load_le32(data + 44)
+		char* key = str_copy_range(data, 48, 48 + key_length)
+		char* value = str_copy_range(data, 48 + key_length, 48 + key_length + value_length)
+		if (load_int32(data + 36) == -2):
+			result = win_storage_execute(owner, worker.storage_origin, 5, c"", c"", -1, 0)
+			result.kind = 0
+			result.number = 0
+			if (operation == 0): result.kind = 1
+			if (result.error == 0 && operation == 1):
+				result.error = 2
+				result.message = c"Storage quota exceeded"
+		else if (owner.path != 0 && operation >= 1 && operation <= 3 && worker.storage_origin[0] != 0 && owner.poisoned == 0):
+			worker.storage_job = win_storage_job_start(owner, worker.executable, worker.storage_origin, operation, key, value, load_int32(data + 36))
+		else: result = win_storage_execute(owner, worker.storage_origin, operation, key, value, load_int32(data + 36), 0)
+		free(key)
+		free(value)
+		if (worker.storage_job != 0): return 0
+	worker.storage_sequence = worker.storage_sequence + 1
+	string_free(worker.outgoing)
+	worker.outgoing = win_storage_reply(worker.generation, worker.storage_sequence, result)
+	worker.sent = 0
+	worker.storage_wait = 0
+	string_clear(worker.incoming)
+	win_storage_result_free(result)
+	return 0
+
 int win_interactive_poll(win_interactive_worker* worker):
+	win_storage_job_poll(worker.local_store)
 	if (worker.child == 0): return -1
 	if (process_try_wait(worker.child) != process_status_running):
 		win_interactive_fail(worker, 3, c"Interactive worker exited")
@@ -410,6 +478,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 		worker.busy = 0
 		worker.status = 1
 		return 1
+	if (worker.storage_wait): return win_interactive_storage_poll(worker)
 	if (worker.stage == 1): return win_interactive_poll_frames(worker)
 	if (worker.stage == 2): return 0
 	char[8192] chunk
@@ -429,6 +498,27 @@ int win_interactive_poll(win_interactive_worker* worker):
 		if (worker.incoming.length >= 24):
 			char* data = worker.incoming.data
 			int length = load_int32(data + 8)
+			if (load_int32(data + 16) == 202):
+				if (worker.local_store == 0 || length != 8 || starts_with(data, c"WINT0001") == 0 || load_le32(data + 12) != worker.sequence || load_le32(data + 20) != 1):
+					win_interactive_fail(worker, 4, c"Invalid storage terminal response")
+					return -1
+				if (worker.incoming.length == 32):
+					if (load_le32(data + 24) != worker.generation || load_le32(data + 28) != 1): win_interactive_fail(worker, 4, c"Invalid storage terminal identity")
+					else: win_interactive_fail(worker, 8, c"Storage-enabled worker cannot navigate across origins")
+					return -1
+				continue
+			int storage_request = load_int32(data + 16) == WIN_STORAGE_REQUEST
+			if (storage_request):
+				if (length < 24 || length > WIN_STORAGE_WIRE_LIMIT - 24 || worker.local_store == 0 || starts_with(data, c"WINT0001") == 0 || load_le32(data + 12) != worker.storage_sequence + 1 || load_le32(data + 20) != 1):
+					win_interactive_fail(worker, 4, c"Invalid storage request header")
+					return -1
+				if (worker.incoming.length == length + 24):
+					if (worker.sent != worker.outgoing.length):
+						win_interactive_fail(worker, 4, c"Overlapping storage request")
+						return -1
+					worker.storage_wait = 1
+					return win_interactive_storage_poll(worker)
+				continue
 			if (length < 11 || length > worker.limit - 24):
 				win_interactive_fail(worker, 5, c"Interactive declared size exceeds limit")
 				return -1
@@ -449,6 +539,9 @@ int win_interactive_poll(win_interactive_worker* worker):
 void win_interactive_free(win_interactive_worker* worker):
 	if (worker == 0): return
 	win_interactive_fail(worker, 6, c"Interactive worker cancelled")
+	win_storage_job_release(worker.storage_job)
+	free(worker.storage_origin)
+	free(worker.executable)
 	string_free(worker.incoming)
 	string_free(worker.outgoing)
 	win_frame_decoder_free(worker.decoder)

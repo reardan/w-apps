@@ -73,6 +73,8 @@ struct win_script:
 	list[win_script_timer*] timers
 	int timer_id
 	int now_ms
+	win_storage_call_fn* storage_call
+	void* storage_context
 	win_storage_context* local_store
 	win_storage_context* session_store
 	char* origin
@@ -1093,84 +1095,47 @@ int win_script_eval(win_script* script, char* source, int length):
 	win_active_script = previous
 	return success
 
+js_value* win_script_storage_value(js_runtime* rt, win_storage_result* stored):
+	js_value* value = rt.undefined_value
+	if (stored.error != 0):
+		value = js_runtime_error_value(rt, stored.message)
+		char* name = c"UnknownError"
+		if (stored.error == 1): name = c"SecurityError"
+		if (stored.error == 2): name = c"QuotaExceededError"
+		js_runtime_set(rt, value, c"name", win_js_string(rt, name))
+		js_runtime_throw(rt, value)
+		value = rt.undefined_value
+	else if (stored.kind == 1): value = js_runtime_alloc(rt, 1)
+	else if (stored.kind == 3): value = js_runtime_number(rt, cast(float64, stored.number))
+	else if (stored.kind == 4): value = win_js_string(rt, stored.text)
+	win_storage_result_free(stored)
+	return value
+
 js_value* win_script_storage_host(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
 	win_script* script = win_active_script
 	if (script == 0 || script.runtime != rt || args.length < 2): return rt.undefined_value
 	win_storage_context* store = script.local_store
 	if (args[0].number != 0.0): store = script.session_store
-	if (store == 0 || script.origin[0] == 0):
-		js_value* error = js_runtime_alloc(rt, 5)
-		js_runtime_set(rt, error, c"name", win_js_string(rt, c"SecurityError"))
-		js_runtime_throw(rt, error)
-		return rt.undefined_value
 	int operation = cast(int, args[1].number)
-	win_storage_context* previous_storage = 0
-	if (operation >= 1 && operation <= 3 && store.path != 0):
-		previous_storage = win_storage_snapshot(store)
-		if (previous_storage == 0):
-			js_runtime_throw(rt, js_runtime_error_value(rt, c"Cannot snapshot persistent storage"))
-			return rt.undefined_value
 	char* key = strclone(c"undefined")
+	char* value = strclone(c"undefined")
 	if (args.length > 2):
 		free(key)
 		key = win_js_text(args[2])
-	int found = -1
-	int count = 0
-	js_value* result = rt.undefined_value
-	if (operation == 0 || operation == 4): result = js_runtime_alloc(rt, 1)
-	for i in range(store.entries.length):
-		win_storage_entry* entry = store.entries[i]
-		if (strcmp(entry.origin, script.origin) != 0): continue
-		if (strcmp(entry.key, key) == 0): found = i
-		if (operation == 4 && args.length > 2 && args[2].kind == 3 && args[2].number == cast(float64, count)): result = win_js_string(rt, entry.key)
-		count = count + 1
-	if (operation == 5): result = js_runtime_number(rt, cast(float64, count))
-	if (operation == 0 && found >= 0): result = win_js_string(rt, store.entries[found].value)
-	if (operation == 2 && found >= 0): win_storage_remove(store, found)
-	if (operation == 3):
-		int i = store.entries.length - 1
-		while (i >= 0):
-			if (strcmp(store.entries[i].origin, script.origin) == 0): win_storage_remove(store, i)
-			i = i - 1
-	if (operation == 1):
-		char* value = strclone(c"undefined")
-		if (args.length > 3):
-			free(value)
-			value = win_js_text(args[3])
-		int extra = strlen(value)
-		if (found >= 0): extra = extra - strlen(store.entries[found].value)
-		else: extra = extra + strlen(key) + strlen(script.origin)
-		if (strlen(key) > 65536 || strlen(value) > 65536 || store.bytes + extra > 1048576 || (found < 0 && store.entries.length >= 1024)):
-			js_value* error = js_runtime_alloc(rt, 5)
-			js_runtime_set(rt, error, c"name", win_js_string(rt, c"QuotaExceededError"))
-			js_runtime_throw(rt, error)
-			free(value)
-		else:
-			win_storage_entry* entry = 0
-			if (found >= 0):
-				entry = store.entries[found]
-				free(entry.value)
-			else:
-				entry = new win_storage_entry()
-				entry.origin = strclone(script.origin)
-				entry.key = strclone(key)
-				store.entries.push(entry)
-			entry.value = value
-			store.bytes = store.bytes + extra
-	if (previous_storage != 0):
-		if (rt.completion.status == 0):
-			int committed = win_storage_commit(store)
-			if (committed <= 0):
-				if (committed == 0): win_storage_swap(store, previous_storage)
-				js_value* error = js_runtime_error_value(rt, c"Persistent storage write failed")
-				char* name = c"QuotaExceededError"
-				if (committed < 0): name = c"UnknownError"
-				js_runtime_set(rt, error, c"name", win_js_string(rt, name))
-				js_runtime_throw(rt, error)
-		win_storage_free(previous_storage)
+	if (args.length > 3):
+		free(value)
+		value = win_js_text(args[3])
+	int index = -1
+	if (args.length > 2 && args[2].kind == 3 && args[2].number >= 0.0 && args[2].number <= 1024.0):
+		index = cast(int, args[2].number)
+		if (cast(float64, index) != args[2].number): index = -1
+	win_storage_result* result = 0
+	if (script.storage_call != 0): result = script.storage_call(script.storage_context, args[0].number != 0.0, operation, key, value, index)
+	else: result = win_storage_execute(store, script.origin, operation, key, value, index, 1)
 	free(key)
-	return result
+	free(value)
+	return win_script_storage_value(rt, result)
 
 js_value* win_script_storage_get(void* runtime, void* context, js_value* receiver, js_text* key):
 	if (js_runtime_key_is(key, c"length") == 0): return 0

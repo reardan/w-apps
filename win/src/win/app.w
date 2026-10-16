@@ -48,6 +48,7 @@ void win_app_close(win_app* app, int index):
 	if (app.tabs.length == 0): win_app_open(app, app.home, c"")
 
 void win_app_poll(win_app* app):
+	win_storage_job_poll(app.local_storage)
 	for i in range(app.tabs.length): win_browser_poll(app.tabs[i])
 
 void win_app_free(win_app* app):

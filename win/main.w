@@ -78,6 +78,10 @@ int main(int argc, int argv):
 			if (win_sandbox_apply(win_sandbox_root, args_program(), 0) == 0):
 				println2(c"Cannot enforce requested offline resource sandbox")
 				return 1
+	char* storage_helper = args_value(c"storage-helper")
+	if (storage_helper != 0):
+		if (win_sandbox_requested() || args_value(c"storage-action") == 0): return 1
+		return win_storage_helper(storage_helper, atoi(args_value(c"storage-action")))
 	int execution_budget = win_execution_budget_parse(args_value(c"execution-budget"))
 	if (args_has_flag(c"execution-budget") && args_value(c"execution-budget") == 0): execution_budget = 0
 	if (execution_budget == 0):
@@ -86,8 +90,8 @@ int main(int argc, int argv):
 	if (execution_budget != WIN_EXECUTION_DEFAULT && (args_has_flag(c"isolated-dump") || args_has_flag(c"script-worker"))):
 		println2(c"Custom execution budgets are not yet forwarded to headless isolated workers")
 		return 1
-	if (args_value(c"storage") != 0 && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive"))):
-		println2(c"Persistent storage is not yet shared with isolated workers")
+	if (args_value(c"storage") != 0 && args_has_flag(c"isolated-dump")):
+		println2(c"Persistent storage is not supported by headless isolated workers")
 		return 1
 	char* fetch = args_value(c"fetch")
 	if (fetch != 0):
@@ -109,6 +113,7 @@ int main(int argc, int argv):
 		println2(c"Offline sandbox requires a local page; HTTP content needs a resource broker")
 		return 1
 	if (args_has_flag(c"interactive-worker")):
+		win_worker_storage_origin = args_value(c"worker-storage-origin")
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1
 		int generation = 0
@@ -142,8 +147,8 @@ int main(int argc, int argv):
 	app.isolated = args_has_flag(c"isolated-interactive")
 	char* storage_path = args_value(c"storage")
 	if (storage_path != 0):
-		if (app.isolated || win_storage_open(app.local_storage, storage_path) == 0):
-			println2(c"Cannot open persistent storage (invalid, locked or unavailable in isolated mode)")
+		if (win_storage_open(app.local_storage, storage_path) == 0):
+			println2(c"Cannot open persistent storage (invalid, locked or unavailable)")
 			win_app_free(&app)
 			return 1
 	win_app_open(&app, start, c"")

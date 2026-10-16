@@ -6,6 +6,8 @@ import win.browser
 import lib.process
 import lib.poll
 
+char* win_worker_storage_origin
+
 const int WIN_SCRIPT_WORKER_LIMIT = 8388608
 const int WIN_SCRIPT_WORKER_HEADER = 24
 
@@ -416,6 +418,12 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	environ_ptr = cast(int, environment)
 	win_browser browser
 	win_browser_init(&browser, executable, home)
+	win_storage_bridge bridge
+	bridge.generation = generation
+	if (win_worker_storage_origin != 0):
+		browser.storage_call = win_storage_bridge_call
+		browser.storage_context = &bridge
+		browser.storage_origin_lock = win_worker_storage_origin
 	browser.execution_budget = budget
 	win_browser_set_viewport(&browser, width, height)
 	win_navigate(&browser, address, c"", -1)
@@ -433,6 +441,18 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		while (win_browser_loading(&browser)):
 			win_browser_poll(&browser)
 			sleep_ms(2)
+		if (browser.storage_origin_denied):
+			string_builder* denial = string_new()
+			win_storage_wire_header(denial, sequence, 202)
+			for i in range(8): string_append_char(denial, 0)
+			store_le32(denial.data + 8, 8)
+			store_le32(denial.data + 24, generation)
+			store_le32(denial.data + 28, 1)
+			win_storage_send_exact(0, denial.data, denial.length)
+			string_free(denial)
+			char[1] closed
+			read(0, &closed[0], 1) # parent closes after consuming terminal reason
+			break
 		ui_begin(&ctx, browser.viewport_width + 24, browser.viewport_height + 182)
 		win_browser_frame(&browser, &ctx, browser.viewport_width + 24, browser.viewport_height + 182)
 		ui_end(&ctx)

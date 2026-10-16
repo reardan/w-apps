@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Win workflow acceptance</title>
+<style>
+  :root { --accent: #245a78; --surface: #f2f6f8; }
+  body { font: 16px/1.5 sans-serif; margin: 0; color: #203441; background: var(--surface); }
+  main { max-width: 720px; margin: 24px auto; padding: 24px; background: white; }
+  nav, .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  form { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-top: 24px; }
+  input, select, button { font: inherit; padding: 8px; }
+  button { color: white; background: var(--accent); border: 0; cursor: pointer; }
+  #result { min-height: 2em; }
+  @media (max-width: 480px) { main { margin: 0; padding: 12px; } form { grid-template-columns: 1fr; } }
+</style>
+<div id="app">Loading production Preact bundle…</div>
+<script type="module" src="./app.mjs"></script>

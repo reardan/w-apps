@@ -838,6 +838,12 @@ js_value* win_script_storage_host(void* context, list[js_value*] args):
 		js_runtime_throw(rt, error)
 		return rt.undefined_value
 	int operation = cast(int, args[1].number)
+	win_storage_context* previous_storage = 0
+	if (operation >= 1 && operation <= 3 && store.path != 0):
+		previous_storage = win_storage_snapshot(store)
+		if (previous_storage == 0):
+			js_runtime_throw(rt, js_runtime_error_value(rt, c"Cannot snapshot persistent storage"))
+			return rt.undefined_value
 	char* key = strclone(c"undefined")
 	if (args.length > 2):
 		free(key)
@@ -885,6 +891,17 @@ js_value* win_script_storage_host(void* context, list[js_value*] args):
 				store.entries.push(entry)
 			entry.value = value
 			store.bytes = store.bytes + extra
+	if (previous_storage != 0):
+		if (rt.completion.status == 0):
+			int committed = win_storage_commit(store)
+			if (committed <= 0):
+				if (committed == 0): win_storage_swap(store, previous_storage)
+				js_value* error = js_runtime_error_value(rt, c"Persistent storage write failed")
+				char* name = c"QuotaExceededError"
+				if (committed < 0): name = c"UnknownError"
+				js_runtime_set(rt, error, c"name", win_js_string(rt, name))
+				js_runtime_throw(rt, error)
+		win_storage_free(previous_storage)
 	free(key)
 	return result
 

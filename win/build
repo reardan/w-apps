@@ -34,6 +34,7 @@ if [[ "$action" == test ]]; then
   for test in "$win_root"/tests/*integration.py; do
     python3 "$test" "$win_root/bin/win" "$win_root/fixtures/start.html"
   done
+  python3 "$win_root/tests/mobile_native_acceptance.py"
 fi
 
 if [[ "$action" == standards ]]; then

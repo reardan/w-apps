@@ -121,8 +121,9 @@ DOM changes return as a new snapshot. Links and form navigation execute in the
 child. The parent maintains its tab/history controls and can cancel a stuck
 worker. Closing a tab, stopping, reloading, navigating or freeing the app kills
 and reaps the old child. The existing parent-death guard covers resource
-loaders as well. Storage lives in each child and is not shared across isolated
-tabs or retained when a child is replaced.
+loaders as well. With `--storage FILE`, [parent-owned storage IPC](isolated-storage.md)
+shares local data across same-origin tabs and retains tab-local session data across
+child replacement. Without that option, storage remains child-local and ephemeral.
 
 `win.interactive_worker` has no browser dependency:
 

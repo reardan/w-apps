@@ -190,7 +190,7 @@ History push/replace/traversal and bounded JSON-tree state pass native and worke
 HTTP tests. Native screenshots still expose visual differences being corrected. M4 workflow
 parity is being validated; a sandboxed HTTP resource broker remains outside the
 offline sandbox profile. M5 remains measured feature-family
-work; the current selected Test262 gate has 43 PASS/10 UNSUPPORTED variants.
+work; the current selected Test262 gate has 90 PASS/23 explicit UNSUPPORTED variants from 58 pinned files (zero failures/errors).
 
 The complete roadmap's remaining language, CSS/layout, networking, cookie/CORS,
 cache, wasm/WebGL, worker, accessibility, media and platform items remain tracked

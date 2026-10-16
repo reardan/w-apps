@@ -83,7 +83,8 @@ lock. The parent directory must exist. Mutations publish mode-0600 files through
 atomic replacement with file/directory synchronization. Prepublication failures
 restore the old memory state; a postpublication directory-sync failure retains
 the new state and throws `UnknownError`. Malformed records fail closed without
-replacement. Isolated modes refuse this option until shared storage IPC exists.
+replacement. Isolated interactive mode supports the option through
+[parent-owned storage IPC](isolated-storage.md); headless isolated dump refuses it.
 The origin is parsed from
 the final document URL and includes normalized scheme, host, and effective port;
 paths do not split an origin. File/invalid origins throw `SecurityError` rather

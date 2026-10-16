@@ -2,9 +2,15 @@
 
 Win executes inline classic scripts and fetched external classic scripts in document order in a separate W JavaScript interpreter instance for each page/tab. Failed downloads and script exceptions produce a status diagnostic and do not prevent later scripts from running. The resource queue may fetch scripts concurrently, but execution waits for earlier script elements. Scripts use the fully parsed document; parser-blocking execution, `async` and `defer` scheduling are not modeled. `DOMContentLoaded` fires once on Document after the initial script queue finishes, with `readyState` set to `interactive`; it does not wait for unrelated image downloads. `load` fires once on Window after all initial resources finish, with `readyState` set to `complete`.
 
-This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary functions/closures, synchronous arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver; global `this` and sloppy receiver substitution/boxing remain unsupported. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including classes, modules, generators, async functions, destructuring, general constructors (`new Promise` is supported), and regex execution. Implicit operator coercion and many standard built-ins are also outside the subset. JSON script data is ignored; module scripts report that modules are unsupported. W now has a [standalone acyclic module foundation](../../w/docs/projects/javascript_modules.md) for named imports and immutable exports; its resolver is not connected to browser resource loading. The bounded scheduling and storage APIs below are available, along with same-origin GET `fetch` and a Promise-based `Response.text()` subset. XHR, navigation bindings, and access to W/OS capabilities from page code remain unavailable.
+This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary functions/closures, synchronous arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver; global `this` and sloppy receiver substitution/boxing remain unsupported. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including classes, generators, async functions, arbitrary-precision BigInt arithmetic, and regex execution. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Implicit operator coercion and many standard built-ins are also outside the subset. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, const exports, and live function exports. The bounded scheduling and storage APIs below are available, along with same-origin GET `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, navigation bindings, and access to W/OS capabilities from page code remain unavailable.
 
 ## Tasks and storage
+
+`requestAnimationFrame` and `cancelAnimationFrame` run bounded callbacks before
+painting the visible tab, with one relative monotonic timestamp per frame. Nested
+registrations wait for the next frame, and cancellation can remove a later
+callback from the current batch. Up to 256 callbacks share a 1,000,000-step frame
+budget. Ordinary headless dumps do not run frames; isolated interactive ticks can.
 
 `setTimeout`, `setInterval`, `clearTimeout`, and `clearInterval` are available on
 the global scope and Window. Callbacks must be functions; source-string timers
@@ -14,7 +20,7 @@ callback arguments and invoke ordinary callbacks with Window as `this`. There
 are at most 256 active timers. Timer IDs are unique within a realm, and either
 clear function can cancel either timer kind.
 
-Browser polling runs at most 64 due callbacks with a shared 100,000-step budget.
+Browser polling runs at most 64 due callbacks with a shared 1,000,000-step budget.
 Equal deadlines preserve registration order. Timers created by a timer callback
 wait until a later poll, and intervals coalesce missed deadlines rather than
 replaying a backlog. A callback exception is recorded without preventing later
@@ -62,12 +68,13 @@ and CORS requests are unavailable. Request/options objects are rejected rather
 than ignored. Loading uses cancellable child processes and existing deadlines.
 
 The returned native Promise fulfills with `status`, `ok`, `url`, `bodyUsed`, and
-`text()`. HTTP error statuses still fulfill; transport failures reject.
-`text()` returns a Promise and consumes the body once. This subset accepts valid
-UTF-8 bodies up to 64 KiB; it does not implement encoding replacement, streaming,
-JSON/blob/array-buffer helpers, headers, AbortSignal, or XHR. A page allows three
+`text()`, and `arrayBuffer()`. HTTP error statuses still fulfill; transport failures reject.
+`text()` and `arrayBuffer()` return Promises and share a single-use body. Bodies
+are limited to 1 MiB each; `text()` additionally requires valid UTF-8 and at most
+64 KiB. Binary bodies are preserved byte-for-byte. Encoding replacement for text,
+streaming, JSON/blob helpers, headers, AbortSignal, and XHR remain unsupported. A page allows three
 concurrent fetches, 64 requests over its lifetime, and 4 MiB of retained body
-text. Responses remain owned until document teardown. Navigation/tab closure
+bytes. Responses remain owned until document teardown. Navigation/tab closure
 cancel outstanding workers before freeing their realm.
 
 `--dump` waits for pending fetches, but does not wait for future timers or recurring
@@ -75,6 +82,12 @@ intervals. `--isolated-dump` executes the complete headless pipeline in a child;
 see the [process boundary](script-isolation.md) for limits.
 
 ## DOM bindings
+
+The additional host surface includes `location.search`, string-initialized
+`URLSearchParams.get`, viewport globals and resize events, `getBoundingClientRect`,
+client/offset dimensions, and live computed padding/font-size reads through
+`getComputedStyle`. VisualViewport, general computed styles, and navigation
+assignment are not implemented.
 
 `document`, `window.document`, and `document.body` expose stable element wrappers. The limited `window`/`globalThis` object is distinct from Document and has its own event registrations. `window.document === document` and `globalThis === window`; the Window wrapper is not the interpreter's lexical global environment, so global declarations do not automatically become Window properties.
 
@@ -137,7 +150,7 @@ filters, and ancestor/sibling traversal against the interpreter budget. Exhausti
 is a terminal limit failure, not a catchable selector syntax error; subsequent
 evaluations start with a fresh budget.
 
-Each script/callback dispatch has a 100,000-step interpreter budget, including charged DOM traversals; depth is limited to 128. A script source is limited to 256 KiB and a realm retains at most 512 script ASTs, 100,000 runtime heap values, 1,024 node wrappers, and 1,024 registered listeners. The document has at most 20,000 nodes; DOM text/attribute strings and listener type names are limited to 64 KiB and copied DOM mutation data (including listener type names) has a conservative cumulative 4 MiB allocation budget. Removed/once listeners release their registrations and callback roots after dispatch; removals outside dispatch reclaim slots immediately. Interpreter limit failures terminate the dispatch, while ordinary callback exceptions allow later listeners to run. Appending a node cannot create cycles or exceed document depth limits. Reads of `textContent` return at most 64 KiB. These are deterministic limits, not resumable execution or a standards-compliant sandbox.
+Each script/callback dispatch has a 1,000,000-step interpreter budget, including charged DOM traversals; depth is limited to 128. A script source is limited to 256 KiB and a realm retains at most 512 script ASTs, 100,000 runtime heap values, 1,024 node wrappers, and 1,024 registered listeners. The document has at most 20,000 nodes; DOM text/attribute strings and listener type names are limited to 64 KiB and copied DOM mutation data (including listener type names) has a conservative cumulative 4 MiB allocation budget. Removed/once listeners release their registrations and callback roots after dispatch; removals outside dispatch reclaim slots immediately. Interpreter limit failures terminate the dispatch, while ordinary callback exceptions allow later listeners to run. Appending a node cannot create cycles or exceed document depth limits. Reads of `textContent` return at most 64 KiB. These are deterministic limits, not resumable execution or a standards-compliant sandbox.
 
 Collection runs between evaluations/dispatches; DOM wrappers and callbacks are rooted. Closing a tab or replacing its document frees its interpreter, callbacks, scripts, and DOM together. JavaScript realms are separate across tabs and navigation. Explicit app/tab storage owners retain the origin-keyed storage data described above across replacement realms.
 

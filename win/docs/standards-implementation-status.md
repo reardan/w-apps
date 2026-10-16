@@ -4,17 +4,28 @@ The W dependency includes the bounded Promise/microtask runtime and standalone
 module foundation from [W #657](https://github.com/reardan/w/pull/657), on top of
 the merged [W #654](https://github.com/reardan/w/pull/654) Test262 foundation and
 [W #652](https://github.com/reardan/w/pull/652) labelled JavaScript implementation.
-The Git submodule pins merged commit
-`343a124b22e1a39cd577e34e0b7ab13ee5191387`. This also includes the concurrent
+The earlier foundation used merged commit
+`343a124b22e1a39cd577e34e0b7ab13ee5191387`, which also includes the concurrent
 [W #656](https://github.com/reardan/w/pull/656) wrapped-line bidi update.
-All 27 W runtime PR checks passed before merge. The exact merged dependency
-also passed the 1,205-target W suite, the browser suite and the standards gate.
+Those earlier commits passed all 27 W runtime PR checks and the 1,205-target W
+suite, browser suite, and standards gate. The web-application increment below
+pins W runtime commit `d8aa1039087c5c940908531a9f4a58bbebfaf00a` and adds
+browser support in this repository. Its validation is recorded separately below.
 
 Win's CSS, flexbox, native rendering, and WPT work remain in the application.
 The earlier foundation and its validation are recorded below; the newer async,
 network, storage and headless-isolation increment follows in its own section.
 The broader [standards implementation plan](standards-gap-analysis.md) remains
 open. These are bounded implementations, not full standards conformance.
+
+## Web application increment
+
+The [web application contract](web-app-compatibility.md) describes the new bounded
+WebAssembly interpreter, typed buffers and UTF-8 codecs, binary Fetch, browser
+module graph loading, canvas WebGL rendering, animation frames, and opt-in
+interactive process isolation. The Promise-based W demo fixture is the concrete
+integration target. The original full W host still requires unsupported JavaScript
+and browser features; this is not general modern-site compatibility.
 
 ## Implemented foundation
 
@@ -119,7 +130,7 @@ an explicitly drained, rooted FIFO microtask queue. A standalone
 [module foundation](../../w/docs/projects/javascript_modules.md) parses, links
 and evaluates acyclic static named imports and immutable exports with separate
 strict environments, cached execution/failures and a host resolver. Browser
-module graph loading is not yet connected. Win runs checkpoints at
+module graph loading is now connected through the bounded loader. Win runs checkpoints at
 script/event/timer boundaries and polls bounded timers in every live tab.
 Origin-scoped memory storage survives navigation: local storage shares an app
 owner, while session storage belongs to its tab. Same-origin GET `fetch` resolves
@@ -162,13 +173,13 @@ Current increment validation:
 ## Remaining work
 
 Complete flex/grid and inline formatting, column flex factors, reverse/wrapped
-columns, baseline alignment and broader CSS remain deferred. CSSOM still lacks
-computed-style and stylesheet rule APIs. Resource bases remain fixed after the
+columns, baseline alignment and broader CSS remain deferred. CSSOM exposes limited computed padding/font-size reads but still lacks
+complete computed-style and stylesheet rule APIs. Resource bases remain fixed after the
 initial load, and parser-blocking/async/defer script scheduling is not modeled.
 
 Complete ECMAScript and built-ins, generic thenable assimilation, async/await,
-Promise combinators, browser module graph loading, XHR, full Fetch/CORS/streaming,
+Promise combinators, complete module semantics, XHR, full Fetch/CORS/streaming,
 persistent storage/cache, storage events, complete cookie policies, native DOM
-interfaces, accessibility, and interactive content-process isolation remain
-future work. These increments are bounded implementations, not general modern
+interfaces, accessibility, and canvas-capable interactive content isolation remain
+future work. The opt-in DOM snapshot process mode has narrower support. These increments are bounded implementations, not general modern
 website compatibility or full standards conformance.

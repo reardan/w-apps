@@ -73,7 +73,7 @@ void test_fetch_rooting_and_response():
 	win_fetch_poll(context)
 	assert_equal(0, win_fetch_pending(context))
 	asserts(c"transport promise root released after settlement", fetch_rooted(script.runtime, promise) == 0)
-	asserts(c"response and body retained for native callback", fetch_rooted(script.runtime, request.response) && fetch_rooted(script.runtime, request.body))
+	asserts(c"response retained for native callback", fetch_rooted(script.runtime, request.response))
 	js_runtime_collect(script.runtime)
 	win_script_checkpoint(script)
 	assert_strings_equal(c"response", script.page.title)
@@ -94,15 +94,15 @@ void test_fetch_budgets():
 	win_script* script = fetch_script()
 	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
 	string_builder* text = string_new()
-	for i in range(65537): string_append_char(text, 'x')
+	for i in range(1048577): string_append_char(text, 'x')
 	win_fetch_request* exact = fetch_result(context, text.data, 65536, 200)
 	js_value* exact_promise = exact.promise
 	js_runtime_set(script.runtime, script.runtime.global, c"exact", exact_promise)
 	win_fetch_poll(context)
 	assert_equal(2, exact_promise.promise_state)
 	assert_equal(65536, context.bytes)
-	assert_equal(65536, exact.body.text.units.length)
-	win_fetch_request* large = fetch_result(context, text.data, 65537, 200)
+	assert_equal(65536, exact.length)
+	win_fetch_request* large = fetch_result(context, text.data, 1048577, 200)
 	js_value* large_promise = large.promise
 	js_runtime_set(script.runtime, script.runtime.global, c"large", large_promise)
 	win_fetch_poll(context)
@@ -114,8 +114,8 @@ void test_fetch_budgets():
 	js_value* bad_promise = bad.promise
 	js_runtime_set(script.runtime, script.runtime.global, c"bad", bad_promise)
 	win_fetch_poll(context)
-	assert_equal(3, bad_promise.promise_state)
-	assert_equal(65536, context.bytes)
+	assert_equal(2, bad_promise.promise_state)
+	assert_equal(65537, context.bytes)
 	context.bytes = 4194303
 	win_fetch_request* last = fetch_result(context, c"x", 1, 200)
 	js_value* last_promise = last.promise
@@ -295,7 +295,7 @@ void test_fetch_admission_heap_failure():
 	asserts(c"failed text allocation leaves bodyUsed false", js_runtime_get(rt, request.response, c"bodyUsed").number == 0.0)
 	promise = win_fetch_text(rt, request, request.response, arguments)
 	assert_equal(2, promise.promise_state)
-	asserts(c"body remains readable after allocation recovery", promise.promise_result == request.body)
+	assert_equal(4, promise.promise_result.text.units.length)
 	assert_equal(1, request.consumed)
 	__w_list_free(cast(__w_list*, arguments))
 	fetch_destroy(script, context)
@@ -348,6 +348,23 @@ void test_fetch_stop_saturation():
 	assert_strings_equal(c"aborted", script.page.title)
 	fetch_destroy(script, context)
 
+void test_fetch_binary():
+	win_script* script = fetch_script()
+	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
+	char[4] bytes
+	bytes[0] = 0
+	bytes[1] = cast(char, 255)
+	bytes[2] = 97
+	bytes[3] = 0
+	win_fetch_request* request = fetch_result(context, &bytes[0], 4, 200)
+	fetch_expose(script, request)
+	fetch_eval(script, c"let checked=false; result.then(function(r){const read=r.arrayBuffer; read().catch(function(){}); if(r.bodyUsed) throw 'receiver consumed'; return r.arrayBuffer().then(function(b){const v=new Uint8Array(b); if(v.length!==4 || v[0]!==0 || v[1]!==255 || v[2]!==97 || v[3]!==0) throw 'bytes'; if(!r.bodyUsed) throw 'unused'; return r.text().catch(function(){checked=true;});});});")
+	win_fetch_poll(context)
+	win_script_checkpoint(script)
+	js_runtime_collect(script.runtime)
+	fetch_eval(script, c"if(!checked) throw 'binary body';")
+	fetch_destroy(script, context)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	asserts(c"pass browser executable and fixture", argc >= 3)
@@ -374,6 +391,7 @@ int main(int argc, int argv):
 	test_fetch_stop_saturation()
 	test_fetch_origins_and_arguments()
 	test_fetch_rooting_and_response()
+	test_fetch_binary()
 	test_fetch_budgets()
 	test_fetch_request_limits()
 	test_fetch_stop()

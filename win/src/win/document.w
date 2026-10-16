@@ -241,7 +241,7 @@ void win_line_end(win_page* page, int force):
 		for i in range(page.line_start, page.runs.length):
 			win_run* run = page.runs[i]
 			run.x = run.x + shift
-			if (run.image != 0): run.y = page.y + cast(float32, page.ascent) - run.height
+			if (run.image != 0 || win_tag(run.node, c"canvas")): run.y = page.y + cast(float32, page.ascent) - run.height
 			else: run.y = page.y + cast(float32, page.ascent - ui_font_strike_ascent(run.strike))
 		int height = page.ascent + page.descent + 7
 		if (page.line_height > height): height = page.line_height
@@ -410,6 +410,21 @@ void win_layout_node(win_page* page, html_node* node, win_style inherited, char*
 int win_layout_control(html_node* node):
 	return win_tag(node, c"input") || win_tag(node, c"textarea") || win_tag(node, c"select") || win_tag(node, c"button")
 
+# Canvas attributes are nonnegative integers; invalid/missing values use
+# HTML defaults. The rendering layer independently bounds backing allocation.
+int win_canvas_attribute(html_node* node, char* name, int fallback):
+	char* text = win_attr(node, name)
+	int i = 0
+	while (html_space(text[i])): i = i + 1
+	if (text[i] == '+'): i = i + 1
+	if (text[i] < '0' || text[i] > '9'): return fallback
+	int value = 0
+	while (text[i] >= '0' && text[i] <= '9'):
+		if (value > 100000): return 100000
+		value = value * 10 + text[i] - '0'
+		i = i + 1
+	return min(value, 100000)
+
 struct win_replaced_size:
 	float32 width
 	float32 height
@@ -421,10 +436,20 @@ win_replaced_size win_replaced_dimensions(win_page* page, html_node* node, win_s
 	size.width = 220.0
 	size.height = 34.0
 	int image_node = win_tag(node, c"img")
+	int canvas_node = win_tag(node, c"canvas")
+	float32 ratio_width = 0.0
+	float32 ratio_height = 0.0
 	win_image* image = win_image_find(page.images, node)
 	int explicit_width = 0
 	int explicit_height = 0
-	if (image_node):
+	if (canvas_node):
+		size.width = cast(float32, win_canvas_attribute(node, c"width", 300))
+		size.height = cast(float32, win_canvas_attribute(node, c"height", 150))
+		ratio_width = size.width
+		ratio_height = size.height
+	elif (image_node):
+		ratio_width = cast(float32, image.width)
+		ratio_height = cast(float32, image.height)
 		size.width = cast(float32, image.width)
 		size.height = cast(float32, image.height)
 		int width = atoi(win_attr(node, c"width"))
@@ -452,16 +477,16 @@ win_replaced_size win_replaced_dimensions(win_page* page, html_node* node, win_s
 		size.width = used_width
 		explicit_width = 1
 	if (size.width < 0.0): size.width = 0.0
-	if (image_node):
-		if (explicit_width && explicit_height == 0): size.height = size.width * cast(float32, image.height) / cast(float32, image.width)
-		if (explicit_height && explicit_width == 0): size.width = size.height * cast(float32, image.width) / cast(float32, image.height)
+	if ((image_node || canvas_node) && ratio_width > 0.0 && ratio_height > 0.0):
+		if (explicit_width && explicit_height == 0): size.height = size.width * ratio_height / ratio_width
+		if (explicit_height && explicit_width == 0): size.width = size.height * ratio_width / ratio_height
 	if (used_width < 0.0 && style.max_width >= 0.0 && (style.max_width_percent == 0 || containing_width >= 0.0)):
 		float32 maximum = style.max_width
 		if (style.max_width_percent): maximum = containing_width * maximum / 100.0
 		if (style.box_sizing): maximum = maximum - win_box_horizontal_extras(style)
 		if (maximum < 0.0): maximum = 0.0
 		if (size.width > maximum):
-			if (image_node && explicit_height == 0): size.height = size.height * maximum / size.width
+			if ((image_node || canvas_node) && explicit_height == 0): size.height = size.height * maximum / size.width
 			size.width = maximum
 	return size
 
@@ -471,7 +496,7 @@ win_intrinsic_size win_intrinsic_node(win_page* page, html_node* node, win_style
 	result.max_content = 0.0
 	if (node.kind == HTML_TEXT): return win_intrinsic_text(node.text, node.text_length, style)
 	win_image* image = win_image_find(page.images, node)
-	if (win_layout_control(node) || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)):
+	if (win_layout_control(node) || win_tag(node, c"canvas") || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)):
 		win_style intrinsic_style = style
 		intrinsic_style.width = -1.0
 		intrinsic_style.max_width = -1.0
@@ -723,7 +748,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	float32 content_top = page.y
 	int control = win_layout_control(node)
 	win_image* image = win_image_find(page.images, node)
-	int replaced = control || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)
+	int replaced = control || win_tag(node, c"canvas") || (win_tag(node, c"img") && image != 0 && image.width > 0 && image.height > 0 && image.failed == 0)
 	win_replaced_size dimensions
 	if (replaced): dimensions = win_replaced_dimensions(page, node, style, right - left, used_width)
 	if (block):
@@ -761,7 +786,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 		if (box == 0): box = win_box_add(page, node, style, page.left, page.y, width, height)
 		if (block): page.y = page.y + dimensions.height
 		else: page.y = page.y + height + 6.0
-	else if (win_tag(node, c"img")):
+	else if (win_tag(node, c"img") || win_tag(node, c"canvas")):
 		if (replaced):
 			float32 iw = dimensions.width
 			float32 ih = dimensions.height

@@ -1,7 +1,7 @@
 # Linux x64 headless execution boundary, NOT an OS sandbox. A fresh exec owns
 # the page, interpreter and raw DOM pointers; only rendered UTF-8 text returns.
-# Filesystem/network authority remains unchanged. Interactive pages still use
-# the in-process realm. No preflight evaluation or DOM replay occurs here.
+# Filesystem/network authority remains unchanged. The optional interactive
+# entry below retains its realm in the child. No preflight evaluation occurs.
 import win.browser
 import lib.process
 import lib.poll
@@ -220,3 +220,155 @@ int win_script_worker_execute(char* executable, char* address, char* home, int l
 	environ_ptr = cast(int, previous)
 	win_script_worker_environment_free(environment)
 	return code
+
+# Persistent interactive child. Only snapshots and numeric event targets cross
+# the boundary. Canvas/GL resources are not represented by this opt-in mode.
+import win.interactive_worker
+
+int win_interactive_append(string_builder* output, char* text, int limit):
+	return win_script_worker_append(output, text, limit)
+
+int win_interactive_escape(string_builder* output, char* text, int limit):
+	int at = 0
+	while (text[at] != 0):
+		char ch = text[at]
+		char* escaped = 0
+		if (ch == '&'): escaped = c"&amp;"
+		else if (ch == '<'): escaped = c"&lt;"
+		else if (ch == '>'): escaped = c"&gt;"
+		else if (ch == '"'): escaped = c"&quot;"
+		if (escaped != 0):
+			if (win_interactive_append(output, escaped, limit) == 0): return 0
+		else:
+			if (output.length >= limit): return 0
+			string_append_char(output, ch)
+		at = at + 1
+	return 1
+
+int win_interactive_serialize(html_node* node, string_builder* output, list[html_node*] nodes, int limit, int depth):
+	if (depth > 128 || nodes.length >= 20000): return 0
+	nodes.push(node)
+	int id = nodes.length
+	if (node.kind == HTML_TEXT):
+		if (node.parent != 0 && win_tag(node.parent, c"style")): return win_interactive_append(output, node.text, limit)
+		return win_interactive_escape(output, node.text, limit)
+	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return 1
+	# Scripts remain exclusively in the child; their source is never replayed.
+	if (win_tag(node, c"script")): return 1
+	if (node.kind == HTML_START):
+		if (win_interactive_append(output, c"<", limit) == 0 || win_interactive_append(output, node.name, limit) == 0): return 0
+		html_attribute* attr = node.attributes
+		while (attr != 0):
+			if (strcmp(attr.name, c"data-win-node") != 0):
+				if (win_interactive_append(output, c" ", limit) == 0 || win_interactive_append(output, attr.name, limit) == 0 || win_interactive_append(output, c"=\"", limit) == 0): return 0
+				if (win_interactive_escape(output, attr.value, limit) == 0 || win_interactive_append(output, c"\"", limit) == 0): return 0
+			attr = attr.next
+		string_builder* number = string_new()
+		string_append_int(number, id)
+		int ok = win_interactive_append(output, c" data-win-node=\"", limit) && win_interactive_append(output, number.data, limit) && win_interactive_append(output, c"\">", limit)
+		string_free(number)
+		if (ok == 0): return 0
+	html_node* child = node.first_child
+	while (child != 0):
+		if (win_interactive_serialize(child, output, nodes, limit, depth + 1) == 0): return 0
+		child = child.next_sibling
+	if (node.kind == HTML_START && html_void(node.name) == 0):
+		if (win_interactive_append(output, c"</", limit) == 0 || win_interactive_append(output, node.name, limit) == 0 || win_interactive_append(output, c">", limit) == 0): return 0
+	return 1
+
+int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes, int sequence, int limit):
+	if (browser.page == 0 || browser.page.truncated): return 0
+	string_builder* output = string_new()
+	win_interactive_header(output, sequence, 100)
+	for i in range(8): string_append_char(output, 0)
+	save_int32(output.data + 24, browser.script_failures)
+	save_int32(output.data + 28, browser.resource_failures)
+	int ok = win_interactive_append(output, browser.address, limit - 3)
+	string_append_char(output, 0)
+	if (ok): ok = win_interactive_append(output, browser.page.title, limit - 2)
+	string_append_char(output, 0)
+	while (nodes.length > 0): nodes.pop()
+	if (ok): ok = win_interactive_serialize(browser.page.html.root, output, nodes, limit - 1, 0)
+	string_append_char(output, 0)
+	save_int32(output.data + 8, output.length - 24)
+	int at = 0
+	while (ok && at < output.length):
+		int count = socket_send(0, output.data + at, output.length - at, 16384)
+		if (count == -4): continue
+		if (count <= 0): ok = 0
+		else: at = at + count
+	string_free(output)
+	return ok
+
+int win_interactive_child_read(char* target, int length):
+	int at = 0
+	while (at < length):
+		int count = read(0, target + at, length - at)
+		if (count == -4): continue
+		if (count <= 0): return 0
+		at = at + count
+	return 1
+
+void win_interactive_child_event(win_browser* browser, list[html_node*] nodes, int kind, int id, char* value):
+	if (kind == 1): return
+	if (id <= 0 || id > nodes.length): return
+	html_node* node = nodes[id - 1]
+	if (kind == 3):
+		win_form_set(node, c"value", value)
+		win_script_dispatch(browser.script, node, c"input")
+		win_script_dispatch(browser.script, node, c"change")
+	else if (kind == 4): win_browser_submit(browser, node)
+	else if (kind == 2):
+		if (win_form_control(node)):
+			browser.forms.clicked = node
+			win_browser_form_events(browser)
+			browser.forms.clicked = 0
+		else if (win_script_dispatch(browser.script, node, c"click")):
+			html_node* link = node
+			while (link != 0 && win_tag(link, c"a") == 0): link = link.parent
+			if (link != 0 && win_attr(link, c"href")[0] != 0): win_navigate(browser, win_attr(link, c"href"), win_browser_base(browser), -1)
+
+int win_script_interactive_execute(char* executable, char* address, char* home, int limit):
+	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT): return 2
+	char** previous = env_current()
+	char** environment = win_script_worker_environment()
+	environ_ptr = cast(int, environment)
+	win_browser browser
+	win_browser_init(&browser, executable, home)
+	win_navigate(&browser, address, c"", -1)
+	list[html_node*] nodes = new list[html_node*]
+	int sequence = 0
+	int running = 1
+	while (running):
+		win_browser_poll(&browser)
+		while (win_browser_loading(&browser)):
+			win_browser_poll(&browser)
+			sleep_ms(2)
+		win_script_frame_at(browser.script, process_monotonic_ms())
+		if (win_interactive_child_snapshot(&browser, nodes, sequence, limit) == 0): break
+		char[24] header
+		if (win_interactive_child_read(&header[0], 24) == 0): break
+		int length = load_int32(&header[8])
+		int next = load_int32(&header[12])
+		int kind = load_int32(&header[16])
+		# Compare magic bytewise: header is not a NUL-terminated string.
+		char* magic = c"WINT0001"
+		for i in range(8):
+			if (header[i] != magic[i]): running = 0
+		if (running == 0 || length < 4 || length > 65540 || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 4 || load_int32(&header[20]) != 0): break
+		char* payload = cast(char*, malloc(length + 1))
+		payload[length] = 0
+		int ok = win_interactive_child_read(payload, length)
+		for i in range(4, length):
+			if (payload[i] == 0): ok = 0
+		if (ok && utf8_validate_bytes(payload + 4, length - 4)):
+			win_interactive_child_event(&browser, nodes, kind, load_int32(payload), payload + 4)
+		else: running = 0
+		free(payload)
+		sequence = next
+	win_browser_free(&browser)
+	__w_list_free(cast(__w_list*, nodes))
+	win_network_state_clear()
+	environ_ptr = cast(int, previous)
+	win_script_worker_environment_free(environment)
+	return 0

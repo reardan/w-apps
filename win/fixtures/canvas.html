@@ -1,0 +1,17 @@
+<!doctype html>
+<title>Canvas pending</title>
+<style>body { margin: 0; } canvas { display: block; width: 160px; height: 120px; }</style>
+<canvas id="surface" width="160" height="120"></canvas>
+<script>
+const surface=document.getElementById('surface');
+const gl=surface.getContext('webgl2');
+if(gl){
+  gl.clearColor(0,1,0,1);
+  requestAnimationFrame(function(t){
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    document.title='Canvas frame painted';
+  });
+}else{
+  document.title='WebGL unavailable';
+}
+</script>

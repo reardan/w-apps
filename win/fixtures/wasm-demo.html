@@ -1,0 +1,55 @@
+<!doctype html>
+<title>W wasm demo loading</title>
+<style>body { margin: 0; } canvas { display: block; width: 640px; height: 480px; }</style>
+<canvas id="canvas" width="640" height="480"></canvas>
+<p id="status">Loading the W graphics demo</p>
+<!-- Compatibility smoke host: the existing W binary and WebGL bridge, with a
+     Promise-based startup and a deliberately minimal WASI import adapter.
+     This does not establish support for the full tools/web/index.html host. -->
+<script type="module">
+import { makeEnv } from '../../w/tools/web/webgl_env.mjs';
+const canvas=document.getElementById('canvas');
+const gl=canvas.getContext('webgl2');
+let instance=null;
+let callback=0;
+let frames=0;
+let exitCode=-1;
+const host={
+  canvasInit:function(title,width,height){
+    canvas.width=width;canvas.height=height;return gl?1:0;
+  },
+  pollState:function(){return {width:canvas.width,height:canvas.height,shouldClose:0,mouseX:0,mouseY:0,mouseButtons:0,lastKeycode:0};},
+  setFrameCallback:function(index){callback=index;},
+  pixelRatio:function(){return 1;},
+  nextEvent:function(){return null;}
+};
+function memory(){return instance.exports.memory;}
+function noFile(){return 8;}
+const wasi={
+  // W's generated _start calls proc_exit only after main has returned.
+  proc_exit:function(code){exitCode=code;},
+  fd_write:noFile,fd_read:noFile,fd_close:noFile,fd_seek:noFile,
+  path_open:noFile,path_unlink_file:noFile,
+  clock_time_get:function(){return 52;},
+  args_sizes_get:function(argc,size){const view=new DataView(memory().buffer);view.setUint32(argc,0,true);view.setUint32(size,0,true);return 0;},
+  args_get:function(){return 0;}
+};
+function frame(){
+  instance.exports.table.get(callback)();
+  if(gl.getError()!==0) throw 'WebGL draw error';
+  frames++;
+  document.title='W wasm frame '+String(frames);
+  document.getElementById('status').textContent=document.title;
+  if(frames<3 && instance.exports.ax.value!==0) requestAnimationFrame(frame);
+}
+if(!gl) throw 'WebGL unavailable';
+const env=makeEnv({memory:memory,gl:gl,host:host});
+fetch('../../w/bin/graphics_demo.wasm').then(function(response){return response.arrayBuffer();})
+.then(function(bytes){return WebAssembly.instantiate(bytes,{env:env,wasi_snapshot_preview1:wasi});})
+.then(function(result){
+  instance=result.instance;
+  instance.exports._start();
+  if(exitCode!==0 || callback===0) throw 'W startup failed';
+  requestAnimationFrame(frame);
+}).catch(function(error){let message=error.message;if(typeof error==='string') message=error;document.title='W wasm failed';document.getElementById('status').textContent=message;});
+</script>

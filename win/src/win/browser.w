@@ -1,4 +1,5 @@
 import win.document
+import win.interactive_worker
 import win.loader
 import win.resources
 import win.forms
@@ -11,6 +12,11 @@ struct win_history_entry:
 	float32 scroll
 
 struct win_browser:
+	int isolated
+	win_interactive_worker* interactive
+	int interactive_sequence
+	int interactive_tick
+	char* interactive_html
 	win_page* page
 	win_resources* resources
 	win_forms* forms
@@ -34,6 +40,9 @@ struct win_browser:
 	int current
 	int pending_history
 	int width
+	int viewport_width
+	int viewport_height
+	int viewport_ready
 	ui_textarea_state input
 	ui_scroll_state scroll
 
@@ -42,6 +51,11 @@ void win_status(win_browser* browser, char* text):
 	browser.status = strclone(text)
 
 void win_browser_init(win_browser* b, char* executable, char* home):
+	b.isolated = 0
+	b.interactive = 0
+	b.interactive_sequence = -1
+	b.interactive_tick = 0
+	b.interactive_html = strclone(c"")
 	b.page = 0
 	b.resources = 0
 	b.forms = 0
@@ -65,10 +79,15 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.current = -1
 	b.pending_history = -1
 	b.width = 920
+	b.viewport_width = 920
+	b.viewport_height = 600
+	b.viewport_ready = 0
 	ui_textarea_init(&b.input)
 	ui_scroll_init(&b.scroll)
 
 void win_browser_free(win_browser* b):
+	win_interactive_free(b.interactive)
+	free(b.interactive_html)
 	win_load_free(b.load)
 	free(b.new_tab)
 	win_fetch_free(b.fetches)
@@ -89,6 +108,8 @@ void win_browser_free(win_browser* b):
 	free(b.status)
 
 void win_stop(win_browser* b):
+	win_interactive_free(b.interactive)
+	b.interactive = 0
 	win_fetch_stop(b.fetches)
 	win_resources_stop(b.resources)
 	win_script_stop(b.script)
@@ -137,6 +158,19 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 		win_status(b, c"Use an HTML file path or a valid http:// or https:// URL")
 		return
 	if (b.current >= 0): b.history[b.current].scroll = b.scroll.offset_y
+	if (b.isolated):
+		if (strcmp(method, c"GET") != 0):
+			win_status(b, c"Isolated navigation accepts GET; submit forms inside the worker")
+			free(address)
+			return
+		win_stop(b)
+		b.pending_history = target
+		b.interactive_sequence = -1
+		b.interactive = win_interactive_start(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT)
+		ui_textarea_set(&b.input, address)
+		win_status(b, c"Loading isolated content…")
+		free(address)
+		return
 	char* old_path = win_without_fragment(b.address)
 	char* new_path = win_without_fragment(address)
 	int same = b.page != 0 && strcmp(old_path, new_path) == 0 && target != -2 && strcmp(method, c"GET") == 0
@@ -185,6 +219,7 @@ void win_browser_poll_document(win_browser* b):
 			b.forms = win_forms_new(page)
 			b.resources = win_resources_start(b.executable, page, b.load.address)
 			b.script = win_script_new(page)
+			b.script.modules = win_modules_new(b.script.runtime, b.executable, b.load.address)
 			win_script_bind_storage(b.script, b.local_storage, b.session_storage, b.load.address)
 			b.fetches = win_fetch_new(b.script.runtime, b.executable, b.load.address)
 			b.script_failures = 0
@@ -202,11 +237,85 @@ void win_browser_poll_document(win_browser* b):
 	b.load = 0
 
 int win_browser_loading(win_browser* b):
+	if (b.isolated): return b.interactive != 0 && b.interactive.busy
 	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0) || win_fetch_pending(b.fetches) != 0
 
+# The snapshot is display-only: never create a script or fetch realm for it.
+void win_browser_poll_interactive(win_browser* b):
+	if (b.interactive == 0): return
+	win_interactive_worker* worker = b.interactive
+	int ready = win_interactive_poll(worker)
+	if (ready < 0):
+		win_status(b, worker.error)
+		return
+	if (ready == 0): return
+	if (b.interactive_sequence != worker.sequence):
+		int first = b.interactive_sequence < 0
+		b.interactive_sequence = worker.sequence
+		b.interactive_tick = process_monotonic_ms()
+		if (first || strcmp(b.interactive_html, worker.html) != 0):
+			win_page* page = win_page_parse(worker.html, strlen(worker.html))
+			if (page == 0):
+				win_interactive_fail(worker, 4, c"Invalid isolated display document")
+				win_status(b, worker.error)
+				return
+			win_resources_free(b.resources)
+			win_forms_free(b.forms)
+			win_page_free(b.page)
+			b.page = page
+			b.forms = win_forms_new(page)
+			b.resources = win_resources_start(b.executable, page, worker.address)
+			free(b.interactive_html)
+			b.interactive_html = strclone(worker.html)
+			win_page_layout(page, b.width)
+		free(b.page.title)
+		b.page.title = strclone(worker.title)
+		if (first || strcmp(b.address, worker.address) != 0):
+			int target = -1
+			if (first): target = b.pending_history
+			win_commit_address(b, worker.address, target)
+			win_scroll_fragment(b)
+			if (target >= 0): b.scroll.offset_y = b.history[target].scroll
+		b.script_failures = worker.script_failures
+		b.resource_failures = worker.resource_failures
+		win_status(b, c"Isolated content · canvas unavailable")
+		if (b.script_failures || b.resource_failures): win_status(b, c"Isolated content completed with script or resource errors")
+	if (win_resources_poll(b.resources) && b.page != 0): win_page_layout(b.page, b.width)
+	# Leave a UI frame after each reply for input before scheduling another tick.
+	if (process_monotonic_ms() - b.interactive_tick >= 100):
+		win_interactive_request(worker, 1, 0, c"")
+
+int win_browser_interactive_event(win_browser* b, html_node* node, int kind, char* value):
+	if (b.interactive == 0 || node == 0): return 0
+	int id = atoi(win_attr(node, c"data-win-node"))
+	if (id <= 0 || win_interactive_request(b.interactive, kind, id, value) == 0):
+		win_status(b, c"Isolated content busy · retry input when ready")
+		return 0
+	return 1
+
+# Native X11 UI coordinates and framebuffer pixels are 1:1. Headless callers
+# use the explicit initial 920x600 viewport; a GUI realm waits for its surface.
+void win_browser_sync_viewport(win_browser* b):
+	win_script_set_viewport(b.script, b.viewport_width, b.viewport_height, 1.0, 0.0, cast(float64, b.scroll.offset_y))
+	if (b.script != 0): b.script.layout_width = b.width
+
+void win_browser_set_viewport(win_browser* b, int width, int height):
+	int resized = b.viewport_ready && (b.viewport_width != width || b.viewport_height != height)
+	b.viewport_width = width
+	b.viewport_height = height
+	b.viewport_ready = 1
+	b.width = max(160, width - 12)
+	win_browser_sync_viewport(b)
+	if (resized && b.script != 0): win_script_dispatch(b.script, b.script.window_node, c"resize")
+
 void win_browser_poll(win_browser* b):
+	if (b.isolated):
+		win_browser_poll_interactive(b)
+		return
 	win_browser_poll_document(b)
 	int changed = win_resources_poll(b.resources)
+	win_browser_sync_viewport(b)
+	if (win_script_graphics_available && b.viewport_ready == 0): return
 	win_script_run_pending(b.script, b.resources)
 	if (win_fetch_poll(b.fetches) && b.script != 0): win_script_result(b.script, b.script.runtime.completion)
 	win_script_poll(b.script)
@@ -277,6 +386,11 @@ void win_browser_submit(win_browser* b, html_node* submitter):
 
 void win_browser_form_events(win_browser* b):
 	if (b.forms == 0): return
+	if (b.isolated):
+		if (b.forms.changed != 0): win_browser_interactive_event(b, b.forms.changed, 3, win_attr(b.forms.changed, c"value"))
+		else if (b.forms.clicked != 0): win_browser_interactive_event(b, b.forms.clicked, 2, c"")
+		else if (b.forms.submitter != 0): win_browser_interactive_event(b, b.forms.submitter, 4, c"")
+		return
 	if (b.forms.changed != 0):
 		win_script_dispatch(b.script, b.forms.changed, c"input")
 		win_script_dispatch(b.script, b.forms.changed, c"change")
@@ -370,7 +484,11 @@ void win_browser_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float3
 		if (run.hidden): continue
 		float32 y = y_offset + run.y
 		if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
-		if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
+		if (win_tag(run.node, c"canvas") && b.script != 0):
+			for j in range(b.script.bindings.length):
+				win_dom_binding* binding = b.script.bindings[j]
+				if (binding.node == run.node && binding.canvas != 0): win_canvas_draw(ctx.rndr, binding.canvas, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
+		else if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
 		else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, win_paint_color(run.color))
 
 void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
@@ -406,10 +524,14 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	if (viewport.w < 160.0): viewport.w = 160.0
 	if (viewport.h < 40.0): viewport.h = 40.0
 	ui_render_rect(ctx.rndr, viewport, ui_gray(1.0))
-	b.width = cast(int, viewport.w) - 12
+	win_browser_set_viewport(b, cast(int, viewport.w), cast(int, viewport.h))
 	char* activate = 0
 	html_node* click_target = 0
 	if (b.page != 0):
+		win_script_frame_at(b.script, time_monotonic_ms())
+		if (b.script != 0 && b.script.dirty):
+			win_page_layout(b.page, b.width)
+			b.script.dirty = 0
 		if (b.page.width != b.width): win_page_layout(b.page, b.width)
 		if ((ctx.input.scroll_y != 0 || ctx.input.scroll_pixels_y != 0) && ui_rect_contains(viewport, cast(float32, ctx.input.scroll_at_x), cast(float32, ctx.input.scroll_at_y))): b.restore_pending = 0
 		if (ctx.input.mouse_pressed && cast(float32, ctx.input.press_x) >= viewport.x + viewport.w - 16.0 && ui_rect_contains(viewport, cast(float32, ctx.input.press_x), cast(float32, ctx.input.press_y))): b.restore_pending = 0
@@ -430,6 +552,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 					if (link[0] != 0): activate = strclone(link)
 		win_forms_draw(b.forms, ctx, viewport.x, y_offset)
 		ui_scroll_end(ctx, &b.scroll)
+		win_browser_sync_viewport(b)
 	else:
 		ui_draw_text(ctx.rndr, 40.0, 174.0, c"Open a document to begin", 3, ctx.theme.text)
 		ui_draw_text(ctx.rndr, 40.0, 212.0, c"Enter a local HTML path or an HTTP/HTTPS address above.", 2, ctx.theme.text_muted)
@@ -437,6 +560,10 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	ui_draw_text(ctx.rndr, 18.0, h - 29.0, b.status, 2, ctx.theme.text_muted)
 	ui_clip_pop(ctx.rndr)
 	win_browser_form_events(b)
+	if (b.isolated):
+		if (click_target != 0): win_browser_interactive_event(b, click_target, 2, c"")
+		free(activate)
+		return
 	if (click_target != 0 && win_script_dispatch(b.script, click_target, c"click") == 0):
 		free(activate)
 		activate = 0

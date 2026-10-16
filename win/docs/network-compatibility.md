@@ -68,19 +68,35 @@ request Cache-Control options and a shared cache service are not implemented.
 
 ## Fetch transport interface
 
-`win_load_start_fetch(executable, address, origin, method, body)` returns the
-existing cancellable `win_load`. Poll with `win_load_poll()` and free with
-`win_load_free()`. `load.status` contains the HTTP status, `load.address` the final
-URL, and `load.source`/`load.length` the decoded body. HTTP 4xx/5xx are successful
-transport responses; network/protocol failures set `load.error`.
+`win_load_start_fetch_bytes(executable, address, origin, method, body, length,
+content_type, accept)` returns the existing cancellable `win_load`. The older
+`win_load_start_fetch` string wrapper remains available. Poll with
+`win_load_poll()` and free with `win_load_free()`. `load.status` contains the HTTP
+status, `load.address` the final URL, and `load.source`/`load.length` the decoded
+body. HTTP 4xx/5xx fulfill; network/protocol failures set `load.error`.
 
-This increment supports HTTP(S) GET only, with a 4 MiB decoded body limit, a
-10-second worker deadline and a 12-second parent watchdog. The initial URL and
-**every redirect** must match the supplied origin's scheme, host and effective
-port. Foreign redirects are rejected before making the next request. MIME is
-unrestricted; the JavaScript Fetch layer performs UTF-8 validation. No custom
-request headers, cross-origin CORS, streaming, upload, or general XHR transport
-contract is provided. No main-worker dispatch changes are required.
+Fetch accepts HTTP token methods up to 32 bytes, rejecting CONNECT/TRACE/TRACK.
+GET/HEAD cannot carry a body. String bodies use UTF-8 USVString conversion;
+BufferSource bodies are copied at admission, including view offsets and NUL
+bytes. Request bodies are limited to 64 KiB. The explicit request-header subset
+is a plain record of Content-Type and Accept, with at most 1024 ASCII bytes per
+value; header accessors, duplicate case-insensitive names, other headers,
+Request/Headers objects, streams, CORS and general XHR remain unavailable.
+
+Workers receive one `WFET0001` frame through stdin: an 8-byte version, four
+little-endian int32 lengths for method/Content-Type/Accept/body, then those byte
+sequences and EOF. Lengths are checked before allocation; malformed/truncated or
+trailing input fails before networking. A 5-second frame deadline bounds a stuck
+sender. A socketpair mapped to child stdin/stdout lets the parent pump at most
+64 KiB per poll with nonblocking writes and MSG_NOSIGNAL. Stop, signal abort and
+teardown close the channel and reap the child, including partial uploads.
+
+Responses retain the 4 MiB decoded limit, 10-second network deadline and
+12-second parent watchdog. The initial URL and **every redirect** must match the
+supplied origin. POST on 301/302 and non-HEAD on 303 switch to GET and remove body
+headers; 307/308 preserve method/body. Foreign redirects fail before the next
+request. Only GET uses the cache; custom-header Fetch requests bypass it.
+No main-worker dispatch changes are required.
 
 ## Validation
 

@@ -3,6 +3,7 @@
 import win.images
 import win.network_state
 import lib.process
+import lib.net
 import lib.poll
 import lib.path
 import lib.io
@@ -14,6 +15,7 @@ const int WIN_SOURCE_LIMIT = 1048576
 # The unchanged mobile UI wasm is 1.7 MiB; only Fetch gets the larger limit.
 const int WIN_FETCH_LIMIT = 4194304
 const int WIN_ADDRESS_LIMIT = 4096
+const int WIN_FETCH_REQUEST_LIMIT = 65536
 
 int win_remote(char* address):
 	return starts_with(address, c"http://") || starts_with(address, c"https://")
@@ -134,6 +136,7 @@ http_stream* win_form_http_open(http_req* req):
 	char* original_method = req.method
 	char* original_body = req.body
 	int original_length = req.body_len
+	int removed_body = 0
 	int original_timeout = req.total_timeout_ms
 	int original_redirects = req.max_redirects
 	int deadline = time_monotonic_ms() + original_timeout
@@ -158,6 +161,7 @@ http_stream* win_form_http_open(http_req* req):
 		req.headers = new list[http_header*]
 		for http_header* h in original_headers:
 			# Never replay caller credentials; browser cookies are scoped below.
+			if (removed_body && (win_net_equal(h.name, c"content-type") || win_net_equal(h.name, c"content-encoding") || win_net_equal(h.name, c"content-language") || win_net_equal(h.name, c"content-location"))): continue
 			if (win_net_equal(h.name, c"cookie") || win_net_equal(h.name, c"authorization") || win_net_equal(h.name, c"proxy-authorization")): continue
 			http_req_add_header(req, h.name, h.value)
 		char* cookie = win_cookie_header(address)
@@ -203,10 +207,11 @@ http_stream* win_form_http_open(http_req* req):
 			break
 		char* next = url_unparse(after)
 		url_free(after)
-		if (status == 303 || ((status == 301 || status == 302) && strcmp(req.method, c"POST") == 0)):
+		if ((status == 303 && strcmp(req.method, c"HEAD") != 0) || ((status == 301 || status == 302) && strcmp(req.method, c"POST") == 0)):
 			req.method = c"GET"
 			req.body = 0
 			req.body_len = 0
+			removed_body = 1
 		http_stream_close(stream)
 		free(address)
 		address = next
@@ -252,12 +257,12 @@ int win_fetch_payload(char* address, char* source, int length, char* kind):
 	rgba_image_free(image)
 	return ok
 
-int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
+int win_fetch_kind_worker_bytes(char* address, char* kind, char* method, char* body, int body_length, char* content_type, char* accept):
 	win_cookie_restore(env_get(c"WIN_COOKIE_SNAPSHOT"))
 	int limit = WIN_SOURCE_LIMIT
 	if (strcmp(kind, c"fetch") == 0): limit = WIN_FETCH_LIMIT
 	if (strcmp(kind, c"image") == 0): limit = WIN_IMAGE_INPUT_LIMIT
-	if (strlen(body) > 65536): return win_worker_error(c"Form body exceeds 64 KiB.")
+	if (body_length < 0 || body_length > WIN_FETCH_REQUEST_LIMIT): return win_worker_error(c"Form body exceeds 64 KiB.")
 	if (win_remote(address)):
 		compress_codecs_register()
 		http_client* client = http_client_new()
@@ -267,11 +272,11 @@ int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
 		req.max_redirects = 5
 		req.max_stream_bytes = limit
 		req.approve_redirect = win_resource_redirect
-		if (strcmp(method, c"POST") == 0):
-			req.body = body
-			req.body_len = strlen(body)
-			http_req_add_header(req, c"Content-Type", c"application/x-www-form-urlencoded")
-		if (strcmp(kind, c"document") == 0): http_req_add_header(req, c"Accept", c"text/html")
+		req.body = body
+		req.body_len = body_length
+		if (content_type[0] != 0): http_req_add_header(req, c"Content-Type", content_type)
+		if (strcmp(kind, c"fetch") == 0): http_req_add_header(req, c"Accept", accept)
+		else if (strcmp(kind, c"document") == 0): http_req_add_header(req, c"Accept", c"text/html")
 		else if (strcmp(kind, c"css") == 0): http_req_add_header(req, c"Accept", c"text/css")
 		else if (strcmp(kind, c"image") == 0): http_req_add_header(req, c"Accept", c"image/png, image/jpeg")
 		else: http_req_add_header(req, c"Accept", c"text/javascript, application/javascript")
@@ -321,6 +326,93 @@ int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
 	string_free(source)
 	return code
 
+int win_fetch_kind_worker(char* address, char* kind, char* method, char* body):
+	char* content_type = c""
+	if (strcmp(method, c"POST") == 0): content_type = c"application/x-www-form-urlencoded"
+	return win_fetch_kind_worker_bytes(address, kind, method, body, strlen(body), content_type, c"*/*")
+
+# Header fields are ASCII request tokens/values. Binary body bytes never pass
+# through strlen, argv, or environment variables.
+int win_fetch_method(char* method):
+	int length = strlen(method)
+	if (length == 0 || length > 32): return 0
+	if (win_net_equal(method, c"CONNECT") || win_net_equal(method, c"TRACE") || win_net_equal(method, c"TRACK")): return 0
+	for i in range(length):
+		int c = method[i] & 255
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')): continue
+		if (c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == 39 || c == '*' || c == '+' || c == '-' || c == '.' || c == '^' || c == '_' || c == '`' || c == '|' || c == '~'): continue
+		return 0
+	return 1
+
+int win_fetch_header_value(char* value, int length):
+	if (length > 1024): return 0
+	for i in range(length):
+		int c = value[i] & 255
+		if ((c < 32 && c != 9) || c >= 127): return 0
+	return 1
+
+int win_fetch_frame_read(char* buffer, int length, int deadline):
+	int offset = 0
+	while (offset < length):
+		int remaining = deadline - time_monotonic_ms()
+		if (remaining <= 0): return 0
+		int ready = poll_single(0, poll_in, remaining)
+		if (ready == -4): continue
+		if (ready <= 0): return 0
+		int count = read(0, buffer + offset, length - offset)
+		if (count == -4): continue
+		if (count <= 0): return 0
+		offset = offset + count
+	return 1
+
+int win_fetch_frame_worker(char* address):
+	int deadline = time_monotonic_ms() + 5000
+	char[24] header
+	if (win_fetch_frame_read(&header[0], 24, deadline) == 0): return win_worker_error(c"Incomplete Fetch request header")
+	for i in range(8):
+		if (header[i] != c"WFET0001"[i]): return win_worker_error(c"Unsupported Fetch request version")
+	int method_length = load_int32(&header[8])
+	int type_length = load_int32(&header[12])
+	int accept_length = load_int32(&header[16])
+	int body_length = load_int32(&header[20])
+	if (method_length < 1 || method_length > 32 || type_length < 0 || type_length > 1024 || accept_length < 0 || accept_length > 1024 || body_length < 0 || body_length > WIN_FETCH_REQUEST_LIMIT): return win_worker_error(c"Invalid Fetch request lengths")
+	char* method = cast(char*, malloc(method_length + 1))
+	char* content_type = cast(char*, malloc(type_length + 1))
+	char* accept = cast(char*, malloc(accept_length + 1))
+	char* body = cast(char*, malloc(body_length + 1))
+	method[method_length] = 0
+	content_type[type_length] = 0
+	accept[accept_length] = 0
+	body[body_length] = 0
+	int ok = win_fetch_frame_read(method, method_length, deadline)
+	if (ok): ok = win_fetch_frame_read(content_type, type_length, deadline)
+	if (ok): ok = win_fetch_frame_read(accept, accept_length, deadline)
+	if (ok): ok = win_fetch_frame_read(body, body_length, deadline)
+	# One complete frame followed by EOF. A trailing byte is protocol failure.
+	char tail
+	if (ok):
+		int remaining = deadline - time_monotonic_ms()
+		if (remaining <= 0 || poll_single(0, poll_in, remaining) <= 0): ok = 0
+		else if (read(0, &tail, 1) != 0): ok = 0
+	if (strlen(method) != method_length || win_fetch_method(method) == 0): ok = 0
+	if (win_fetch_header_value(content_type, type_length) == 0 || win_fetch_header_value(accept, accept_length) == 0): ok = 0
+	if ((strcmp(method, c"GET") == 0 || strcmp(method, c"HEAD") == 0) && body_length != 0): ok = 0
+	char* origin = env_get(c"WIN_FETCH_ORIGIN")
+	URL* from = 0
+	if (origin != 0): from = url_parse(origin)
+	URL* to = url_parse(address)
+	if (from == 0 || to == 0 || url_same_origin(from, to) == 0): ok = 0
+	if (from != 0): url_free(from)
+	if (to != 0): url_free(to)
+	int result = 1
+	if (ok): result = win_fetch_kind_worker_bytes(address, c"fetch", method, body, body_length, content_type, accept)
+	else: result = win_worker_error(c"Invalid or incomplete Fetch request")
+	free(method)
+	free(content_type)
+	free(accept)
+	free(body)
+	return result
+
 int win_fetch_worker(char* address):
 	return win_fetch_kind_worker(address, c"document", c"GET", c"")
 
@@ -328,9 +420,12 @@ int win_fetch_request_worker(char* address, char* method, char* body):
 	return win_fetch_kind_worker(address, c"document", method, body)
 
 int win_resource_worker(char* address, char* kind):
+	if (strcmp(kind, c"fetch") == 0): return win_fetch_frame_worker(address)
 	return win_fetch_kind_worker(address, kind, c"GET", c"")
 
 struct win_load:
+	string_builder* outgoing
+	int sent
 	process* child
 	string_builder* output
 	int started
@@ -344,6 +439,7 @@ struct win_load:
 	int status
 	int wasm_mime
 	int cache_expires
+	int cache_allowed
 	char* request_address
 	char* kind
 
@@ -351,13 +447,14 @@ void win_load_free(win_load* load):
 	if (load == 0): return
 	if (load.child != 0): process_free(load.child)
 	string_free(load.output)
+	if (load.outgoing != 0): string_free(load.outgoing)
 	free(load.request_address)
 	free(load.kind)
 	if (load.error != 0): free(load.error)
 	if (load.address != 0): free(load.address)
 	free(load)
 
-win_load* win_load_start_network(char* executable, char* address, char* kind, char* method, char* body, char* origin):
+win_load* win_load_start_network_bytes(char* executable, char* address, char* kind, char* method, char* body, int body_length, char* content_type, char* accept, char* origin):
 	win_load* load = new win_load()
 	load.output = string_new()
 	load.started = time_monotonic_ms()
@@ -371,6 +468,8 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 	if (strcmp(kind, c"fetch") == 0): load.limit = WIN_FETCH_LIMIT
 	load.status = 0
 	load.cache_expires = 0
+	load.cache_allowed = strcmp(method, c"GET") == 0
+	if (strcmp(kind, c"fetch") == 0 && (content_type[0] != 0 || strcmp(accept, c"*/*") != 0)): load.cache_allowed = 0
 	load.request_address = win_without_fragment(address)
 	load.kind = strclone(kind)
 	load.child = 0
@@ -378,15 +477,15 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 	if (strcmp(kind, c"fetch") == 0):
 		URL* from = url_parse(origin)
 		URL* to = url_parse(address)
-		int allowed = from != 0 && to != 0 && url_same_origin(from, to) && strcmp(method, c"GET") == 0
+		int allowed = from != 0 && to != 0 && url_same_origin(from, to) && win_fetch_method(method) && body_length >= 0 && body_length <= WIN_FETCH_REQUEST_LIMIT && win_fetch_header_value(content_type, strlen(content_type)) && win_fetch_header_value(accept, strlen(accept))
 		if (from != 0): url_free(from)
 		if (to != 0): url_free(to)
 		if (allowed == 0):
-			load.error = strclone(c"Fetch requires a same-origin HTTP(S) GET.")
+			load.error = strclone(c"Fetch requires a bounded same-origin HTTP(S) request.")
 			load.finished = 1
 			return load
 	win_cache_entry* cached = 0
-	if (strcmp(method, c"GET") == 0): cached = win_cache_find(load.request_address, kind)
+	if (load.cache_allowed): cached = win_cache_find(load.request_address, kind)
 	if (cached != 0):
 		string_append_bytes(load.output, cached.source, cached.length)
 		load.source = load.output.data
@@ -417,7 +516,47 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 	char** cookie_env = env_copy_with(env_current(), c"WIN_COOKIE_SNAPSHOT", snapshot)
 	char** worker_env = env_copy_with(cookie_env, c"WIN_FETCH_ORIGIN", origin)
 	opts.env = worker_env
-	load.child = process_spawn(executable, &argv[0], opts)
+	if (strcmp(kind, c"fetch") == 0):
+		# A socketpair permits nonblocking bounded writes with MSG_NOSIGNAL;
+		# it is mapped to worker stdin/stdout without changing signal handlers.
+		char[8] pair
+		if (syscall7(53, 1, 1 | 524288, 0, cast(int, &pair[0]), 0, 0) >= 0):
+			int parent_fd = load_int32(&pair[0])
+			int child_fd = load_int32(&pair[4])
+			argv[8] = c""
+			int pid = fork()
+			if (pid == 0):
+				setpgid(0, 0)
+				close(parent_fd)
+				process_redirect(child_fd, 0)
+				dup2(0, 1)
+				process_close_from(3)
+				execve(executable, &argv[0], worker_env)
+				exit(127)
+			close(child_fd)
+			if (pid < 0): close(parent_fd)
+			else:
+				setpgid(pid, pid)
+				load.child = new process()
+				load.child.pid = pid
+				load.child.stdin_fd = -1
+				load.child.stdout_fd = parent_fd
+				load.child.stderr_fd = -1
+				if (socket_set_nonblocking(parent_fd) < 0):
+					process_free(load.child)
+					load.child = 0
+		if (load.child != 0):
+			load.outgoing = string_from(c"WFET0001")
+			for i in range(16): string_append_char(load.outgoing, 0)
+			save_int32(load.outgoing.data + 8, strlen(method))
+			save_int32(load.outgoing.data + 12, strlen(content_type))
+			save_int32(load.outgoing.data + 16, strlen(accept))
+			save_int32(load.outgoing.data + 20, body_length)
+			string_append(load.outgoing, method)
+			string_append(load.outgoing, content_type)
+			string_append(load.outgoing, accept)
+			string_append_bytes(load.outgoing, body, body_length)
+	else: load.child = process_spawn(executable, &argv[0], opts)
 	for i in range(env_vector_count(worker_env)):
 		char* entry = env_entry_at(worker_env, i)
 		if (env_match_name(entry, c"WIN_FETCH_ORIGIN") >= 0): free(entry)
@@ -432,6 +571,12 @@ win_load* win_load_start_network(char* executable, char* address, char* kind, ch
 		load.error = strclone(c"Cannot start resource loader.")
 		load.finished = 1
 	return load
+
+win_load* win_load_start_network(char* executable, char* address, char* kind, char* method, char* body, char* origin):
+	return win_load_start_network_bytes(executable, address, kind, method, body, strlen(body), c"", c"*/*", origin)
+
+win_load* win_load_start_fetch_bytes(char* executable, char* address, char* origin, char* method, char* body, int length, char* content_type, char* accept):
+	return win_load_start_network_bytes(executable, address, c"fetch", method, body, length, content_type, accept, origin)
 
 win_load* win_load_start_kind(char* executable, char* address, char* kind, char* method, char* body):
 	return win_load_start_network(executable, address, kind, method, body, c"")
@@ -458,6 +603,23 @@ int win_load_poll(win_load* load):
 	if (time_monotonic_ms() - load.started > 12000):
 		win_load_fail(load, c"Document loading timed out.")
 		return 1
+	if (load.outgoing != 0):
+		# At most 64 KiB per frame; peer death cannot raise SIGPIPE.
+		for i in range(8):
+			int count = load.outgoing.length - load.sent
+			if (count > 8192): count = 8192
+			int wrote = socket_send(load.child.stdout_fd, load.outgoing.data + load.sent, count, 16384)
+			if (wrote == -11 || wrote == -4): break
+			if (wrote <= 0):
+				win_load_fail(load, c"Fetch request write failed")
+				return 1
+			load.sent = load.sent + wrote
+			if (load.sent == load.outgoing.length):
+				io_result closed
+				socket_shutdown_checked(load.child.stdout_fd, 1, &closed)
+				string_free(load.outgoing)
+				load.outgoing = 0
+				break
 	char[8192] chunk
 	# At most 64 KiB per frame; no pipe read occurs without readiness.
 	for i in range(8):
@@ -469,7 +631,7 @@ int win_load_poll(win_load* load):
 			win_load_fail(load, c"Loader pipe failed.")
 			return 1
 		int count = read(load.child.stdout_fd, &chunk[0], 8192)
-		if (count == -4): break
+		if (count == -4 || count == -11): break
 		if (count < 0):
 			win_load_fail(load, c"Loader read failed.")
 			return 1
@@ -540,7 +702,7 @@ int win_load_poll(win_load* load):
 		if (valid_protocol): win_cookie_set_many(cookie_urls[i], cookie_headers[i])
 		free(cookie_urls[i])
 		free(cookie_headers[i])
-	if (load.error == 0 && load.cache_expires > 0):
+	if (load.error == 0 && load.cache_allowed && load.cache_expires > 0):
 		win_cache_store(load.request_address, load.kind, load.source, load.length, load.cache_expires)
 		win_cache_entry* stored = win_cache_find(load.request_address, load.kind)
 		if (stored != 0): stored.wasm_mime = load.wasm_mime

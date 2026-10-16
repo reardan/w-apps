@@ -55,7 +55,7 @@ void test_fetch_origins_and_arguments():
 	asserts(c"local files have no fetch origin", win_fetch_same_origin(c"/tmp/a", c"/tmp/b") == 0)
 	win_script* script = fetch_script()
 	win_fetch_context* context = win_fetch_new(script.runtime, c"/missing-win-fetch-executable", c"https://example.test/page")
-	fetch_eval(script, c"let rejected=0; fetch().catch(function(){rejected++;}); fetch(3).catch(function(){rejected++;}); fetch('/data',{method:'POST'}).catch(function(){rejected++;}); fetch('https://other.test/x').catch(function(){rejected++;}); fetch('/x\\u0000y').catch(function(){rejected++;});")
+	fetch_eval(script, c"let rejected=0; fetch().catch(function(){rejected++;}); fetch(3).catch(function(){rejected++;}); fetch('/data',{mode:'cors'}).catch(function(){rejected++;}); fetch('https://other.test/x').catch(function(){rejected++;}); fetch('/x\\u0000y').catch(function(){rejected++;});")
 	assert_equal(0, context.requests.length)
 	win_script_checkpoint(script)
 	fetch_eval(script, c"if(rejected!==5) throw 'argument/origin rejections';")
@@ -433,6 +433,41 @@ void test_fetch_abort_signal():
 	win_cache_clear()
 	fetch_destroy(script, context)
 
+void test_fetch_upload_cancel(char* executable):
+	win_script* script = fetch_script()
+	win_fetch_context* context = win_fetch_new(script.runtime, executable, c"https://example.test/")
+	fetch_eval(script, c"const upload=new AbortController();let uploadRejected=false;fetch('/upload',{method:'POST',body:new Uint8Array(65536),signal:upload.signal}).catch(function(e){uploadRejected=e==='cancel';});")
+	assert_equal(1, context.requests.length)
+	win_fetch_request* request = context.requests[0]
+	asserts(c"upload has a framed request", request.load.outgoing != 0 && request.load.outgoing.length > 65536)
+	int pid = request.load.child.pid
+	assert_equal(0, win_load_poll(request.load))
+	asserts(c"one poll leaves a partial upload", request.load.outgoing != 0 && request.load.sent > 0 && request.load.sent <= 65536)
+	fetch_eval(script, c"upload.abort('cancel');")
+	fetch_assert_reaped(pid)
+	assert_equal(0, win_fetch_poll(context))
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(!uploadRejected) throw 'partial upload abort';")
+	fetch_destroy(script, context)
+	# A child exiting before it reads cannot raise SIGPIPE in the UI process.
+	win_load* dead = win_load_start_fetch_bytes(c"/bin/true", c"https://example.test/x", c"https://example.test/", c"POST", c"body", 4, c"", c"*/*")
+	while (win_load_poll(dead) == 0): sleep_ms(1)
+	asserts(c"early worker death is a loader error", dead.error != 0)
+	win_load_free(dead)
+
+void test_fetch_init_rejection():
+	win_script* script = fetch_script()
+	win_fetch_context* context = win_fetch_new(script.runtime, c"unused", c"https://example.test/")
+	fetch_eval(script, c"const reason={getter:true};var options={method:'POST'};function getter(){throw reason;}")
+	js_text* key = js_runtime_key(c"body")
+	asserts(c"getter fixture", js_runtime_define_accessor(script.runtime, js_runtime_get(script.runtime, script.runtime.global, c"options"), key, js_runtime_get(script.runtime, script.runtime.global, c"getter"), 0, 1, 1))
+	js_text_free(key)
+	fetch_eval(script, c"let caught=false;fetch('/x',options).catch(function(e){caught=e===reason;});")
+	assert_equal(0, context.requests.length)
+	win_script_checkpoint(script)
+	fetch_eval(script, c"if(!caught) throw 'init getter rejection';")
+	fetch_destroy(script, context)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	asserts(c"pass browser executable and fixture", argc >= 3)
@@ -462,6 +497,8 @@ int main(int argc, int argv):
 	test_fetch_binary()
 	test_fetch_json()
 	test_fetch_abort_signal()
+	test_fetch_upload_cancel(args_get(1))
+	test_fetch_init_rejection()
 	test_fetch_budgets()
 	test_fetch_request_limits()
 	test_fetch_stop()

@@ -149,46 +149,183 @@ int win_fetch_pending(win_fetch_context* context):
 		if (context.requests[i].load != 0): count = count + 1
 	return count
 
+struct win_fetch_init:
+	char* method
+	char* body
+	int length
+	char* content_type
+	char* accept
+	win_abort_state* signal
+	char* error
+
+void win_fetch_init_free(win_fetch_init* init):
+	free(init.method)
+	free(init.body)
+	free(init.content_type)
+	free(init.accept)
+
+char* win_fetch_option_string(js_runtime* rt, js_value* value):
+	if (value.kind != 4): return 0
+	int length = 0
+	char* text = js_text_to_utf8(value.text, &length)
+	if (text != 0 && strlen(text) != length):
+		free(text)
+		return 0
+	return text
+
+void win_fetch_parse_init(js_runtime* rt, js_value* options, win_fetch_init* init):
+	init.length = 0
+	init.signal = 0
+	init.error = 0
+	init.method = strclone(c"GET")
+	init.content_type = strclone(c"")
+	init.accept = strclone(c"*/*")
+	init.body = strclone(c"")
+	if (options.kind == 0 || options.kind == 1): return
+	if (js_runtime_object(options) == 0):
+		init.error = c"Fetch options require an object"
+		return
+	for i in range(options.properties.length):
+		js_text* key = options.properties[i].key
+		if (js_runtime_key_is(key, c"method") || js_runtime_key_is(key, c"body") || js_runtime_key_is(key, c"headers") || js_runtime_key_is(key, c"signal")): continue
+		init.error = c"Fetch option outside subset"
+		return
+	js_value* method = js_runtime_get(rt, options, c"method")
+	if (method.kind != 0):
+		char* text = win_fetch_option_string(rt, method)
+		if (text == 0 || win_fetch_method(text) == 0):
+			free(text)
+			init.error = c"Invalid or forbidden Fetch method"
+			return
+		# Fetch normalizes these six methods; extension tokens retain their case.
+		if (win_net_equal(text, c"DELETE") || win_net_equal(text, c"GET") || win_net_equal(text, c"HEAD") || win_net_equal(text, c"OPTIONS") || win_net_equal(text, c"POST") || win_net_equal(text, c"PUT")):
+			for i in range(strlen(text)):
+				if (text[i] >= 'a' && text[i] <= 'z'): text[i] = text[i] - 32
+		free(init.method)
+		init.method = text
+	js_value* body = js_runtime_get(rt, options, c"body")
+	if (body.kind != 0 && body.kind != 1):
+		if (strcmp(init.method, c"GET") == 0 || strcmp(init.method, c"HEAD") == 0):
+			init.error = c"GET and HEAD cannot have a Fetch body"
+			return
+		if (body.kind == 4):
+			free(init.body)
+			init.body = win_web_usv_bytes(body.text, &init.length)
+			free(init.content_type)
+			init.content_type = strclone(c"text/plain;charset=UTF-8")
+		else if (body.binary_kind != 0):
+			byte* bytes = js_runtime_binary_data(rt, body)
+			init.length = js_runtime_binary_byte_length(rt, body)
+			if (rt.completion.status != 0): return
+			if (init.length > WIN_FETCH_REQUEST_LIMIT):
+				init.error = c"Fetch request body exceeds 64 KiB"
+				return
+			free(init.body)
+			init.body = cast(char*, malloc(init.length + 1))
+			for i in range(init.length): init.body[i] = cast(char, bytes[i])
+			init.body[init.length] = 0
+		else:
+			init.error = c"Fetch body requires string or BufferSource"
+			return
+		if (init.length > WIN_FETCH_REQUEST_LIMIT):
+			init.error = c"Fetch request body exceeds 64 KiB"
+			return
+	js_value* headers = js_runtime_get(rt, options, c"headers")
+	if (headers.kind != 0):
+		if (headers.kind != 5 || headers.binary_kind != 0 || headers.promise_state != 0 || headers.properties.length > 2):
+			init.error = c"Fetch headers require a plain record"
+			return
+		int types = 0
+		int accepts = 0
+		for i in range(headers.properties.length):
+			js_value* property = headers.properties[i]
+			if (property.enumerable == 0): continue
+			if (property.accessor):
+				init.error = c"Fetch header accessors outside subset"
+				return
+			int length = 0
+			char* key = js_text_to_utf8(property.key, &length)
+			int is_type = strlen(key) == length && win_net_equal(key, c"Content-Type")
+			int is_accept = strlen(key) == length && win_net_equal(key, c"Accept")
+			free(key)
+			if (is_type == 0 && is_accept == 0):
+				init.error = c"Fetch header outside Content-Type/Accept subset"
+				return
+			js_value* value = js_runtime_member_read(rt, headers, property.key)
+			char* text = win_fetch_option_string(rt, value)
+			if (text == 0 || win_fetch_header_value(text, strlen(text)) == 0):
+				free(text)
+				init.error = c"Invalid Fetch header value"
+				return
+			if ((is_type && types) || (is_accept && accepts)):
+				free(text)
+				init.error = c"Duplicate Fetch header names outside subset"
+				return
+			if (is_type):
+				free(init.content_type)
+				init.content_type = text
+				types = 1
+			else:
+				free(init.accept)
+				init.accept = text
+				accepts = 1
+	js_value* signal = js_runtime_get(rt, options, c"signal")
+	if (signal.kind != 0 && signal.kind != 1):
+		init.signal = win_abort_signal(signal)
+		if (init.signal == 0): init.error = c"Fetch signal requires AbortSignal"
+
 js_value* win_fetch_host(void* runtime, void* host, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_fetch_context* context = cast(win_fetch_context*, host)
 	js_value* promise = js_runtime_promise_new(rt)
 	if (rt.completion.status != 0): return promise
 	if (args.length == 0 || args[0].kind != 4): return win_fetch_reject(rt, promise, c"fetch requires a URL string")
-	# Unsupported options are rejected instead of silently changing semantics.
-	win_abort_state* signal = 0
-	if (args.length > 1 && args[1].kind != 0 && args[1].kind != 1):
-		if (js_runtime_object(args[1]) == 0): return win_fetch_reject(rt, promise, c"Fetch options require an object")
-		# Reject unsupported own init options instead of silently ignoring a body,
-		# method, credentials, or CORS request.
-		for i in range(args[1].properties.length):
-			js_value* property = args[1].properties[i]
-			if (js_runtime_key_is(property.key, c"signal") == 0): return win_fetch_reject(rt, promise, c"Fetch option outside subset")
-		js_value* value = js_runtime_get(rt, args[1], c"signal")
-		if (rt.completion.status != 0): return promise
-		if (value.kind != 0 && value.kind != 1):
-			signal = win_abort_signal(value)
-			if (signal == 0): return win_fetch_reject(rt, promise, c"Fetch signal requires AbortSignal")
-			if (signal.aborted):
-				js_runtime_promise_settle(rt, promise, signal.reason, 1)
-				return promise
-	if (context.requests.length >= 64 || win_fetch_pending(context) >= 3): return win_fetch_reject(rt, promise, c"Page fetch request limit")
+	win_fetch_init init
+	js_value* options = rt.undefined_value
+	if (args.length > 1): options = args[1]
+	win_fetch_parse_init(rt, options, &init)
+	if (rt.completion.status != 0):
+		win_fetch_init_free(&init)
+		if (rt.completion.status == 5): return promise
+		js_value* error = rt.completion.value
+		rt.completion.status = 0
+		rt.completion.value = rt.undefined_value
+		rt.completion.message = c""
+		js_runtime_promise_settle(rt, promise, error, 1)
+		return promise
+	if (init.error != 0):
+		win_fetch_init_free(&init)
+		return win_fetch_reject(rt, promise, init.error)
+	if (context.requests.length >= 64 || win_fetch_pending(context) >= 3):
+		win_fetch_init_free(&init)
+		return win_fetch_reject(rt, promise, c"Page fetch request limit")
 	int length = 0
 	char* reference = js_text_to_utf8(args[0].text, &length)
-	if (reference == 0): return win_fetch_reject(rt, promise, c"Invalid fetch URL")
+	if (reference == 0):
+		win_fetch_init_free(&init)
+		return win_fetch_reject(rt, promise, c"Invalid fetch URL")
 	char* address = 0
 	if (strlen(reference) == length): address = win_resolve(context.address, reference)
 	free(reference)
-	if (address == 0): return win_fetch_reject(rt, promise, c"Invalid fetch URL")
+	if (address == 0):
+		win_fetch_init_free(&init)
+		return win_fetch_reject(rt, promise, c"Invalid fetch URL")
 	if (win_fetch_same_origin(context.address, address) == 0):
 		free(address)
+		win_fetch_init_free(&init)
 		return win_fetch_reject(rt, promise, c"Fetch requires a same-origin HTTP(S) URL")
+	if (init.signal != 0 && init.signal.aborted):
+		js_runtime_promise_settle(rt, promise, init.signal.reason, 1)
+		free(address)
+		win_fetch_init_free(&init)
+		return promise
 	win_fetch_request* request = new win_fetch_request()
 	request.promise = promise
-	request.signal = signal
-	request.observer = win_abort_observe(signal, request, win_fetch_abort_transport)
+	request.signal = init.signal
+	request.observer = win_abort_observe(init.signal, request, win_fetch_abort_transport)
 	js_runtime_root(rt, promise)
-	request.load = win_load_start_fetch(context.executable, address, context.address, c"GET", c"")
+	request.load = win_load_start_fetch_bytes(context.executable, address, context.address, init.method, init.body, init.length, init.content_type, init.accept)
+	win_fetch_init_free(&init)
 	context.requests.push(request)
 	free(address)
 	return promise

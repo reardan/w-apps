@@ -23,8 +23,7 @@ an outstanding implementation program, not a support claim.
   local API and app; the README defines success/failure/abort, routing, restart
   persistence, origin separation and responsive acceptance steps.
 - M4: M1 now renders through isolated worker canvas frames. M2 raw input is
-  integrated, with portable input, focus/selection metadata and bounded queues. Shared-state parity
-  remains outstanding. The opt-in [offline Linux sandbox](offline-sandbox.md)
+  integrated, with portable input, focus/selection metadata and bounded queues. Parent-owned local/session storage is integrated; the full isolated workflow is under validation. The opt-in [offline Linux sandbox](offline-sandbox.md)
   passes local-content enforcement and GL tests; HTTP apps are outside that profile.
 
 Run `python3 win/tests/modern_hosts.py` for machine-readable startup probes of
@@ -69,8 +68,11 @@ Each track uses a separate worktree and generated-output directory.
   lock. Mutations use a mode-0600 temporary sibling, file sync, rename and
   directory sync. Failures before publication restore the previous in-memory
   contents; post-rename barrier failures preserve the new contents and report
-  `UnknownError`. Isolated execution explicitly refuses this option until a
-  shared owner/service exists. No disk state is opened without the option.
+  `UnknownError`. Isolated interactive execution now routes bounded synchronous storage operations
+  to the parent owner. Durable writes run in a trusted helper while the parent
+  polls; uncertain publication is reconciled from disk or poisons the store.
+  See [isolated storage](isolated-storage.md) for identity, quota, recovery and
+  cross-origin navigation restrictions. No disk state is opened without the option.
 - Streaming wasm: only native same-origin Fetch responses are accepted; final
   HTTP status must be successful and Content-Type must be exactly
   `application/wasm` (ASCII case-insensitive, outer HTTP whitespace ignored,
@@ -89,7 +91,7 @@ Each track uses a separate worktree and generated-output directory.
   without a parent script realm. Integrated acceptance passed 36 painted frames
   with 36 pixel changes, resize, three worker lifetimes, crash/reap, partial
   cancellation and descriptor cleanup. See [the protocol](isolated-graphics.md).
-  Raw pointer/key forwarding is integrated; shared storage is still underway.
+  Raw pointer/key forwarding and parent-owned shared storage are integrated.
   The offline sandbox is now integrated, retaining the documented desktop/GPU
   authority and rejecting network access.
 
@@ -162,8 +164,12 @@ sequence in Chromium 145.0.7632.6. Edited and narrow screenshots were visually
 compared: field text and geometry match, including the application’s stretched
 typography and right-edge field cropping. Pixel comparison found no channel
 difference above 16 in either 360×360 capture; 151 of 280,800 pixels exceeded
-that threshold in the edited 390×720 capture. This canvas comparison does not
-establish full page CSS fidelity: fixed positioning remains unsupported. Native screenshots and source hashes
+that threshold in the edited 390×720 capture. Fixed positioning is now implemented and the same test also captures the actual
+parent viewport, asserting zero outer scroll. Visually inspected parent captures
+match the canvas origin and responsive size. They still differ at widget overlays:
+4,692/280,800 edited pixels and 1,952/129,600 narrow pixels exceed channel delta 16;
+opacity and pointer-events remain unsupported. This is bounded app evidence,
+not full CSS fidelity. Native screenshots and source hashes
 are recorded under `win/bin/modern-browser/mobile-native/`.
 The driver uses portable native event records, not synthetic JavaScript events;
 platform key translation and complete IME behavior remain separate gaps. Author body margins now control the page origin
@@ -175,14 +181,15 @@ support. Ordinary function construction, shared call/apply/bind, unmapped
 arguments, generic array-like slice and Unicode String casing now pass focused
 tests. The unchanged framework evaluates and creates virtual nodes; generic
 Array.some, addition and bitwise numeric conversion, and iterative logical/comma/
-conditional evaluation have since landed. Native input now reaches API success,
-HTTP 503 failure and abort with no late success. The next measured failure is
-expression depth while navigating to the settings view; limits remain unchanged. Live HTML DOM tree APIs and
+conditional/binary evaluation and statement tails have since landed. The complete
+native scenario now passes success, HTTP 503, abort without late success, theme,
+routing/back/forward, restart persistence and origin separation under unchanged
+execution limits. Live HTML DOM tree APIs and
 side-effect-free native property presence have also landed.
 History push/replace/traversal and bounded JSON-tree state pass native and worker
-HTTP tests. The complete native API/interaction/persistence scenario does not
-pass yet. M4 still lacks shared-state/workflow parity and a sandboxed
-HTTP resource broker. M5 remains measured feature-family
+HTTP tests. Native screenshots still expose visual differences being corrected. M4 workflow
+parity is being validated; a sandboxed HTTP resource broker remains outside the
+offline sandbox profile. M5 remains measured feature-family
 work; the current selected Test262 gate has 43 PASS/10 UNSUPPORTED variants.
 
 The complete roadmap's remaining language, CSS/layout, networking, cookie/CORS,

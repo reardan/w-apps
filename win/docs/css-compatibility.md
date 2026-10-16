@@ -184,8 +184,18 @@ Explicit block heights determine the box and following sibling position, while
 visible overflowing content contributes to the page's scroll extent. This does
 not implement clipping or scrolling through the CSS `overflow` property.
 
-Inline backgrounds/borders, margin collapsing, floats, positioned layout,
-transforms, animations, generated content, table layout, vertical writing and
+`position:fixed` creates a viewport-relative box excluded from normal flow,
+flex/grid sizing and page scroll extent. Insets support `auto`, lengths,
+percentages, bounded `calc()` and CSS-wide cascade values; opposing insets stretch
+auto dimensions. Nested fixed boxes use the viewport independently. Painting,
+hit testing, CSSOM geometry and focus reveal share the same scroll-adjusted
+coordinates. `fixed_layout_test.w` and `fixed_layout_integration.py` cover geometry,
+resize, scroll and full-viewport native paint. Generic containers no longer receive
+synthetic margins; semantic paragraph/heading/list defaults remain.
+
+Inline backgrounds/borders, margin collapsing, floats, relative/absolute/sticky
+positioning, z-index/full stacking, opacity, pointer-events, transforms,
+animations, generated content, table layout, vertical writing and
 full font-family selection remain unsupported. `visibility:hidden` preserves
 layout geometry while suppressing painting and hit testing, and visible descendants
 can restore painting. `inline-block` uses inline text flow,

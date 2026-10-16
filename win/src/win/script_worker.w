@@ -222,8 +222,9 @@ int win_script_worker_execute(char* executable, char* address, char* home, int l
 	return code
 
 # Persistent interactive child. Only snapshots and numeric event targets cross
-# the boundary. Canvas/GL resources are not represented by this opt-in mode.
+# the boundary. Opt-in graphics appends bounded WFRM pixel records, never handles.
 import win.interactive_worker
+import win.worker_graphics
 
 int win_interactive_append(string_builder* output, char* text, int limit):
 	return win_script_worker_append(output, text, limit)
@@ -276,19 +277,68 @@ int win_interactive_serialize(html_node* node, string_builder* output, list[html
 		if (win_interactive_append(output, c"</", limit) == 0 || win_interactive_append(output, node.name, limit) == 0 || win_interactive_append(output, c">", limit) == 0): return 0
 	return 1
 
-int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes, int sequence, int limit):
+int win_interactive_child_read(char* target, int length):
+	int at = 0
+	while (at < length):
+		int count = read(0, target + at, length - at)
+		if (count == -4): continue
+		if (count <= 0): return 0
+		at = at + count
+	return 1
+
+int win_interactive_child_frame(win_frame_sender* sender, win_canvas* canvas):
+	if (win_worker_canvas_capture(canvas) == 0): return 0
+	if (win_frame_sender_submit(sender, canvas.width, canvas.height, canvas.width * 4, canvas.pixels, canvas.width * canvas.height * 4) == 0): return 0
+	while (sender.sent < sender.outgoing.length):
+		int count = socket_send(0, sender.outgoing.data + sender.sent, sender.outgoing.length - sender.sent, 16384)
+		if (count == -4): continue
+		if (count <= 0): return 0
+		win_frame_sender_advance(sender, count)
+	char[48] bytes
+	if (win_interactive_child_read(&bytes[0], 48) == 0): return 0
+	win_frame_header ack
+	if (win_frame_header_read(&bytes[0], &ack, 4) == 0): return 0
+	return win_frame_sender_ack(sender, ack)
+
+int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes, int sequence, int limit, win_frame_sender* sender):
 	if (browser.page == 0 || browser.page.truncated): return 0
 	string_builder* output = string_new()
 	win_interactive_header(output, sequence, 100)
 	for i in range(8): string_append_char(output, 0)
 	save_int32(output.data + 24, browser.script_failures)
 	save_int32(output.data + 28, browser.resource_failures)
-	int ok = win_interactive_append(output, browser.address, limit - 3)
+	# Serialize first: this establishes the exact snapshot-local node map.
+	string_builder* html = string_new()
+	while (nodes.length > 0): nodes.pop()
+	int ok = win_interactive_serialize(browser.page.html.root, html, nodes, limit - 1, 0)
+	list[win_canvas*] canvases = new list[win_canvas*]
+	int aggregate = 0
+	if (sender != 0):
+		save_int32(output.data + 16, 101)
+		for i in range(4): string_append_char(output, 0)
+		if (browser.script != 0):
+			for win_dom_binding* binding in browser.script.bindings:
+				win_canvas* canvas = binding.canvas
+				if (canvas == 0 || canvas.context == 0 || canvas.width == 0 || canvas.height == 0): continue
+				int id = 0
+				for i in range(nodes.length):
+					if (nodes[i] == binding.node): id = i + 1
+				if (id == 0): continue
+				int length = canvas.width * canvas.height * 4
+				if (canvases.length >= WIN_INTERACTIVE_CANVASES || length > WIN_INTERACTIVE_PIXELS - aggregate):
+					ok = 0
+					break
+				aggregate = aggregate + length
+				canvases.push(canvas)
+				int offset = output.length
+				for i in range(4): string_append_char(output, 0)
+				save_int32(output.data + offset, id)
+		save_int32(output.data + 32, canvases.length)
+	if (ok): ok = win_interactive_append(output, browser.address, limit - 3)
 	string_append_char(output, 0)
 	if (ok): ok = win_interactive_append(output, browser.page.title, limit - 2)
 	string_append_char(output, 0)
-	while (nodes.length > 0): nodes.pop()
-	if (ok): ok = win_interactive_serialize(browser.page.html.root, output, nodes, limit - 1, 0)
+	if (ok): ok = win_interactive_append(output, html.data, limit - 1)
 	string_append_char(output, 0)
 	save_int32(output.data + 8, output.length - 24)
 	int at = 0
@@ -298,16 +348,11 @@ int win_interactive_child_snapshot(win_browser* browser, list[html_node*] nodes,
 		if (count <= 0): ok = 0
 		else: at = at + count
 	string_free(output)
+	string_free(html)
+	for win_canvas* canvas in canvases:
+		if (ok): ok = win_interactive_child_frame(sender, canvas)
+	__w_list_free(cast(__w_list*, canvases))
 	return ok
-
-int win_interactive_child_read(char* target, int length):
-	int at = 0
-	while (at < length):
-		int count = read(0, target + at, length - at)
-		if (count == -4): continue
-		if (count <= 0): return 0
-		at = at + count
-	return 1
 
 void win_interactive_child_event(win_browser* browser, list[html_node*] nodes, int kind, int id, char* value):
 	if (kind == 1): return
@@ -328,13 +373,21 @@ void win_interactive_child_event(win_browser* browser, list[html_node*] nodes, i
 			while (link != 0 && win_tag(link, c"a") == 0): link = link.parent
 			if (link != 0 && win_attr(link, c"href")[0] != 0): win_navigate(browser, win_attr(link, c"href"), win_browser_base(browser), -1)
 
-int win_script_interactive_execute(char* executable, char* address, char* home, int limit):
-	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT): return 2
+int win_script_interactive_execute_config(char* executable, char* address, char* home, int limit, int generation, int width, int height, int budget):
+	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT || generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX): return 2
+	win_worker_graphics* graphics = 0
+	win_frame_sender* sender = 0
+	if (generation > 0):
+		graphics = win_worker_graphics_new()
+		win_script_graphics_available = graphics != 0
+		sender = win_frame_sender_new(generation, WIN_INTERACTIVE_PIXELS)
 	char** previous = env_current()
 	char** environment = win_script_worker_environment()
 	environ_ptr = cast(int, environment)
 	win_browser browser
 	win_browser_init(&browser, executable, home)
+	browser.execution_budget = budget
+	win_browser_set_viewport(&browser, width, height)
 	win_navigate(&browser, address, c"", -1)
 	list[html_node*] nodes = new list[html_node*]
 	int sequence = 0
@@ -345,7 +398,7 @@ int win_script_interactive_execute(char* executable, char* address, char* home, 
 			win_browser_poll(&browser)
 			sleep_ms(2)
 		win_script_frame_at(browser.script, process_monotonic_ms())
-		if (win_interactive_child_snapshot(&browser, nodes, sequence, limit) == 0): break
+		if (win_interactive_child_snapshot(&browser, nodes, sequence, limit, sender) == 0): break
 		char[24] header
 		if (win_interactive_child_read(&header[0], 24) == 0): break
 		int length = load_int32(&header[8])
@@ -355,20 +408,36 @@ int win_script_interactive_execute(char* executable, char* address, char* home, 
 		char* magic = c"WINT0001"
 		for i in range(8):
 			if (header[i] != magic[i]): running = 0
-		if (running == 0 || length < 4 || length > 65540 || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 4 || load_int32(&header[20]) != 0): break
+		int prefix = 4
+		int revision = 0
+		if (generation > 0):
+			prefix = 12
+			revision = 1
+		if (running == 0 || length < prefix || length > 65536 + prefix || length > limit - 24 || next != sequence + 1 || kind < 1 || kind > 4 || load_int32(&header[20]) != revision): break
 		char* payload = cast(char*, malloc(length + 1))
 		payload[length] = 0
 		int ok = win_interactive_child_read(payload, length)
-		for i in range(4, length):
+		for i in range(prefix, length):
 			if (payload[i] == 0): ok = 0
-		if (ok && utf8_validate_bytes(payload + 4, length - 4)):
-			win_interactive_child_event(&browser, nodes, kind, load_int32(payload), payload + 4)
+		if (ok && generation > 0):
+			int next_width = load_int32(payload + 4)
+			int next_height = load_int32(payload + 8)
+			if (next_width < 1 || next_width > 4096 || next_height < 1 || next_height > 4096): ok = 0
+			else: win_browser_set_viewport(&browser, next_width, next_height)
+		if (ok && utf8_validate_bytes(payload + prefix, length - prefix)):
+			win_interactive_child_event(&browser, nodes, kind, load_int32(payload), payload + prefix)
 		else: running = 0
 		free(payload)
 		sequence = next
 	win_browser_free(&browser)
+	win_frame_sender_free(sender)
+	win_script_graphics_available = 0
+	win_worker_graphics_free(graphics)
 	__w_list_free(cast(__w_list*, nodes))
 	win_network_state_clear()
 	environ_ptr = cast(int, previous)
 	win_script_worker_environment_free(environment)
 	return 0
+
+int win_script_interactive_execute(char* executable, char* address, char* home, int limit):
+	return win_script_interactive_execute_config(executable, address, home, limit, 0, 800, 600, WIN_EXECUTION_DEFAULT)

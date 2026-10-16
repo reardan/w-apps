@@ -67,8 +67,8 @@ int main(int argc, int argv):
 	if (execution_budget == 0):
 		println2(c"Execution budget must be an integer from 1 through 200000000")
 		return 1
-	if (execution_budget != WIN_EXECUTION_DEFAULT && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive") || args_has_flag(c"script-worker") || args_has_flag(c"interactive-worker"))):
-		println2(c"Custom execution budgets are not yet forwarded to isolated workers")
+	if (execution_budget != WIN_EXECUTION_DEFAULT && (args_has_flag(c"isolated-dump") || args_has_flag(c"script-worker"))):
+		println2(c"Custom execution budgets are not yet forwarded to headless isolated workers")
 		return 1
 	if (args_value(c"storage") != 0 && (args_has_flag(c"isolated-dump") || args_has_flag(c"isolated-interactive"))):
 		println2(c"Persistent storage is not yet shared with isolated workers")
@@ -92,7 +92,13 @@ int main(int argc, int argv):
 	if (args_has_flag(c"interactive-worker")):
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1
-		return win_script_interactive_execute(args_program(), start, home, atoi(limit))
+		int generation = 0
+		int width = 800
+		int height = 600
+		if (args_value(c"worker-generation") != 0): generation = atoi(args_value(c"worker-generation"))
+		if (args_value(c"worker-width") != 0): width = atoi(args_value(c"worker-width"))
+		if (args_value(c"worker-height") != 0): height = atoi(args_value(c"worker-height"))
+		return win_script_interactive_execute_config(args_program(), start, home, atoi(limit), generation, width, height, execution_budget)
 	if (args_has_flag(c"script-worker")):
 		char* limit = args_value(c"worker-limit")
 		if (limit == 0): return 1

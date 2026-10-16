@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "frames": 36,
+  "painted_frames": 36,
+  "pixel_changes": 36,
+  "first_frame_ms": 1827,
+  "max_parent_poll_ms": 1,
+  "max_parent_paint_ms": 4,
+  "elapsed_ms": 10170,
+  "fds_after_stop": 29,
+  "window": {
+    "title": "W graphics demo",
+    "status": "Isolated content \u00b7 worker canvas frames",
+    "script_failures": 0,
+    "resource_failures": 0,
+    "colorful_pixels": 28998
+  },
+  "source_sha256": {
+    "w/tools/web/accessibility.mjs": "d2e426155d4017e3a3875c3df3edf8fd5f064714262898af9b680dfbfae587fc",
+    "w/tools/web/accessibility_dom_fixture.mjs": "2a78ebc2a488312319fbd67318b3bc361ca0e136e1192f5b2107efa16965b92c",
+    "w/tools/web/accessibility_test.mjs": "6331210087331513bbef77fa9b8455cb0ce287bddf90aeb55b42c5d1d2929921",
+    "w/tools/web/index.html": "8cbe16f92f748bbc2c626af2ff71a9ca03989da87d04b4c214d87bd27baa7d4a",
+    "w/tools/web/mobile_input.mjs": "dc80b84027b000228a22fca6f43d11856d9cf0f873b9dd3816122cd65e7b7f12",
+    "w/tools/web/mobile_input_test.mjs": "b02b39aed934c41e5addc5a94191596f0e61eefa55f406f83ff21ca46ca13f16",
+    "w/tools/web/recording_gl.mjs": "c4197062efe96612ca9658a0145401f478ad4ad5cd027e83bc388f4dfeff3df5",
+    "w/tools/web/run_accessibility_test.mjs": "50e239b056df11eccdce541248420bd877d33c39930b4f15666d1103113c39b7",
+    "w/tools/web/run_env_test.mjs": "961c95f3c83d856f614ca77135f8c232f6ceb111fdd5723e1c54728ed05b9472",
+    "w/tools/web/run_export_test.mjs": "5ab2ed0c1c0bd118a56cd89f81f19e7d23985b498831ff4f8bc3212c547d6169",
+    "w/tools/web/run_mobile_ui.mjs": "7d7949478a7f6c708b90ae8ec9cfcc6d7c728d164cfe19cf5990f15ea445b852",
+    "w/tools/web/run_ui_stub.mjs": "b15f755f027595e2d2707ed9e8684597e2462959e9695cc47f5e145e4b4dafa4",
+    "w/tools/web/run_webgl_stub.mjs": "36dd7f169f4b2cc4eb6809f5eb2d12ab5381f9e004b1d22dc5cb7c702026d04a",
+    "w/tools/web/wasi_lite.mjs": "01505ddca489d2f9a6294ca11164c8cf161100d62446234e25781f96bf3ea9f5",
+    "w/tools/web/webgl_env.mjs": "61e8de1948ca10521d1ca524aaa923c342110623ea3726658620b4a4e070e8c6"
+  },
+  "wasm_sha256": "6254605370961a289d7cf92ac84cb99af5fc07f6eadefb8cfc75b6de119a08ca",
+  "w_commit": "8215f766b4abff3b3141364118de198055b185a9"
+}

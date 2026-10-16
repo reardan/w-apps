@@ -64,11 +64,17 @@ try:
                 assert data['title'] == 'PASS' and data['script_failures'] == 0, (budget, data)
             else:
                 assert data['title'] != 'PASS' and data['script_failures'] > 0, (budget, data)
+        for budget, passes in (('1000000', False), ('5000000', True)):
+            result = subprocess.run(command + ['--isolated-interactive', '--execution-budget', budget],
+                                    capture_output=True, text=True, timeout=30)
+            assert result.returncode == 0, (budget, result.stdout, result.stderr)
+            data = json.loads(report.read_text())
+            assert (data['title'] == 'PASS' and data['script_failures'] == 0) == passes, data
         for invalid in ('0', '-1', '200000001', '99999999999999999999', '1x', '+2', '1.5', ''):
             result = subprocess.run([WIN, '--dump', '--execution-budget', invalid],
                                     capture_output=True, text=True, timeout=10)
             assert result.returncode != 0 and 'Execution budget must be' in result.stderr, (invalid, result)
-        for mode in ('--isolated-dump', '--isolated-interactive'):
+        for mode in ('--isolated-dump',):
             result = subprocess.run([WIN, mode, '--execution-budget', '5000000'],
                                     capture_output=True, text=True, timeout=10)
             assert result.returncode != 0 and 'not yet forwarded' in result.stderr, result

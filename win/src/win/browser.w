@@ -24,6 +24,7 @@ struct win_browser:
 	int isolated
 	win_interactive_worker* interactive
 	int interactive_sequence
+	int interactive_generation
 	int interactive_tick
 	char* interactive_html
 	win_page* page
@@ -74,6 +75,7 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.isolated = 0
 	b.interactive = 0
 	b.interactive_sequence = -1
+	b.interactive_generation = 0
 	b.interactive_tick = 0
 	b.interactive_html = strclone(c"")
 	b.page = 0
@@ -203,7 +205,8 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 		win_stop(b)
 		b.pending_history = target
 		b.interactive_sequence = -1
-		b.interactive = win_interactive_start(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT)
+		b.interactive_generation = b.interactive_generation + 1
+		b.interactive = win_interactive_start_config(b.executable, address, b.home, 30000, WIN_INTERACTIVE_LIMIT, b.interactive_generation, b.viewport_width, b.viewport_height, b.execution_budget)
 		ui_textarea_set(&b.input, address)
 		win_status(b, c"Loading isolated content…")
 		free(address)
@@ -287,6 +290,19 @@ int win_browser_loading(win_browser* b):
 	if (b.isolated): return b.interactive != 0 && b.interactive.busy
 	return b.load != 0 || win_resources_done(b.resources) == 0 || (b.script != 0 && b.script.ready == 0) || win_fetch_pending(b.fetches) != 0
 
+# Every published frame must name exactly one canvas in the same DOM snapshot.
+int win_browser_frame_manifest(win_page* page, list[win_frame_surface*] surfaces):
+	for win_frame_surface* surface in surfaces:
+		int matches = 0
+		html_node* node = page.html.allocations
+		while (node != 0):
+			if (atoi(win_attr(node, c"data-win-node")) == surface.node_id):
+				if (win_tag(node, c"canvas") == 0): return 0
+				matches = matches + 1
+			node = node.allocation_next
+		if (matches != 1): return 0
+	return 1
+
 # The snapshot is display-only: never create a script or fetch realm for it.
 void win_browser_poll_interactive(win_browser* b):
 	if (b.interactive == 0): return
@@ -302,7 +318,8 @@ void win_browser_poll_interactive(win_browser* b):
 		b.interactive_tick = process_monotonic_ms()
 		if (first || strcmp(b.interactive_html, worker.html) != 0):
 			win_page* page = win_page_parse(worker.html, strlen(worker.html))
-			if (page == 0):
+			if (page == 0 || win_browser_frame_manifest(page, worker.surfaces) == 0):
+				win_page_free(page)
 				win_interactive_fail(worker, 4, c"Invalid isolated display document")
 				win_status(b, worker.error)
 				return
@@ -314,7 +331,12 @@ void win_browser_poll_interactive(win_browser* b):
 			b.resources = win_resources_start(b.executable, page, worker.address)
 			free(b.interactive_html)
 			b.interactive_html = strclone(worker.html)
+			win_page_set_viewport(page, b.viewport_width, b.viewport_height)
 			win_page_layout(page, b.width)
+		if (win_browser_frame_manifest(b.page, worker.surfaces) == 0):
+			win_interactive_fail(worker, 4, c"Invalid isolated canvas manifest")
+			win_status(b, worker.error)
+			return
 		free(b.page.title)
 		b.page.title = strclone(worker.title)
 		if (first || strcmp(b.address, worker.address) != 0):
@@ -325,7 +347,7 @@ void win_browser_poll_interactive(win_browser* b):
 			if (target >= 0): b.scroll.offset_y = b.history[target].scroll
 		b.script_failures = worker.script_failures
 		b.resource_failures = worker.resource_failures
-		win_status(b, c"Isolated content · canvas unavailable")
+		win_status(b, c"Isolated content · worker canvas frames")
 		if (b.script_failures || b.resource_failures): win_status(b, c"Isolated content completed with script or resource errors")
 	if (win_resources_poll(b.resources) && b.page != 0): win_page_layout(b.page, b.width)
 	# Leave a UI frame after each reply for input before scheduling another tick.
@@ -343,6 +365,9 @@ int win_browser_interactive_event(win_browser* b, html_node* node, int kind, cha
 # Native X11 UI coordinates and framebuffer pixels are 1:1. Headless callers
 # use the explicit initial 920x600 viewport; a GUI realm waits for its surface.
 void win_browser_sync_viewport(win_browser* b):
+	if (b.interactive != 0):
+		b.interactive.viewport_width = b.viewport_width
+		b.interactive.viewport_height = b.viewport_height
 	if (b.page != 0): win_page_set_viewport(b.page, b.viewport_width, b.viewport_height)
 	win_script_set_viewport(b.script, b.viewport_width, b.viewport_height, 1.0, 0.0, cast(float64, b.scroll.offset_y))
 	if (b.script != 0): b.script.layout_width = b.width
@@ -585,7 +610,12 @@ void win_browser_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float3
 		if (run.hidden): continue
 		float32 y = y_offset + run.y
 		if (y + run.height < viewport.y || y > viewport.y + viewport.h): continue
-		if (win_tag(run.node, c"canvas") && b.script != 0):
+		if (win_tag(run.node, c"canvas") && b.isolated):
+			if (b.interactive != 0 && b.interactive.child != 0):
+				int id = atoi(win_attr(run.node, c"data-win-node"))
+				for win_frame_surface* surface in b.interactive.surfaces:
+					if (surface.node_id == id): win_frame_surface_draw(surface, ctx.rndr, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
+		else if (win_tag(run.node, c"canvas") && b.script != 0):
 			for j in range(b.script.bindings.length):
 				win_dom_binding* binding = b.script.bindings[j]
 				if (binding.node == run.node && binding.canvas != 0): win_canvas_draw(ctx.rndr, binding.canvas, ui_rect_new(viewport.x + run.x, y, run.width, run.height))

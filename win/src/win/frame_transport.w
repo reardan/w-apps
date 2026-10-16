@@ -1,5 +1,5 @@
-# Experimental frame-only transport. This is not the existing WINT snapshot
-# protocol and does not enable canvas presentation or change isolation defaults.
+# Bounded frame transport. Opt-in WINT graphics replies carry these records
+# after their snapshot manifest; isolation defaults remain unchanged.
 # Wire v1: 48 little-endian bytes followed by a bounded binary pixel payload.
 # Offsets: magic[4], version, kind, generation, sequence, format, width, height,
 # stride, payload bytes, flags=0, reserved=0. IDs are positive signed int32.

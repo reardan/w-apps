@@ -17,6 +17,7 @@ import lib.time
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
+	js_value* child_nodes
 	int selection_revision
 	win_text_selection selection
 	js_value* computed
@@ -404,11 +405,15 @@ js_value* win_dom_blur(void* runtime, void* context, js_value* receiver, list[js
 html_node* win_script_active_element(win_script* script);
 js_value* win_script_wrap(win_script* script, html_node* node);
 
+import win.dom_tree
+
 js_value* win_dom_get(void* runtime, void* context, js_value* receiver, js_text* key):
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	js_value* tree_value = win_dom_tree_get(b, key)
+	if (tree_value != 0): return tree_value
 	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return win_script_wrap(script, win_script_active_element(script))
 	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")): return js_runtime_number(rt, cast(float64, win_focus_tab_index(b.node)))
 	if (win_text_selection_control(b.node) && js_runtime_key_is(key, c"readOnly")): return js_runtime_boolean(rt, win_form_has(b.node, c"readonly"))
@@ -453,6 +458,8 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	win_dom_binding* b = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, b.context)
 	if (receiver != b.object): return 0
+	int tree_result = win_dom_tree_set(b, key, value)
+	if (tree_result != 0): return tree_result
 	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return 1
 	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")):
 		if (value.kind != 3):
@@ -633,6 +640,7 @@ js_value* win_script_wrap(win_script* script, html_node* node):
 	b.style = js_runtime_get(rt, object, c"style")
 	script.bindings.push(b)
 	js_runtime_root(rt, object)
+	win_dom_tree_install(b)
 	js_runtime_set(rt, object, c"dispatchEvent", js_runtime_host_callable(rt, b, win_script_dispatch_host))
 	if (node.kind == HTML_START): js_runtime_set(rt, object, c"replaceChildren", js_runtime_host_callable(rt, b, win_dom_replace_children))
 	if (node.kind == HTML_START):

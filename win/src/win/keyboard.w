@@ -46,8 +46,59 @@ void win_keyboard_remove_default(ui_context* ctx, gfx_event* event):
 				ctx.nav_count = ctx.nav_count - 1
 				return
 
+# Backend END carries no commit text. Emit empty end data; separate CHAR
+# records perform committed edits. Never infer a commit from old preedit.
+void win_keyboard_composition_event(win_script* script, html_node* target, char* type, char* data, int length):
+	if (target == 0 || win_pointer_connected(script.page, target) == 0): return
+	win_keyboard_packet packet
+	packet.type = type
+	packet.data = data
+	packet.data_length = length
+	win_keyboard_dispatch(script, target, &packet)
+
+void win_keyboard_composition_end(win_script* script):
+	win_keyboard_state* state = &script.keyboard
+	html_node* target = state.composition_target
+	int active = state.composing
+	state.composing = 0
+	state.composition_target = 0
+	state.preedit_length = 0
+	if (active): win_keyboard_composition_event(script, target, c"compositionend", c"", 0)
+
+void win_keyboard_preedit(win_script* script, ui_context* ctx, win_native_input* input, int index):
+	gfx_event* event = &input.events[index]
+	win_keyboard_state* state = &script.keyboard
+	if (event.x != 0 && event.x != ctx.focus): return
+	if (event.kind == GFX_EVENT_PREEDIT_END):
+		win_keyboard_composition_end(script)
+		return
+	html_node* target = script.active_focus
+	if (target == 0 || win_text_selection_applies(target) == 0 || win_form_disabled(target) || win_form_has(target, c"readonly")): return
+	if (state.composing && state.composition_target != target): win_keyboard_composition_end(script)
+	if (event.kind == GFX_EVENT_PREEDIT_BEGIN):
+		state.preedit_length = 0
+		state.preedit[0] = 0
+		if (state.composing == 0):
+			state.composing = 1
+			state.composition_target = target
+			win_keyboard_composition_event(script, target, c"compositionstart", c"", 0)
+	else if (event.kind == GFX_EVENT_PREEDIT_TEXT && state.composing):
+		int cp = event.code
+		if (cp >= 32 && cp <= 1114111 && (cp < 55296 || cp > 57343)):
+			char[4] bytes
+			int length = utf8_encode(&bytes[0], cp)
+			if (length >= 1024 - state.preedit_length):
+				win_keyboard_composition_end(script)
+				return
+			for i in range(length): state.preedit[state.preedit_length + i] = bytes[i]
+			state.preedit_length = state.preedit_length + length
+			state.preedit[state.preedit_length] = 0
+	if (state.composing && (index + 1 == input.count || input.events[index + 1].kind != GFX_EVENT_PREEDIT_TEXT)):
+		win_keyboard_composition_event(script, target, c"compositionupdate", &state.preedit[0], state.preedit_length)
+
 void win_keyboard_cancel(win_script* script):
 	if (script == 0): return
+	win_keyboard_composition_end(script)
 	for i in range(256): script.keyboard.down[i] = 0
 	script.keyboard.suppress_default = 0
 	script.keyboard.composing = 0
@@ -183,6 +234,8 @@ void win_keyboard_record(win_script* script, win_forms* forms, ui_context* ctx, 
 	if (win_pointer_connected(script.page, target) == 0): return
 	if (event.kind == GFX_EVENT_KEY_DOWN || event.kind == GFX_EVENT_KEY_UP):
 		win_keyboard_key(script, input, index, target)
+	else if (event.kind == GFX_EVENT_PREEDIT_BEGIN || event.kind == GFX_EVENT_PREEDIT_TEXT || event.kind == GFX_EVENT_PREEDIT_END):
+		win_keyboard_preedit(script, ctx, input, index)
 	else if (event.kind == GFX_EVENT_CHAR || event.kind == GFX_EVENT_NAV):
 		if (script.keyboard.suppress_default): win_keyboard_remove_default(ctx, event)
 		else if (forms != 0): win_keyboard_edit(script, forms, ctx, event, target)

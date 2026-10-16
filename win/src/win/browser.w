@@ -553,7 +553,7 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 		gfx_event* event = &b.native_input.events[i]
 		int kind = event.kind
 		if (kind == GFX_EVENT_POINTER_CANCEL): win_keyboard_cancel(b.script)
-		if (kind == GFX_EVENT_KEY_DOWN || kind == GFX_EVENT_KEY_UP || kind == GFX_EVENT_CHAR || kind == GFX_EVENT_NAV):
+		if (kind == GFX_EVENT_KEY_DOWN || kind == GFX_EVENT_KEY_UP || kind == GFX_EVENT_CHAR || kind == GFX_EVENT_NAV || kind == GFX_EVENT_PREEDIT_BEGIN || kind == GFX_EVENT_PREEDIT_TEXT || kind == GFX_EVENT_PREEDIT_END):
 			win_keyboard_record(b.script, b.forms, ctx, &b.native_input, i)
 			if (b.script.runtime.completion.status == 5):
 				win_keyboard_cancel(b.script)

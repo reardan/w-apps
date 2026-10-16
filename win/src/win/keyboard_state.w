@@ -8,6 +8,9 @@ struct win_keyboard_state:
 	int[256] navigation
 	int suppress_default
 	int composing
+	html_node* composition_target
+	char[1024] preedit
+	int preedit_length
 
 struct win_keyboard_packet:
 	char* type

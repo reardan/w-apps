@@ -1,0 +1,1556 @@
+{
+  "scope": "diagnosis only; production execution limits and acceptance source unchanged",
+  "date": "2026-10-15",
+  "app_commit": "443abd5",
+  "w_commit": "3354e528",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "cpu": "Intel Core i7-14700K",
+  "graphics": "Xvfb native OpenGL",
+  "timing_notes": "Initial unpinned wall times; paired optimization comparison pinned to CPU 0 with CLOCK_THREAD_CPUTIME_ID. Concurrent repository checks make wall times variable. Profiling counts do not consume guest fuel.",
+  "inputs": {
+    "w/bin/graphics_ui_mobile.wasm": "1d32dc97bc5d26eba04fdfa37cee4f753e28feb3bb8ed6aa414906b764ee0d42",
+    "w/tools/web/index.html": "8cbe16f92f748bbc2c626af2ff71a9ca03989da87d04b4c214d87bd27baa7d4a",
+    "w/tools/web/accessibility.mjs": "d2e426155d4017e3a3875c3df3edf8fd5f064714262898af9b680dfbfae587fc",
+    "w/tools/web/accessibility_dom_fixture.mjs": "2a78ebc2a488312319fbd67318b3bc361ca0e136e1192f5b2107efa16965b92c",
+    "w/tools/web/accessibility_test.mjs": "6331210087331513bbef77fa9b8455cb0ce287bddf90aeb55b42c5d1d2929921",
+    "w/tools/web/mobile_input.mjs": "dc80b84027b000228a22fca6f43d11856d9cf0f873b9dd3816122cd65e7b7f12",
+    "w/tools/web/mobile_input_test.mjs": "b02b39aed934c41e5addc5a94191596f0e61eefa55f406f83ff21ca46ca13f16",
+    "w/tools/web/recording_gl.mjs": "c4197062efe96612ca9658a0145401f478ad4ad5cd027e83bc388f4dfeff3df5",
+    "w/tools/web/run_accessibility_test.mjs": "50e239b056df11eccdce541248420bd877d33c39930b4f15666d1103113c39b7",
+    "w/tools/web/run_env_test.mjs": "961c95f3c83d856f614ca77135f8c232f6ceb111fdd5723e1c54728ed05b9472",
+    "w/tools/web/run_export_test.mjs": "5ab2ed0c1c0bd118a56cd89f81f19e7d23985b498831ff4f8bc3212c547d6169",
+    "w/tools/web/run_mobile_ui.mjs": "7d7949478a7f6c708b90ae8ec9cfcc6d7c728d164cfe19cf5990f15ea445b852",
+    "w/tools/web/run_ui_stub.mjs": "b15f755f027595e2d2707ed9e8684597e2462959e9695cc47f5e145e4b4dafa4",
+    "w/tools/web/run_webgl_stub.mjs": "36dd7f169f4b2cc4eb6809f5eb2d12ab5381f9e004b1d22dc5cb7c702026d04a",
+    "w/tools/web/wasi_lite.mjs": "01505ddca489d2f9a6294ca11164c8cf161100d62446234e25781f96bf3ea9f5",
+    "w/tools/web/webgl_env.mjs": "61e8de1948ca10521d1ca524aaa923c342110623ea3726658620b4a4e070e8c6"
+  },
+  "runs": {
+    "caps": [
+      {
+        "variant": "baseline",
+        "js_budget": 1000000,
+        "wasm_budget": 1000000,
+        "process_wall_seconds": 2.719,
+        "returncode": 1,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 998293,
+            "used": 998293,
+            "remaining": 0,
+            "elapsed_ms": 40,
+            "import_ms": 16,
+            "imports": 35,
+            "js_steps": 6923,
+            "status": 0,
+            "function": "_start"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 2515,
+          "max_poll_ms": 1089,
+          "max_frame_ms": 0,
+          "js_budget": 1000000,
+          "wasm_budget": 1000000,
+          "js_heap_values": 5445,
+          "js_steps": 998333,
+          "status": "JavaScript execution limit",
+          "title": "W mobile form",
+          "script_failures": 1,
+          "resource_failures": 0,
+          "animation_callbacks": 0,
+          "first_frame_ms": -1,
+          "resized": false,
+          "canvas_nonblack_center": false,
+          "center_pixel_changes": 0,
+          "script_error": "JavaScript execution limit",
+          "host_log": "",
+          "console": []
+        }
+      },
+      {
+        "variant": "baseline",
+        "js_budget": 10000000,
+        "wasm_budget": 1000000,
+        "process_wall_seconds": 2.66,
+        "returncode": 1,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 1000000,
+            "used": 1000000,
+            "remaining": 0,
+            "elapsed_ms": 38,
+            "import_ms": 13,
+            "imports": 35,
+            "js_steps": 6923,
+            "status": 0,
+            "function": "_start"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 2466,
+          "max_poll_ms": 1060,
+          "max_frame_ms": 0,
+          "js_budget": 10000000,
+          "wasm_budget": 1000000,
+          "js_heap_values": 5445,
+          "js_steps": 9998333,
+          "status": "JavaScript execution limit",
+          "title": "W mobile form",
+          "script_failures": 1,
+          "resource_failures": 0,
+          "animation_callbacks": 0,
+          "first_frame_ms": -1,
+          "resized": false,
+          "canvas_nonblack_center": false,
+          "center_pixel_changes": 0,
+          "script_error": "JavaScript execution limit",
+          "host_log": "",
+          "console": []
+        }
+      },
+      {
+        "variant": "baseline",
+        "js_budget": 10000000,
+        "wasm_budget": 10000000,
+        "process_wall_seconds": 2.849,
+        "returncode": 1,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 9998293,
+            "used": 9998293,
+            "remaining": 0,
+            "elapsed_ms": 222,
+            "import_ms": 15,
+            "imports": 35,
+            "js_steps": 6923,
+            "status": 0,
+            "function": "_start"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 2659,
+          "max_poll_ms": 1028,
+          "max_frame_ms": 0,
+          "js_budget": 10000000,
+          "wasm_budget": 10000000,
+          "js_heap_values": 5445,
+          "js_steps": 9998333,
+          "status": "JavaScript execution limit",
+          "title": "W mobile form",
+          "script_failures": 1,
+          "resource_failures": 0,
+          "animation_callbacks": 0,
+          "first_frame_ms": -1,
+          "resized": false,
+          "canvas_nonblack_center": false,
+          "center_pixel_changes": 0,
+          "script_error": "JavaScript execution limit",
+          "host_log": "",
+          "console": []
+        }
+      },
+      {
+        "variant": "baseline",
+        "js_budget": 50000000,
+        "wasm_budget": 50000000,
+        "process_wall_seconds": 3.675,
+        "returncode": 1,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 49998293,
+            "used": 49998293,
+            "remaining": 0,
+            "elapsed_ms": 1043,
+            "import_ms": 15,
+            "imports": 35,
+            "js_steps": 6923,
+            "status": 0,
+            "function": "_start"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 3490,
+          "max_poll_ms": 1226,
+          "max_frame_ms": 0,
+          "js_budget": 50000000,
+          "wasm_budget": 50000000,
+          "js_heap_values": 5445,
+          "js_steps": 49998333,
+          "status": "JavaScript execution limit",
+          "title": "W mobile form",
+          "script_failures": 1,
+          "resource_failures": 0,
+          "animation_callbacks": 0,
+          "first_frame_ms": -1,
+          "resized": false,
+          "canvas_nonblack_center": false,
+          "center_pixel_changes": 0,
+          "script_error": "JavaScript execution limit",
+          "host_log": "",
+          "console": []
+        }
+      }
+    ],
+    "completion": [
+      {
+        "variant": "baseline",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 7.461,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2067,
+            "import_ms": 15,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 2631,
+            "import_ms": 40,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 7227,
+          "max_poll_ms": 2249,
+          "max_frame_ms": 2633,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 5941,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 1,
+          "first_frame_ms": 7227,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      },
+      {
+        "variant": "baseline",
+        "js_budget": 500000000,
+        "wasm_budget": 500000000,
+        "process_wall_seconds": 7.688,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 499998293,
+            "used": 100437402,
+            "remaining": 399560891,
+            "elapsed_ms": 2304,
+            "import_ms": 18,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 499998874,
+            "used": 121537963,
+            "remaining": 378460911,
+            "elapsed_ms": 2553,
+            "import_ms": 7,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 7510,
+          "max_poll_ms": 2549,
+          "max_frame_ms": 2554,
+          "js_budget": 500000000,
+          "wasm_budget": 500000000,
+          "js_heap_values": 5941,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 1,
+          "first_frame_ms": 7510,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      },
+      {
+        "variant": "baseline",
+        "js_budget": 1000000000,
+        "wasm_budget": 1000000000,
+        "process_wall_seconds": 7.509,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 999998293,
+            "used": 100437402,
+            "remaining": 899560891,
+            "elapsed_ms": 2123,
+            "import_ms": 22,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 999998874,
+            "used": 121537963,
+            "remaining": 878460911,
+            "elapsed_ms": 2468,
+            "import_ms": 5,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 7307,
+          "max_poll_ms": 2361,
+          "max_frame_ms": 2469,
+          "js_budget": 1000000000,
+          "wasm_budget": 1000000000,
+          "js_heap_values": 5941,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 1,
+          "first_frame_ms": 7307,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      }
+    ],
+    "steady_frames": [
+      {
+        "variant": "baseline",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 9.805,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2640,
+            "import_ms": 21,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 3338,
+            "import_ms": 8,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 92,
+            "import_ms": 2,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 106,
+            "import_ms": 0,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 105,
+            "import_ms": 1,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 9561,
+          "max_poll_ms": 2894,
+          "max_frame_ms": 3340,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 2126,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 4,
+          "first_frame_ms": 9196,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      }
+    ],
+    "cpu_paired": [
+      {
+        "variant": "probe-baseline-cpu",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 8.939,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2406,
+            "cpu_ms": 2406,
+            "import_ms": 25,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 2700,
+            "cpu_ms": 2699,
+            "import_ms": 47,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 112,
+            "cpu_ms": 112,
+            "import_ms": 3,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 101,
+            "cpu_ms": 97,
+            "import_ms": 7,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 91,
+            "cpu_ms": 88,
+            "import_ms": 7,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 8725,
+          "max_poll_ms": 2651,
+          "max_frame_ms": 2701,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 2126,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 4,
+          "first_frame_ms": 8362,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      },
+      {
+        "variant": "probe-native-loads-cpu",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 8.816,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2139,
+            "cpu_ms": 2138,
+            "import_ms": 17,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 2874,
+            "cpu_ms": 2874,
+            "import_ms": 39,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 129,
+            "cpu_ms": 129,
+            "import_ms": 4,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 123,
+            "cpu_ms": 123,
+            "import_ms": 5,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 94,
+            "cpu_ms": 95,
+            "import_ms": 3,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 8615,
+          "max_poll_ms": 2336,
+          "max_frame_ms": 2875,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 2126,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 4,
+          "first_frame_ms": 8207,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      },
+      {
+        "variant": "probe-baseline-cpu",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 7.998,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2134,
+            "cpu_ms": 2133,
+            "import_ms": 17,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 2534,
+            "cpu_ms": 2525,
+            "import_ms": 9,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 87,
+            "cpu_ms": 87,
+            "import_ms": 3,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 88,
+            "cpu_ms": 87,
+            "import_ms": 2,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 125,
+            "cpu_ms": 122,
+            "import_ms": 6,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 7762,
+          "max_poll_ms": 2326,
+          "max_frame_ms": 2535,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 2126,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 4,
+          "first_frame_ms": 7404,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      },
+      {
+        "variant": "probe-native-loads-cpu",
+        "js_budget": 200000000,
+        "wasm_budget": 200000000,
+        "process_wall_seconds": 7.636,
+        "returncode": 0,
+        "calls": [
+          {
+            "index": 68,
+            "budget": 199998293,
+            "used": 100437402,
+            "remaining": 99560891,
+            "elapsed_ms": 2037,
+            "cpu_ms": 2036,
+            "import_ms": 17,
+            "imports": 42,
+            "js_steps": 7106,
+            "status": 2,
+            "function": "_start"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 121537963,
+            "remaining": 78460911,
+            "elapsed_ms": 2428,
+            "cpu_ms": 2428,
+            "import_ms": 9,
+            "imports": 28,
+            "js_steps": 1064,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 85,
+            "cpu_ms": 85,
+            "import_ms": 3,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 85,
+            "cpu_ms": 85,
+            "import_ms": 3,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          },
+          {
+            "index": 1373,
+            "budget": 199998874,
+            "used": 3874919,
+            "remaining": 196123955,
+            "elapsed_ms": 93,
+            "cpu_ms": 92,
+            "import_ms": 4,
+            "imports": 24,
+            "js_steps": 929,
+            "status": 0,
+            "function": "table callback"
+          }
+        ],
+        "probe": {
+          "elapsed_ms": 7441,
+          "max_poll_ms": 2225,
+          "max_frame_ms": 2430,
+          "js_budget": 200000000,
+          "wasm_budget": 200000000,
+          "js_heap_values": 2126,
+          "js_steps": 0,
+          "status": "Ready",
+          "title": "W mobile form",
+          "script_failures": 0,
+          "resource_failures": 0,
+          "animation_callbacks": 4,
+          "first_frame_ms": 7118,
+          "resized": false,
+          "canvas_nonblack_center": true,
+          "center_pixel_changes": 1,
+          "script_error": "",
+          "host_log": "_start returned (exit 0)",
+          "console": []
+        }
+      }
+    ]
+  },
+  "hot_functions": [
+    {
+      "stage": "startup",
+      "entries": [
+        {
+          "index": 856,
+          "self": 49428105,
+          "total": 66736507,
+          "function": "base64_decode"
+        },
+        {
+          "index": 1375,
+          "self": 18372417,
+          "total": 18372417,
+          "function": "mem_copy$char"
+        },
+        {
+          "index": 855,
+          "self": 17235515,
+          "total": 17235515,
+          "function": "base64_decode_char"
+        },
+        {
+          "index": 418,
+          "self": 10475368,
+          "total": 10475368,
+          "function": "strlen"
+        },
+        {
+          "index": 851,
+          "self": 3657591,
+          "total": 3657591,
+          "function": "rle_decode"
+        },
+        {
+          "index": 1017,
+          "self": 471657,
+          "total": 4144050,
+          "function": "ui_font_baked_pixels"
+        },
+        {
+          "index": 296,
+          "self": 116473,
+          "total": 136476,
+          "function": "__w_new_object"
+        },
+        {
+          "index": 423,
+          "self": 106076,
+          "total": 106076,
+          "function": "strcpy"
+        },
+        {
+          "index": 195,
+          "self": 90378,
+          "total": 90378,
+          "function": "malloc_size_bin"
+        },
+        {
+          "index": 799,
+          "self": 75020,
+          "total": 75020,
+          "function": "ttf_u8"
+        }
+      ]
+    },
+    {
+      "stage": "first_frame",
+      "entries": [
+        {
+          "index": 840,
+          "self": 82155856,
+          "total": 83225122,
+          "function": "ttf_fill"
+        },
+        {
+          "index": 983,
+          "self": 10487839,
+          "total": 10492659,
+          "function": "ui_font_rows_reserve"
+        },
+        {
+          "index": 1018,
+          "self": 9634152,
+          "total": 12908839,
+          "function": "ui_font_build_atlas"
+        },
+        {
+          "index": 1375,
+          "self": 3268671,
+          "total": 3268671,
+          "function": "mem_copy$char"
+        },
+        {
+          "index": 829,
+          "self": 2665406,
+          "total": 3890414,
+          "function": "ttf_outline_quad"
+        },
+        {
+          "index": 831,
+          "self": 1519233,
+          "total": 7188432,
+          "function": "ttf_add_simple"
+        },
+        {
+          "index": 828,
+          "self": 1312569,
+          "total": 1312569,
+          "function": "ttf_outline_push"
+        },
+        {
+          "index": 799,
+          "self": 1246200,
+          "total": 1246200,
+          "function": "ttf_u8"
+        },
+        {
+          "index": 1010,
+          "self": 1117838,
+          "total": 104404462,
+          "function": "ui_font_make_glyph_id"
+        },
+        {
+          "index": 984,
+          "self": 1033591,
+          "total": 11527090,
+          "function": "ui_font_rows_place"
+        }
+      ]
+    },
+    {
+      "stage": "steady_frame",
+      "entries": [
+        {
+          "index": 799,
+          "self": 768180,
+          "total": 768180,
+          "function": "ttf_u8"
+        },
+        {
+          "index": 1043,
+          "self": 667941,
+          "total": 770168,
+          "function": "ui_render_vertex"
+        },
+        {
+          "index": 814,
+          "self": 605665,
+          "total": 1765681,
+          "function": "ttf_kern_units"
+        },
+        {
+          "index": 800,
+          "self": 391524,
+          "total": 1159704,
+          "function": "ttf_u16"
+        },
+        {
+          "index": 1044,
+          "self": 225211,
+          "total": 1159243,
+          "function": "ui_render_quad_sheared"
+        },
+        {
+          "index": 1012,
+          "self": 131691,
+          "total": 163569,
+          "function": "ui_font_cached_glyph"
+        },
+        {
+          "index": 299,
+          "self": 99760,
+          "total": 99760,
+          "function": "__w_list_addr"
+        },
+        {
+          "index": 560,
+          "self": 93024,
+          "total": 123462,
+          "function": "ui_rect_intersect"
+        },
+        {
+          "index": 1014,
+          "self": 92529,
+          "total": 284871,
+          "function": "ui_font_glyph"
+        },
+        {
+          "index": 556,
+          "self": 66750,
+          "total": 66750,
+          "function": "ui_rect_new"
+        }
+      ]
+    }
+  ],
+  "opcode_counts": [
+    {
+      "stage": "startup",
+      "entries": [
+        {
+          "code": 2,
+          "count": 1131654
+        },
+        {
+          "code": 3,
+          "count": 31149
+        },
+        {
+          "code": 11,
+          "count": 860713
+        },
+        {
+          "code": 12,
+          "count": 436395
+        },
+        {
+          "code": 13,
+          "count": 1033730
+        },
+        {
+          "code": 15,
+          "count": 121680
+        },
+        {
+          "code": 16,
+          "count": 121658
+        },
+        {
+          "code": 17,
+          "count": 68
+        },
+        {
+          "code": 32,
+          "count": 15116514
+        },
+        {
+          "code": 33,
+          "count": 15045510
+        },
+        {
+          "code": 35,
+          "count": 18827564
+        },
+        {
+          "code": 36,
+          "count": 7761863
+        },
+        {
+          "code": 40,
+          "count": 6719153
+        },
+        {
+          "code": 44,
+          "count": 357830
+        },
+        {
+          "code": 54,
+          "count": 4351562
+        },
+        {
+          "code": 58,
+          "count": 222472
+        },
+        {
+          "code": 63,
+          "count": 6
+        },
+        {
+          "code": 64,
+          "count": 5
+        },
+        {
+          "code": 65,
+          "count": 13090641
+        },
+        {
+          "code": 69,
+          "count": 1032921
+        },
+        {
+          "code": 70,
+          "count": 75159
+        },
+        {
+          "code": 71,
+          "count": 216512
+        },
+        {
+          "code": 72,
+          "count": 437389
+        },
+        {
+          "code": 74,
+          "count": 1520
+        },
+        {
+          "code": 76,
+          "count": 143595
+        },
+        {
+          "code": 78,
+          "count": 184104
+        },
+        {
+          "code": 106,
+          "count": 12358367
+        },
+        {
+          "code": 107,
+          "count": 113334
+        },
+        {
+          "code": 108,
+          "count": 2399
+        },
+        {
+          "code": 109,
+          "count": 65
+        },
+        {
+          "code": 111,
+          "count": 30
+        },
+        {
+          "code": 113,
+          "count": 212072
+        },
+        {
+          "code": 114,
+          "count": 120101
+        },
+        {
+          "code": 115,
+          "count": 40
+        },
+        {
+          "code": 116,
+          "count": 120644
+        },
+        {
+          "code": 117,
+          "count": 60070
+        },
+        {
+          "code": 173,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "stage": "first_frame",
+      "entries": [
+        {
+          "code": 2,
+          "count": 1776783
+        },
+        {
+          "code": 3,
+          "count": 12481
+        },
+        {
+          "code": 11,
+          "count": 1747272
+        },
+        {
+          "code": 12,
+          "count": 398136
+        },
+        {
+          "code": 13,
+          "count": 1488268
+        },
+        {
+          "code": 15,
+          "count": 38289
+        },
+        {
+          "code": 16,
+          "count": 36949
+        },
+        {
+          "code": 17,
+          "count": 1367
+        },
+        {
+          "code": 32,
+          "count": 20580544
+        },
+        {
+          "code": 33,
+          "count": 20224201
+        },
+        {
+          "code": 35,
+          "count": 19674499
+        },
+        {
+          "code": 36,
+          "count": 7613473
+        },
+        {
+          "code": 40,
+          "count": 8787107
+        },
+        {
+          "code": 44,
+          "count": 104613
+        },
+        {
+          "code": 54,
+          "count": 4487354
+        },
+        {
+          "code": 58,
+          "count": 164031
+        },
+        {
+          "code": 63,
+          "count": 2
+        },
+        {
+          "code": 64,
+          "count": 2
+        },
+        {
+          "code": 65,
+          "count": 14908410
+        },
+        {
+          "code": 69,
+          "count": 1472284
+        },
+        {
+          "code": 70,
+          "count": 9405
+        },
+        {
+          "code": 71,
+          "count": 690618
+        },
+        {
+          "code": 72,
+          "count": 405361
+        },
+        {
+          "code": 74,
+          "count": 9618
+        },
+        {
+          "code": 76,
+          "count": 4149
+        },
+        {
+          "code": 78,
+          "count": 18748
+        },
+        {
+          "code": 92,
+          "count": 82
+        },
+        {
+          "code": 94,
+          "count": 201291
+        },
+        {
+          "code": 96,
+          "count": 331514
+        },
+        {
+          "code": 106,
+          "count": 14045896
+        },
+        {
+          "code": 107,
+          "count": 23885
+        },
+        {
+          "code": 108,
+          "count": 594651
+        },
+        {
+          "code": 109,
+          "count": 49241
+        },
+        {
+          "code": 111,
+          "count": 2391
+        },
+        {
+          "code": 113,
+          "count": 20162
+        },
+        {
+          "code": 114,
+          "count": 4033
+        },
+        {
+          "code": 115,
+          "count": 589
+        },
+        {
+          "code": 116,
+          "count": 6087
+        },
+        {
+          "code": 117,
+          "count": 1895
+        },
+        {
+          "code": 146,
+          "count": 24788
+        },
+        {
+          "code": 147,
+          "count": 24492
+        },
+        {
+          "code": 148,
+          "count": 55164
+        },
+        {
+          "code": 149,
+          "count": 9243
+        },
+        {
+          "code": 178,
+          "count": 17150
+        },
+        {
+          "code": 188,
+          "count": 130837
+        },
+        {
+          "code": 190,
+          "count": 1297286
+        },
+        {
+          "code": 252,
+          "count": 4134
+        }
+      ]
+    },
+    {
+      "stage": "steady_frame",
+      "entries": [
+        {
+          "code": 2,
+          "count": 40829
+        },
+        {
+          "code": 3,
+          "count": 368
+        },
+        {
+          "code": 11,
+          "count": 33843
+        },
+        {
+          "code": 12,
+          "count": 3212
+        },
+        {
+          "code": 13,
+          "count": 29199
+        },
+        {
+          "code": 15,
+          "count": 12854
+        },
+        {
+          "code": 16,
+          "count": 11713
+        },
+        {
+          "code": 17,
+          "count": 1164
+        },
+        {
+          "code": 32,
+          "count": 619176
+        },
+        {
+          "code": 33,
+          "count": 592931
+        },
+        {
+          "code": 35,
+          "count": 674058
+        },
+        {
+          "code": 36,
+          "count": 300151
+        },
+        {
+          "code": 40,
+          "count": 256103
+        },
+        {
+          "code": 44,
+          "count": 5730
+        },
+        {
+          "code": 54,
+          "count": 175202
+        },
+        {
+          "code": 65,
+          "count": 525517
+        },
+        {
+          "code": 69,
+          "count": 17738
+        },
+        {
+          "code": 70,
+          "count": 3925
+        },
+        {
+          "code": 71,
+          "count": 8180
+        },
+        {
+          "code": 72,
+          "count": 13336
+        },
+        {
+          "code": 74,
+          "count": 853
+        },
+        {
+          "code": 76,
+          "count": 1412
+        },
+        {
+          "code": 78,
+          "count": 6404
+        },
+        {
+          "code": 94,
+          "count": 659
+        },
+        {
+          "code": 96,
+          "count": 402
+        },
+        {
+          "code": 106,
+          "count": 478518
+        },
+        {
+          "code": 107,
+          "count": 2167
+        },
+        {
+          "code": 108,
+          "count": 11921
+        },
+        {
+          "code": 109,
+          "count": 1243
+        },
+        {
+          "code": 113,
+          "count": 5860
+        },
+        {
+          "code": 114,
+          "count": 2585
+        },
+        {
+          "code": 115,
+          "count": 414
+        },
+        {
+          "code": 116,
+          "count": 2584
+        },
+        {
+          "code": 117,
+          "count": 418
+        },
+        {
+          "code": 146,
+          "count": 1810
+        },
+        {
+          "code": 147,
+          "count": 916
+        },
+        {
+          "code": 148,
+          "count": 546
+        },
+        {
+          "code": 149,
+          "count": 690
+        },
+        {
+          "code": 178,
+          "count": 1304
+        },
+        {
+          "code": 188,
+          "count": 5266
+        },
+        {
+          "code": 190,
+          "count": 10078
+        },
+        {
+          "code": 252,
+          "count": 28
+        }
+      ]
+    }
+  ]
+}

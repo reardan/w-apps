@@ -237,3 +237,11 @@ uses explicit hooks and does not invoke getters or force layout. Mouse pointer
 input and capture use an ordered bounded native queue; native and programmatic
 focus synchronize activeElement, focus events and UTF-16 text selections. Full
 keyboard/beforeinput/composition delivery is still under implementation.
+
+Supported nullable `on*` handler properties now register in listener order.
+Replacing a callback keeps its slot; clearing and re-enabling moves it to a new
+slot. Inline attribute changes invalidate the compiled handler, and a returned
+false value cancels cancelable events. The implementation covers the names in
+`win/src/win/event_handlers.w`, including the onclick/oninput/onsubmit properties
+used by the pinned framework. Window ErrorEvent extra arguments, body-to-window
+handler aliases and inline form/name scope remain unsupported.

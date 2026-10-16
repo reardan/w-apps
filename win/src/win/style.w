@@ -12,6 +12,8 @@ const int WIN_CSS_PROPERTY_COUNT = 36
 struct win_style:
 	float32 size
 	float32 root_size
+	float32 viewport_width
+	float32 viewport_height
 	float32 line_height
 	float32 line_height_factor
 	int bold
@@ -22,9 +24,11 @@ struct win_style:
 	int align
 	float32 width
 	int width_percent
+	float32 width_offset
 	float32 height
 	float32 max_width
 	int max_width_percent
+	float32 max_width_offset
 	float32 margin_top
 	float32 margin_right
 	float32 margin_bottom
@@ -51,6 +55,7 @@ struct win_style:
 	# Basis: -1 auto, -2 content, otherwise length or percentage.
 	float32 flex_basis
 	int flex_basis_percent
+	float32 flex_basis_offset
 	int columns
 	int box_sizing
 	ui_color background
@@ -61,6 +66,8 @@ win_style win_default_style():
 	win_style s
 	s.size = 18
 	s.root_size = 18
+	s.viewport_width = 920.0
+	s.viewport_height = 600.0
 	s.line_height = 0
 	s.line_height_factor = 0.0
 	s.bold = 0
@@ -71,9 +78,11 @@ win_style win_default_style():
 	s.align = 0
 	s.width = -1
 	s.width_percent = 0
+	s.width_offset = 0.0
 	s.height = -1
 	s.max_width = -1
 	s.max_width_percent = 0
+	s.max_width_offset = 0.0
 	s.margin_top = 0
 	s.margin_right = 0
 	s.margin_bottom = 0
@@ -98,6 +107,7 @@ win_style win_default_style():
 	s.flex_shrink = 1.0
 	s.flex_basis = -1.0
 	s.flex_basis_percent = 0
+	s.flex_basis_offset = 0.0
 	s.columns = 1
 	s.box_sizing = 0
 	s.background = ui_color_new(0.0, 0.0, 0.0, 0.0)

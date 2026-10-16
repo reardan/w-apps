@@ -34,16 +34,20 @@ float32 win_box_horizontal_extras(win_style style):
 float32 win_box_vertical_extras(win_style style):
 	return style.padding_top + style.padding_bottom + style.border * 2.0
 
+float32 win_css_used_size(float32 value, int percent, float32 offset, float32 available):
+	if (percent): value = available * value / 100.0 + offset
+	if (value < 0.0): value = 0.0
+	if (value > 1000000.0): value = 1000000.0
+	return value
+
 float32 win_box_border_width(win_style style, float32 containing_width):
 	float32 extras = win_box_horizontal_extras(style)
 	float32 width = containing_width - style.margin_left - style.margin_right
-	if (style.width >= 0.0):
-		width = style.width
-		if (style.width_percent): width = containing_width * width / 100.0
+	if (style.width >= 0.0 || style.width_percent):
+		width = win_css_used_size(style.width, style.width_percent, style.width_offset, containing_width)
 		if (style.box_sizing == 0): width = width + extras
-	if (style.max_width >= 0.0):
-		float32 maximum = style.max_width
-		if (style.max_width_percent): maximum = containing_width * maximum / 100.0
+	if (style.max_width >= 0.0 || style.max_width_percent):
+		float32 maximum = win_css_used_size(style.max_width, style.max_width_percent, style.max_width_offset, containing_width)
 		if (style.box_sizing == 0): maximum = maximum + extras
 		if (width > maximum): width = maximum
 	if (width < extras): width = extras
@@ -95,8 +99,8 @@ float32 win_flex_main_margins(win_style style, int vertical):
 
 # Content-box flex bases deliberately ignore min/max constraints and the
 # zero floor (a small border-box basis can have a negative inner base).
-float32 win_flex_length(win_style style, float32 value, int percent, float32 available, int vertical):
-	if (percent): value = available * value / 100.0
+float32 win_flex_length(win_style style, float32 value, int percent, float32 available, int vertical, float32 offset):
+	value = win_css_used_size(value, percent, offset, available)
 	if (style.box_sizing): value = value - win_flex_main_extras(style, vertical)
 	return value
 
@@ -127,16 +131,18 @@ void win_flex_sizes(list[win_layout_item*] items, float32 available, float32 gap
 			extras_total = extras_total + win_flex_main_extras(style, vertical) + win_flex_main_margins(style, vertical)
 			float32 preferred_size = style.width
 			int preferred_percent = style.width_percent
+			float32 preferred_offset = style.width_offset
 			if (vertical):
 				preferred_size = style.height
 				preferred_percent = 0
-			if (preferred_size >= 0.0):
-				float32 preferred = win_flex_length(style, preferred_size, preferred_percent, available, vertical)
+				preferred_offset = 0.0
+			if (preferred_size >= 0.0 || preferred_percent):
+				float32 preferred = win_flex_length(style, preferred_size, preferred_percent, available, vertical, preferred_offset)
 				if (item.minimum > preferred): item.minimum = preferred
-				if (style.flex_basis == -1.0): item.base_size = preferred
-			if (style.flex_basis >= 0.0 && (style.flex_basis_percent == 0 || available >= 0.0)): item.base_size = win_flex_length(style, style.flex_basis, style.flex_basis_percent, available, vertical)
-			if (vertical == 0 && style.max_width >= 0.0):
-				item.maximum = win_flex_length(style, style.max_width, style.max_width_percent, available, vertical)
+				if (style.flex_basis == -1.0 && style.flex_basis_percent == 0): item.base_size = preferred
+			if ((style.flex_basis >= 0.0 || style.flex_basis_percent) && (style.flex_basis_percent == 0 || available >= 0.0)): item.base_size = win_flex_length(style, style.flex_basis, style.flex_basis_percent, available, vertical, style.flex_basis_offset)
+			if (vertical == 0 && (style.max_width >= 0.0 || style.max_width_percent)):
+				item.maximum = win_flex_length(style, style.max_width, style.max_width_percent, available, vertical, style.max_width_offset)
 				if (item.maximum < 0.0): item.maximum = 0.0
 				if (item.minimum > item.maximum): item.minimum = item.maximum
 		if (item.minimum < 0.0): item.minimum = 0.0

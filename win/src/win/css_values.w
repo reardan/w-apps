@@ -4,7 +4,7 @@ import lib.format
 import lib.fmath
 
 struct win_css_numeric:
-	# 0 invalid; 1 unitless number; 2 px; 3 em; 4 rem; 5 percentage; 6 fr.
+	# 0 invalid; 1 unitless number; 2 px; 3 em; 4 rem; 5 percentage; 6 fr; 7 vw; 8 vh; 9 vmin; 10 vmax.
 	int unit
 	float32 value
 
@@ -29,10 +29,14 @@ win_css_numeric win_css_number(css_token* token):
 		if (css_ascii_equal(unit, c"em")): result.unit = 3
 		if (css_ascii_equal(unit, c"rem")): result.unit = 4
 		if (css_ascii_equal(unit, c"fr")): result.unit = 6
+		if (css_ascii_equal(unit, c"vw")): result.unit = 7
+		if (css_ascii_equal(unit, c"vh")): result.unit = 8
+		if (css_ascii_equal(unit, c"vmin")): result.unit = 9
+		if (css_ascii_equal(unit, c"vmax")): result.unit = 10
 	return result
 
 int win_css_is_length(win_css_numeric number):
-	return number.unit >= 2 && number.unit <= 4 || number.unit == 1 && number.value == 0.0
+	return number.unit >= 2 && number.unit <= 4 || number.unit >= 7 && number.unit <= 10 || number.unit == 1 && number.value == 0.0
 
 float32 win_css_resolve_length(win_css_numeric number, float32 size, float32 root_size):
 	if (number.unit == 3): return number.value * cast(float32, size)
@@ -46,3 +50,5 @@ int win_css_wide(css_token* token):
 	if (css_ascii_equal(token.value, c"initial")): return 2
 	if (css_ascii_equal(token.value, c"unset")): return 3
 	return 0
+
+import win.css_math

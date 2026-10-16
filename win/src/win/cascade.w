@@ -116,6 +116,12 @@ int win_css_longhand_valid(int property, css_document* css, int first, int last)
 		if (single): return win_css_color_valid(token)
 		return win_css_function_color(css, first, last).a >= 0.0
 	if (property == 26): return win_css_grid_columns(css, first, last) > 0
+	if (win_css_calc(css, first, last)):
+		win_css_math math = win_css_math_parse(css, first, last)
+		if (math.kind == 1): return property == 2 || property == 27 || property == 29 || property == 30
+		if (math.kind == 4 || math.kind == 6): return property == 1 || property == 9 || property == 11 || property == 27 || property == 31
+		if (math.kind == 2): return property == 1 || property >= 9 && property <= 20 || property == 24 || property == 27 || property == 31
+		return 0
 	if (single == 0): return 0
 	win_css_numeric n = win_css_number(token)
 	int length = win_css_is_length(n)
@@ -161,33 +167,48 @@ int win_css_flex(css_document* css, int first, int last, win_cascade_key key, wi
 			win_css_store(winners, 31, css, first, last, key, 1)
 		return 1
 	int grow = -1
+	int grow_end = -1
 	int shrink = -1
+	int shrink_end = -1
 	int basis = -1
+	int basis_end = -1
 	int after_basis = 0
 	int pos = first
 	while (pos < last):
+		int end = win_css_component_end(css, pos, last)
 		css_token* value = css.tokens[pos]
 		if (win_css_wide(value)): return 0
 		win_css_numeric n = win_css_number(value)
+		if (win_css_calc(css, pos, end)):
+			win_css_math math = win_css_math_parse(css, pos, end)
+			if (math.kind == 1):
+				n.unit = 1
+				n.value = math.terms[1]
+				if (n.value < 0.0): n.value = 0.0
 		if (n.unit == 1 && (grow < 0 || shrink < 0)):
 			if (n.value < 0.0 || after_basis): return 0
-			if (grow < 0): grow = pos
-			else: shrink = pos
+			if (grow < 0):
+				grow = pos
+				grow_end = end
+			else:
+				shrink = pos
+				shrink_end = end
 		else:
-			if (basis >= 0 || win_css_longhand_valid(31, css, pos, pos + 1) == 0): return 0
+			if (basis >= 0 || win_css_longhand_valid(31, css, pos, end) == 0): return 0
 			basis = pos
+			basis_end = end
 			if (grow >= 0): after_basis = 1
-		pos = css_skip(css, pos + 1, last)
+		pos = css_skip(css, end, last)
 	if (winners != 0):
 		int reset = 0
 		if (grow < 0): reset = 2
-		win_css_store(winners, 29, css, grow, grow + 1, key, reset)
+		win_css_store(winners, 29, css, grow, grow_end, key, reset)
 		reset = 0
 		if (shrink < 0): reset = 2
-		win_css_store(winners, 30, css, shrink, shrink + 1, key, reset)
+		win_css_store(winners, 30, css, shrink, shrink_end, key, reset)
 		reset = 0
 		if (basis < 0): reset = 3
-		win_css_store(winners, 31, css, basis, basis + 1, key, reset)
+		win_css_store(winners, 31, css, basis, basis_end, key, reset)
 	return 1
 
 import win.css_custom
@@ -221,21 +242,29 @@ int win_css_collect(css_document* css, css_node* d, win_cascade_key key, win_css
 	if (css_ascii_equal(d.name, c"padding")): base = 16
 	if (base >= 0):
 		int[4] values
+		int[4] ends
 		int count = 0
 		int pos = first
 		while (pos < last && count < 4):
 			values[count] = pos
+			ends[count] = win_css_component_end(css, pos, last)
+			pos = css_skip(css, ends[count], last)
 			count = count + 1
-			pos = css_skip(css, pos + 1, last)
 		if (pos < last): return 0
-		if (count == 1): values[1] = values[0]
-		if (count < 3): values[2] = values[0]
-		if (count < 4): values[3] = values[1]
+		if (count == 1):
+			values[1] = values[0]
+			ends[1] = ends[0]
+		if (count < 3):
+			values[2] = values[0]
+			ends[2] = ends[0]
+		if (count < 4):
+			values[3] = values[1]
+			ends[3] = ends[1]
 		for k in range(4):
 			if (count > 1 && win_css_wide(css.tokens[values[k]])): return 0
-			if (win_css_longhand_valid(base + k, css, values[k], values[k] + 1) == 0): return 0
+			if (win_css_longhand_valid(base + k, css, values[k], ends[k]) == 0): return 0
 		if (winners != 0):
-			for k in range(4): win_css_store(winners, base + k, css, values[k], values[k] + 1, key, 0)
+			for k in range(4): win_css_store(winners, base + k, css, values[k], ends[k], key, 0)
 		return 1
 	if (css_ascii_equal(d.name, c"border") == 0): return 0
 	if (css_skip(css, first + 1, last) == last && win_css_wide(css.tokens[first])):
@@ -313,10 +342,12 @@ void win_css_copy(win_style* s, win_style from, int property):
 	if (property == 9):
 		s.width = from.width
 		s.width_percent = from.width_percent
+		s.width_offset = from.width_offset
 	if (property == 10): s.height = from.height
 	if (property == 11):
 		s.max_width = from.max_width
 		s.max_width_percent = from.max_width_percent
+		s.max_width_offset = from.max_width_offset
 	if (property == 12): s.margin_top = from.margin_top
 	if (property == 13):
 		s.margin_right = from.margin_right
@@ -351,6 +382,7 @@ void win_css_copy(win_style* s, win_style from, int property):
 	if (property == 31):
 		s.flex_basis = from.flex_basis
 		s.flex_basis_percent = from.flex_basis_percent
+		s.flex_basis_offset = from.flex_basis_offset
 
 void win_css_compute_value(win_css_specified* slot, int property, win_style* s, win_style inherited):
 	if (slot.present == 0): return
@@ -362,6 +394,7 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 		if (property == 31):
 			s.flex_basis = value
 			s.flex_basis_percent = 0
+			s.flex_basis_offset = 0.0
 		return
 	if (slot.wide || slot.reset):
 		win_style from = win_default_style()
@@ -378,6 +411,23 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 	float32 size = s.size
 	if (property == 1): size = inherited.size
 	float32 n = win_css_resolve_length(number, size, s.root_size)
+	float32 offset = 0.0
+	int calculated = win_css_calc(css, slot.first, slot.last)
+	if (calculated || number.unit >= 7):
+		win_css_math math = win_css_math_parse(css, slot.first, slot.last)
+		if (math.kind == 1):
+			number.unit = 1
+			n = math.terms[1]
+		else:
+			number.unit = 2
+			n = win_css_math_pixels(math, size, s.root_size, s.viewport_width, s.viewport_height)
+			if (math.kind == 4 || math.kind == 6):
+				number.unit = 5
+				offset = n
+				n = math.terms[5]
+		# Calc range restrictions clamp at computed/used time, after math.
+		if (n < 0.0 && (property < 12 || property > 15) && number.unit != 5): n = 0.0
+		number.value = n
 	# Keep finite used lengths bounded without float-to-int overflow.
 	if (n > 1000000.0): n = 1000000.0
 	if (n < -1000000.0): n = -1000000.0
@@ -393,8 +443,9 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 			s.border_color = color
 			s.border_current_color = win_css_ident(token, c"currentcolor")
 	else if (property == 1):
-		if (number.unit == 5): n = number.value * cast(float32, inherited.size) / 100.0
+		if (number.unit == 5): n = win_css_bound_length(cast(float64, number.value) * cast(float64, inherited.size) / 100.0 + cast(float64, offset))
 		if (n > 1000000.0): n = 1000000.0
+		if (n < 0.0): n = 0.0
 		s.size = n
 	else if (property == 2):
 		s.bold = win_css_ident(token, c"bold") || win_css_ident(token, c"bolder") || number.unit == 1 && number.value >= 600.0
@@ -418,6 +469,7 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 	else if (property == 9):
 		s.width = n
 		s.width_percent = number.unit == 5
+		s.width_offset = offset
 		if (win_css_ident(token, c"auto")): s.width = -1.0
 	else if (property == 10):
 		s.height = n
@@ -425,6 +477,7 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 	else if (property == 11):
 		s.max_width = n
 		s.max_width_percent = number.unit == 5
+		s.max_width_offset = offset
 		if (win_css_ident(token, c"none")): s.max_width = -1.0
 	else if (property >= 12 && property <= 15):
 		if (win_css_ident(token, c"auto")):
@@ -466,7 +519,8 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 		if (number.unit == 1):
 			s.line_height_factor = number.value
 			s.line_height = 0.0
-		if (number.unit == 5): s.line_height = number.value * cast(float32, s.size) / 100.0
+		if (number.unit == 5): s.line_height = win_css_bound_length(cast(float64, number.value) * cast(float64, s.size) / 100.0 + cast(float64, offset))
+		if (s.line_height < 0.0): s.line_height = 0.0
 	else if (property == 28): s.border_style = win_css_ident(token, c"solid")
 	else if (property == 32):
 		s.justify = 0
@@ -480,6 +534,7 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 	else if (property == 31):
 		s.flex_basis = n
 		s.flex_basis_percent = number.unit == 5
+		s.flex_basis_offset = offset
 		if (win_css_ident(token, c"auto")): s.flex_basis = -1.0
 		if (win_css_ident(token, c"content")): s.flex_basis = -2.0
 
@@ -524,7 +579,7 @@ int win_css_media(css_document* css, css_node* rule, int width):
 		int val = css_skip(css, colon + 1, close)
 		if (val >= close || css_delim(css.tokens[colon], ':') == 0 || css_skip(css, val + 1, close) != close): return 0
 		win_css_numeric number = win_css_number(css.tokens[val])
-		if (win_css_is_length(number) == 0 || number.value < 0.0): return 0
+		if (win_css_is_length(number) == 0 || number.unit >= 7 || number.value < 0.0): return 0
 		float32 n = win_css_resolve_length(number, 18, 18)
 		if (win_css_ident(css.tokens[key], c"min-width")):
 			if (cast(float32, width) < n): matched = 0

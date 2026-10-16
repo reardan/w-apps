@@ -59,6 +59,8 @@ struct win_page:
 	list[win_anchor*] anchors
 	char* title
 	int width
+	int viewport_width
+	int viewport_height
 	float32 height
 	float32 x
 	float32 y
@@ -216,6 +218,8 @@ list[win_css_custom*] win_node_custom(win_page* page, html_node* node):
 	return values
 
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
+	style.viewport_width = cast(float32, page.viewport_width)
+	style.viewport_height = cast(float32, page.viewport_height)
 	win_css_specified[36] winners
 	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	int order = 0
@@ -268,6 +272,8 @@ win_page* win_page_parse(char* source, int length):
 	page.anchors = new list[win_anchor*]
 	page.title = strclone(c"Untitled document")
 	page.width = 0
+	page.viewport_width = 920
+	page.viewport_height = 600
 	page.height = 0.0
 	# The parser's allocation list also includes metadata hidden from layout.
 	html_node* node = html.allocations
@@ -512,9 +518,8 @@ win_replaced_size win_replaced_dimensions(win_page* page, html_node* node, win_s
 	else:
 		if (win_tag(node, c"button") || css_ascii_equal(win_attr(node, c"type"), c"submit")): size.width = 100.0
 		if (win_tag(node, c"textarea")): size.height = 80.0
-	if (style.width >= 0.0 && (style.width_percent == 0 || containing_width >= 0.0)):
-		size.width = style.width
-		if (style.width_percent): size.width = containing_width * size.width / 100.0
+	if ((style.width >= 0.0 || style.width_percent) && (style.width_percent == 0 || containing_width >= 0.0)):
+		size.width = win_css_used_size(style.width, style.width_percent, style.width_offset, containing_width)
 		if (style.box_sizing): size.width = size.width - win_box_horizontal_extras(style)
 		explicit_width = 1
 	if (style.height >= 0.0):
@@ -527,9 +532,8 @@ win_replaced_size win_replaced_dimensions(win_page* page, html_node* node, win_s
 	if ((image_node || canvas_node) && ratio_width > 0.0 && ratio_height > 0.0):
 		if (explicit_width && explicit_height == 0): size.height = size.width * ratio_height / ratio_width
 		if (explicit_height && explicit_width == 0): size.width = size.height * ratio_width / ratio_height
-	if (used_width < 0.0 && style.max_width >= 0.0 && (style.max_width_percent == 0 || containing_width >= 0.0)):
-		float32 maximum = style.max_width
-		if (style.max_width_percent): maximum = containing_width * maximum / 100.0
+	if (used_width < 0.0 && (style.max_width >= 0.0 || style.max_width_percent) && (style.max_width_percent == 0 || containing_width >= 0.0)):
+		float32 maximum = win_css_used_size(style.max_width, style.max_width_percent, style.max_width_offset, containing_width)
 		if (style.box_sizing): maximum = maximum - win_box_horizontal_extras(style)
 		if (maximum < 0.0): maximum = 0.0
 		if (size.width > maximum):
@@ -650,7 +654,7 @@ float32 win_column_width(win_layout_item* item, win_style container, float32 ava
 	float32 width = available
 	if (item.anonymous == 0):
 		width = win_box_border_width(used, available) - win_box_horizontal_extras(used)
-		if (used.width < 0.0 && (alignment != 0 || used.margin_left_auto || used.margin_right_auto)):
+		if (used.width < 0.0 && used.width_percent == 0 && (alignment != 0 || used.margin_left_auto || used.margin_right_auto)):
 			if (width > item.intrinsic.max_content): width = item.intrinsic.max_content
 	else if (alignment != 0 && width > item.intrinsic.max_content): width = item.intrinsic.max_content
 	return width
@@ -667,6 +671,8 @@ float32 win_column_content_height(win_page* page, win_layout_item* item, float32
 	probe.stylesheets = page.stylesheets
 	probe.height_measures = page.height_measures
 	probe.width = page.width
+	probe.viewport_width = page.viewport_width
+	probe.viewport_height = page.viewport_height
 	probe.runs = new list[win_run*]
 	probe.boxes = new list[win_box*]
 	probe.anchors = new list[win_anchor*]
@@ -987,11 +993,20 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 	page.align = align
 	if (block): page.x = left
 
+void win_page_set_viewport(win_page* page, int width, int height):
+	if (page == 0): return
+	if (width < 0): width = 0
+	if (height < 0): height = 0
+	if (page.viewport_width != width || page.viewport_height != height): page.width = 0
+	page.viewport_width = width
+	page.viewport_height = height
+
 void win_page_layout(win_page* page, int width):
 	if (width < 160): width = 160
 	win_runs_clear(page)
 	win_height_measures_clear(page)
 	page.width = width
+	page.viewport_width = width
 	page.left = 28.0
 	page.right = cast(float32, width) - 28.0
 	page.x = page.left

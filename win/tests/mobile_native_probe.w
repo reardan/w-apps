@@ -3,9 +3,24 @@
 import lib.args
 import lib.assert
 import lib.stream
+import lib.file
+import lib.time
+import structures.json
 import win.app
 
 extern int XResizeWindow(int display, int window, int width, int height)
+
+# Optional exploratory timing captures submission-side work only. Swap return
+# is not a presentation timestamp; this does not qualify latency/vsync budgets.
+json_value* mobile_timing = 0
+json_value* mobile_samples = 0
+int mobile_navigation_started = 0
+
+int mobile_timing_now():
+	if (mobile_timing == 0): return 0
+	timespec value
+	assert_equal(0, sys_clock_gettime(clock_monotonic, cast(int, &value)))
+	return value.seconds * 1000000 + value.nanoseconds / 1000
 
 struct mobile_driver:
 	win_browser browser
@@ -17,7 +32,9 @@ struct mobile_driver:
 	int height
 
 void mobile_frame(mobile_driver* driver):
+	int start = mobile_timing_now()
 	win_browser_poll(&driver.browser)
+	int polled = mobile_timing_now()
 	ui_begin(&driver.ui, driver.width, driver.height)
 	win_browser_frame(&driver.browser, &driver.ui, driver.width, driver.height)
 	ui_end(&driver.ui)
@@ -25,7 +42,19 @@ void mobile_frame(mobile_driver* driver):
 		if (driver.browser.script.failures): println(driver.browser.script.error)
 		assert_equal(0, driver.browser.script.failures)
 	assert_equal(0, driver.browser.resource_failures)
+	int rendered = mobile_timing_now()
 	gfx_window_swap(driver.window)
+	int swapped = mobile_timing_now()
+	if (mobile_timing != 0):
+		json_value* sample = json_object()
+		json_object_set(sample, c"poll_us", json_int(polled - start))
+		json_object_set(sample, c"render_and_checks_us", json_int(rendered - polled))
+		json_object_set(sample, c"swap_call_us", json_int(swapped - rendered))
+		json_object_set(sample, c"frame_work_us", json_int(swapped - start))
+		json_object_set(sample, c"swap_return_since_navigation_us", json_int(swapped - mobile_navigation_started))
+		json_object_set(sample, c"viewport_width", json_int(driver.browser.viewport_width))
+		json_object_set(sample, c"viewport_height", json_int(driver.browser.viewport_height))
+		json_array_push(mobile_samples, sample)
 
 void mobile_event(mobile_driver* driver, int kind, int code, int x, int y):
 	gfx_event event
@@ -138,6 +167,14 @@ int main(int argc, int argv):
 	char* executable = args_value(c"browser")
 	char* address = args_value(c"page")
 	if (executable == 0 || address == 0): return 2
+	char* timing_path = args_value(c"timing-report")
+	if (timing_path != 0):
+		mobile_timing = json_object()
+		mobile_samples = json_array()
+		json_object_set(mobile_timing, c"scope", json_string(c"M2 native acceptance; monotonic microseconds; swap return is not presentation; uncapped workload, not frame pacing"))
+		json_object_set(mobile_timing, c"qualification", json_bool(0))
+		json_object_set(mobile_timing, c"execution_budget", json_int(200000000))
+		json_object_set(mobile_timing, c"samples", mobile_samples)
 	mobile_driver driver
 	driver.width = 414
 	driver.height = 902
@@ -150,6 +187,7 @@ int main(int argc, int argv):
 	win_browser_init(&driver.browser, executable, address)
 	driver.browser.execution_budget = 200000000
 	win_browser_set_viewport(&driver.browser, 390, 720)
+	mobile_navigation_started = mobile_timing_now()
 	win_navigate(&driver.browser, address, c"", -1)
 	int started = time_monotonic_ms()
 	while ((mobile_canvas(&driver) == 0 || mobile_machine(&driver) == 0) && time_monotonic_ms() - started < 120000):
@@ -163,6 +201,7 @@ int main(int argc, int argv):
 	for i in range(driver.browser.page.runs.length):
 		if (driver.browser.page.runs[i].node == binding.node): run = driver.browser.page.runs[i]
 	asserts(c"canvas rendered in document geometry", run != 0)
+	if (mobile_timing != 0): json_object_set(mobile_timing, c"navigation_to_canvas_geometry_checked_us", json_int(mobile_timing_now() - mobile_navigation_started))
 	int x = 12 + cast(int, run.x) + 30
 	int y = 138 + cast(int, run.y - driver.browser.scroll.offset_y) + 150
 	mobile_event(&driver, GFX_EVENT_MOUSE_DOWN, 1, x, y)
@@ -224,10 +263,17 @@ int main(int argc, int argv):
 	for i in range(30): mobile_frame(&driver)
 	asserts(c"text survives resize and continued rendering", mobile_memory_contains(machine, c"Nativeé"))
 	assert_equal(0, driver.browser.script.failures)
+	int teardown_started = mobile_timing_now()
 	win_browser_free(&driver.browser)
 	win_network_state_clear()
 	win_script_graphics_available = 0
 	ui_render_destroy(&driver.renderer)
 	gfx_window_destroy(driver.window)
+	if (mobile_timing != 0):
+		json_object_set(mobile_timing, c"teardown_us", json_int(mobile_timing_now() - teardown_started))
+		char* data = json_stringify(mobile_timing)
+		asserts(c"write raw exploratory timing", file_write_text(timing_path, data))
+		free(data)
+		json_free(mobile_timing)
 	println(c"Unchanged M2 native input: pointer focus, Unicode rendered field, sink reset, Backspace, resize, scrolling, sustained frames: OK")
 	return 0

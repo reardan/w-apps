@@ -472,6 +472,15 @@ js_value* win_dom_collection_named_item(void* runtime, void* context, js_value* 
 	if (rt.completion.status != 0): return rt.undefined_value
 	return win_script_wrap(cast(win_script*, collection.binding.context), node)
 
+int win_dom_collection_method(js_runtime* rt, win_dom_collection* collection, char* name, js_host_receiver_function* callback):
+	js_value* method = js_runtime_host_callable(rt, collection, callback)
+	if (rt.completion.status != 0): return 0
+	js_text* key = js_runtime_key(name)
+	# Define own properties without invoking attacker-controlled prototype setters.
+	int ok = js_runtime_define_data(rt, collection.object, key, method, 1, 0, 1)
+	js_text_free(key)
+	return ok
+
 js_value* win_dom_get_elements_by_tag(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	win_dom_binding* binding = cast(win_dom_binding*, context)
 	win_script* script = cast(win_script*, binding.context)
@@ -505,15 +514,25 @@ js_value* win_dom_get_elements_by_tag(void* runtime, void* context, js_value* re
 	win_dom_collection* collection = new win_dom_collection()
 	collection.binding = binding
 	collection.tag = tag
+	collection.object = js_runtime_alloc(rt, 5)
+	int complete = rt.completion.status == 0
+	if (complete): complete = win_dom_collection_method(rt, collection, c"item", win_dom_collection_item)
+	if (complete): complete = win_dom_collection_method(rt, collection, c"namedItem", win_dom_collection_named_item)
+	if (complete): complete = js_runtime_set_host_hooks(rt, collection.object, collection, win_dom_collection_get, win_dom_collection_set)
+	if (complete): complete = js_runtime_set_host_has(rt, collection.object, win_dom_collection_has)
+	if (complete): complete = js_runtime_root(rt, collection.object)
+	if (complete == 0 || rt.completion.status != 0):
+		# No getter/setter/callback ran and nothing exposed the partial object.
+		# Its unrooted JS values are reclaimed at the next normal collection.
+		if (complete): js_runtime_unroot(rt, collection.object)
+		free(collection.tag)
+		free(collection)
+		js_runtime_fail(rt, 5, c"HTMLCollection construction failed")
+		return rt.undefined_value
+	# Publish the stable cache only after every fallible construction step.
 	collection.next = cast(win_dom_collection*, binding.collections)
 	binding.collections = collection
 	script.dom_bytes = script.dom_bytes + size
-	collection.object = js_runtime_alloc(rt, 5)
-	js_runtime_root(rt, collection.object)
-	js_runtime_set(rt, collection.object, c"item", js_runtime_host_callable(rt, collection, win_dom_collection_item))
-	js_runtime_set(rt, collection.object, c"namedItem", js_runtime_host_callable(rt, collection, win_dom_collection_named_item))
-	js_runtime_set_host_hooks(rt, collection.object, collection, win_dom_collection_get, win_dom_collection_set)
-	js_runtime_set_host_has(rt, collection.object, win_dom_collection_has)
 	return collection.object
 
 void win_dom_tree_install(win_dom_binding* b):

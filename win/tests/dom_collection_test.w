@@ -6,6 +6,36 @@ void collection_eval(win_script* script, char* source):
 	if (ok == 0): println(script.error)
 	asserts(c"live getElementsByTagName semantics", ok)
 
+void collection_quota_retry(win_script* script, win_dom_binding* binding, char* name, int allowance):
+	js_runtime* rt = script.runtime
+	list[js_value*] args = new list[js_value*]
+	args.push(win_js_string(rt, name))
+	int values = rt.max_values
+	int properties = rt.max_properties
+	int roots = rt.roots.length
+	int bytes = script.dom_bytes
+	void* previous = binding.collections
+	if (allowance >= 0): rt.max_values = rt.heap.length + allowance
+	else: rt.max_properties = 1
+	rt.remaining = 100000
+	win_dom_get_elements_by_tag(rt, binding, binding.object, args)
+	assert_equal(5, rt.completion.status)
+	asserts(c"failed collection never published", binding.collections == previous)
+	assert_equal(bytes, script.dom_bytes)
+	assert_equal(roots, rt.roots.length)
+	rt.max_values = values
+	rt.max_properties = properties
+	rt.completion.status = 0
+	rt.completion.value = rt.undefined_value
+	rt.remaining = 100000
+	js_value* retry = win_dom_get_elements_by_tag(rt, binding, binding.object, args)
+	assert_equal(0, rt.completion.status)
+	assert_equal(5, retry.kind)
+	asserts(c"successful retry publishes owner", binding.collections != previous)
+	asserts(c"successful retry cached", retry == win_dom_get_elements_by_tag(rt, binding, binding.object, args))
+	assert_equal(roots + 1, rt.roots.length)
+	__w_list_free(cast(__w_list*, args))
+
 int main(int argc, char** argv):
 	int guarded = argc == 2 && strcmp(argv[1], c"memory") == 0
 	if (guarded):
@@ -37,6 +67,11 @@ int main(int argc, char** argv):
 	win_dom_collection_scan(collection, -1, 0, &count)
 	assert_equal(5, script.runtime.completion.status)
 	collection_eval(script, c"if(spans.length!==4||spans[0]!==outside||spans.namedItem('renamed')!==a)throw 'read budget recovery';")
+	collection_quota_retry(script, binding, c"quota-first", 0)
+	collection_quota_retry(script, binding, c"quota-method", 1)
+	collection_quota_retry(script, binding, c"quota-second-method", 2)
+	collection_quota_retry(script, binding, c"quota-property", -1)
+	collection_eval(script, c"if(root.getElementsByTagName('quota-first').length!==0||spans.length!==4)throw 'quota cache recovery';")
 	win_script_free(script)
 	win_page_free(page)
 	println(c"Win live HTML collections, named lookup, ownership and traversal bounds: OK")

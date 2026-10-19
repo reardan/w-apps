@@ -4,9 +4,42 @@ Implementation started 2026-10-15 from application
 `75d4b4e4c7e081810e2dfc9e0d34b4051596e2ed` after pulling `origin/main`.
 The original W gitlink is `d8aa1039087c5c940908531a9f4a58bbebfaf00a`.
 The initial work used `codex/win-modern-browser-implementation`, with dependency
-commits on W's `codex/modern-browser-integration`. These are local branches;
-publication/merge has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
+commits on W's `codex/modern-browser-integration`. Those branches are preserved;
+the local main merge is recorded below. Remote publication has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
+
+## Merge to main (2026-10-19)
+
+Both repositories are now on local `main`. The app was fast-forwarded through
+`d66f71d`, then updated to the merged W dependency in application implementation
+`37765b5b77a46e34d4112f4a876b21f3849e3729`. W merge
+`79b5378f553db17303efdecc1506156891757260` combines fetched upstream main
+`8382c5f2` with browser feature head `b4b18edc`. Runtime/module documentation and
+conflicts were reconciled while preserving upstream compiler/UI work and the
+validated browser semantics. No remote push was performed.
+
+The newer upstream compiler and UI were rebuilt and tested with Node 20.19.3:
+
+| Gate | Merged-revision result |
+| --- | --- |
+| W full suite | 1,606 targets passed |
+| Full Win suite | Passed, including native/isolated mobile, sandboxed HTTP, Preact/storage and exact rendering checks |
+| Test262 | 110 PASS / 35 explicit UNSUPPORTED / zero FAIL or ERROR |
+| Native WPT | 20 PASS / zero FAIL, UNSUPPORTED or ERROR |
+
+Win and standards ran in a separate clean checkout of the exact application/W
+commits while the W suite ran in the primary checkout; the primary browser
+binary was rebuilt afterward. The mobile wasm was regenerated from upstream's
+updated UI and host sources (SHA-256
+`a2d52af44dc39e3f9c3d0538ee69561a9d4d8b91a6bbe90b43ce62c4f6462c1d`).
+The earlier benchmark below remains evidence for its recorded source revisions,
+not a new performance measurement of this merge.
+
+Logs and copied acceptance reports are under `win/bin/merge-main/`:
+`final-w.log`, `final-win.log`, `final-standards.log`, `final-build.log`,
+`validation.json`, `broker-acceptance.json`, `mobile-native.json`,
+`test262-report.json`, and `wpt-report.json`. Subsequent changes only record
+validation; the implementation revisions above identify the tested sources.
 
 ## Browser gap expansion (2026-10-19)
 

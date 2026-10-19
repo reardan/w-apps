@@ -29,6 +29,7 @@ if [[ "$action" == test || "$action" == standards || "$action" == wpt-async ]]; 
   "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/wpt_driver.w"
   "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/wpt_driver.w" -o "$win_root/bin/wpt_driver"
   python3 "$win_root/tests/wpt_testharness_test.py"
+  python3 "$win_root/tests/wpt_family_audit_test.py"
 fi
 # Strict experimental upstream gate: original harness failures stay nonzero.
 # The existing selected standards profile remains separately reproducible.

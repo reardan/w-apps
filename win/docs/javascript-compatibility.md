@@ -54,8 +54,8 @@ budget. Ordinary headless dumps do not run frames; isolated interactive ticks ca
 `setTimeout`, `setInterval`, `clearTimeout`, and `clearInterval` are available on
 the global scope and Window. Callbacks must be functions; source-string timers
 are rejected. Delays and cancellation IDs use observable numeric conversion and
-signed 32-bit Web IDL conversion; negative delays become zero (intervals retain
-a 1 ms minimum). Timers preserve the supplied extra callback arguments within
+signed 32-bit Web IDL conversion; negative delays become zero. Zero-delay intervals retain registration ordering
+with timeouts and fire at most once per host poll. Timers preserve the supplied extra callback arguments within
 runtime argument limits and invoke ordinary callbacks with Window as `this`. There
 are at most 256 active timers. Timer IDs are unique within a realm, and either
 clear function can cancel either timer kind. Registration samples the current

@@ -45,6 +45,7 @@ struct win_script_timer:
 	int id
 	int due
 	int interval
+	int repeating
 	js_value* holder
 	js_value* callback
 	list[js_value*] args
@@ -1224,12 +1225,13 @@ js_value* win_script_timer_host(void* context, list[js_value*] args):
 	if (script.timers.length >= 256 || script.timer_id >= 2147483647):
 		js_runtime_fail(rt, 5, c"Timer registration limit")
 		return rt.undefined_value
-	if (operation == 1 && delay < 1): delay = 1
 	if (script.clock_injected == 0): script.now_ms = time_monotonic_ms()
 	win_script_timer* timer = new win_script_timer()
 	timer.id = script.timer_id + 1
 	timer.due = script.now_ms + delay
-	if (operation == 1): timer.interval = delay
+	if (operation == 1):
+		timer.interval = delay
+		timer.repeating = 1
 	timer.callback = args[1]
 	timer.args = new list[js_value*]
 	timer.holder = js_runtime_alloc(rt, 5)
@@ -1368,21 +1370,29 @@ int win_script_poll_at(win_script* script, int now_ms):
 	int count = 0
 	int budget = script.execution_budget
 	int last_id = script.timer_id
+	int[64] fired_ids
 	while (count < 64 && budget > 0):
 		win_script_timer* next = 0
 		for i in range(script.timers.length):
 			win_script_timer* timer = script.timers[i]
 			if (timer.id == 0 || timer.id > last_id || timer.due > script.now_ms): continue
+			int fired = 0
+			for j in range(count):
+				if (fired_ids[j] == timer.id): fired = 1
+			if (fired): continue
 			if (next == 0): next = timer
 			else if (timer.due < next.due || (timer.due == next.due && timer.id < next.id)): next = timer
 		if (next == 0): break
+		# A repeating zero-delay timer remains eligible on the next host poll,
+		# but never consumes this poll repeatedly or overtakes equal-deadline tasks.
+		fired_ids[count] = next.id
 		# Remove before invocation: callbacks can cancel or register timers safely.
 		for i in range(script.timers.length):
 			if (script.timers[i] == next):
 				script.timers[i] = script.timers[script.timers.length - 1]
 				script.timers.pop()
 				break
-		if (next.interval > 0):
+		if (next.repeating):
 			next.due = script.now_ms + next.interval
 			script.timers.push(next)
 		script.executing_timer = next
@@ -1391,7 +1401,7 @@ int win_script_poll_at(win_script* script, int now_ms):
 		win_script_result(script, result)
 		if (result.status == 5): budget = 0
 		script.executing_timer = 0
-		if (next.interval == 0): win_script_timer_free(script, next)
+		if (next.repeating == 0): win_script_timer_free(script, next)
 		if (budget > 0):
 			result = js_runtime_drain_microtasks(script.runtime, budget)
 			budget = script.runtime.remaining

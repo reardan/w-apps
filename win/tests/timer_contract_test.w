@@ -64,6 +64,15 @@ int main():
 	timer_quota(script, -1)
 	timer_eval(script, c"let setters=0;Object.defineProperty(Object.prototype,'callback',{set:function(){setters++;},configurable:true});const safe=setTimeout(callback,0);clearTimeout(safe);delete Object.prototype.callback;if(setters!==0)throw 'private setter';")
 	assert_equal(0, script.failures)
+	win_script_set_clock(script, 2000)
+	timer_eval(script, c"let zeroOrder='';const intervalFirst=setInterval(function(){zeroOrder+='i';},0);setTimeout(function(){zeroOrder+='t';},0);")
+	assert_equal(2, win_script_poll_at(script, 2000))
+	timer_eval(script, c"if(zeroOrder!=='it')throw 'interval order';")
+	assert_equal(1, win_script_poll_at(script, 2000))
+	timer_eval(script, c"if(zeroOrder!=='iti')throw 'once per poll';clearTimeout(intervalFirst);zeroOrder='';setTimeout(function(){zeroOrder+='t';},0);const timeoutFirst=setInterval(function(){zeroOrder+='i';clearInterval(timeoutFirst);},0);")
+	assert_equal(2, win_script_poll_at(script, 2000))
+	timer_eval(script, c"if(zeroOrder!=='ti')throw 'timeout order';")
+	assert_equal(0, win_script_has_tasks(script))
 	int ids = script.timer_id
 	char* reentry = c"for(let i=0;i<255;i++){setTimeout(callback,0);}setTimeout(callback,{valueOf:function(){setTimeout(callback,0);return 0;}});"
 	assert_equal(0, win_script_eval(script, reentry, strlen(reentry)))

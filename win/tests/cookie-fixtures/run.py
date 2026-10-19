@@ -63,11 +63,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('binary', type=Path)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--gate', choices=('http', 'all'), default='http',
+                        help='http requires all 21 HTTP cases; all also requires all 12 DOM cases')
     args = parser.parse_args()
     report = run(args.binary.resolve())
+    http = [r for r in report['results'] if r['surface'] == 'HTTP']
+    dom = [r for r in report['results'] if r['surface'] == 'DOM']
+    shape = report['total'] == 33 and len(http) == 21 and len(dom) == 12
+    selected = http if args.gate == 'http' else report['results']
+    passed = shape and all(r['status'] == 'PASS' for r in selected)
+    report['gate'] = dict(name=args.gate, selected=len(selected), passed=passed)
     text = json.dumps(report, indent=2) + '\n'
     if args.output:
         args.output.write_text(text)
+        print(f"Cookie upstream data adapter: total={report['total']} counts={report['counts']} gate={args.gate} passed={passed}")
     else:
         print(text, end='')
-    raise SystemExit(bool(set(report['counts']) & {'FAIL', 'ERROR', 'TIMEOUT'}))
+    raise SystemExit(not passed)

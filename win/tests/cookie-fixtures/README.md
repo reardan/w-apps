@@ -17,14 +17,17 @@ JavaScript cookie bindings, and browser event scheduling are not exercised.
 Run from the app root after building `win/bin/cookie_dates_test`:
 
 ```
-python3 win/tests/cookie-fixtures/run.py win/bin/cookie_dates_test --output win/bin/cookie-upstream.json
+python3 win/tests/cookie-fixtures/run.py win/bin/cookie_dates_test --gate http --output win/bin/cookie-upstream.json
 ```
 
 The denominator is all 33 upstream registrations: 21 HTTP and 12 DOM cases.
 DOM cases remain `UNSUPPORTED` because `document.cookie` is not exposed.
 Timeouts and driver crashes/missing executables remain individual report
-entries, preserving the denominator. Exit status is nonzero for FAIL/ERROR/
-TIMEOUT. Historical initial date/age commit `bd9711d` reported 20 PASS, 1 FAIL,
+entries, preserving the denominator. The default `--gate http` requires exactly
+21 passing HTTP cases with the full 33-case inventory intact; HTTP FAIL/ERROR/
+TIMEOUT fails that gate. `--gate all` requires all 33 cases to pass, so it returns
+nonzero while the 12 DOM cases remain UNSUPPORTED. Both modes preserve all case
+statuses and record their gate selection/result in the JSON report. Historical initial date/age commit `bd9711d` reported 20 PASS, 1 FAIL,
 12 UNSUPPORTED; max-age case 9 required an empty-name cookie. The subsequent
 empty-name identity slice reports 21 PASS and 12 UNSUPPORTED without fixture or
 expectation changes. This closes the selected HTTP data cases only, not the full
@@ -54,7 +57,7 @@ Win accepts at most 32 original Set-Cookie fields across an entire redirect
 chain, including malformed or oversized fields in that count. Fields after
 that cap are discarded by the child; the parent also caps complete metadata
 records at 32. Each accepted field remains limited to 2048 bytes and the loader
-retains its existing total-output byte cap. This is a bounded foundation policy,
+bounds the complete worker envelope separately from the decoded body. This is a bounded foundation policy,
 not complete browser cookie capacity conformance. The native integration suite
 covers the upstream comma ambiguity, multiple separate fields, discarded expired
 cookies, HttpOnly retention, 33-field overflow, and cumulative redirect overflow.
@@ -66,3 +69,12 @@ cover replacement and deletion of the empty-name key, independent named cookies,
 empty-pair rejection, named empty values, Secure/HttpOnly retention, conservative
 prefix/domain checks, and native worker roundtrip. Complete cookie pair grammar
 and the previously listed policy/binding gaps remain open.
+
+The loader reserves `32 * (4096 + 2048 + 9) = 196896` bytes for COOKIE metadata,
+plus 1024 bytes for other metadata and the separately bounded final URL/envelope.
+The decoded body is independently limited to its resource-specific cap; metadata
+allowance cannot become extra payload capacity. Sender and receiver enforce
+per-field/address lengths and record count. Oversized, incomplete, or malformed
+metadata prevents cookie-jar mutation, including worker ERROR exits. Integration
+checks include a 1 MiB body with a long URL and 32 large cookie fields, the exact
+maximum valid COOKIE metadata envelope, and rejected over-cap/malformed cases.

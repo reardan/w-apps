@@ -22,6 +22,14 @@ class AsyncDriverContract(unittest.TestCase):
     def complete(self, payload=PAYLOAD):
         return '__wptComplete(' + json.dumps(json.dumps(payload)) + ');'
 
+    def execute_original(self, source, timeout=5):
+        with tempfile.TemporaryDirectory() as directory:
+            bridge = Path(directory) / 'bridge.js'
+            bridge.write_text(runner.BRIDGE)
+            path = Path(directory) / 'contract.js'
+            path.write_text(source)
+            return runner.execute(DRIVER, [runner.CORPUS / 'resources/testharness.js', bridge, path], timeout)
+
     def test_real_timer_and_promise_checkpoint(self):
         source = 'var order=0; Promise.resolve().then(function(){order=1;}); setTimeout(function(){if(order!==1) throw 1;' + self.complete() + '},20);'
         result = self.execute(source)
@@ -55,6 +63,44 @@ class AsyncDriverContract(unittest.TestCase):
     def test_throw_after_completion_is_error(self):
         self.assertEqual(self.execute(self.complete() + 'throw 1;')['status'], 'ERROR')
 
+    def test_reported_throw_after_completion_is_error(self):
+        result = self.execute(self.complete() + 'queueMicrotask(function(){throw 1;});')
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['script_failures'], 1)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertEqual(result['actual']['completion_script_failures'], 0)
+        self.assertIn('after completion', result['reason'])
+
+    def test_original_harness_assertion_failure_and_timeout(self):
+        result = self.execute_original('test(function(){assert_equals(1,2);},"deliberate original failure");')
+        self.assertEqual(result['status'], 'FAIL', result)
+        self.assertEqual(result['actual']['completion']['tests'][0]['status'], 1)
+        result = self.execute_original('async_test(function(){},"unfinished original test");', timeout=.5)
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertIn('timeout', result['reason'])
+
+    def test_original_allowed_microtask_exception_keeps_identity_and_continues(self):
+        result = self.execute_original('setup({allow_uncaught_exception:true});async_test(function(t){var thrown=new Error("expected");var observed=false;addEventListener("error",t.step_func(function(event){assert_equals(event.error,thrown);observed=true;}),{once:true});queueMicrotask(function(){throw thrown;});queueMicrotask(t.step_func_done(function(){assert_true(observed);}));},"reported microtask continues");')
+        self.assertEqual(result['status'], 'PASS', result)
+        self.assertEqual(result['actual']['script_failures'], 1)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertEqual(result['actual']['completion_script_failures'], 1)
+
+    def test_original_unexpected_microtask_exception_is_error(self):
+        result = self.execute_original('async_test(function(t){queueMicrotask(function(){throw new Error("unexpected");});queueMicrotask(function(){t.done();});},"unexpected error");')
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertNotEqual(result['actual']['completion']['status'], 0)
+
+    def test_error_listener_throw_and_terminal_budget_remain_errors(self):
+        result = self.execute('addEventListener("error",function(){throw 2;});queueMicrotask(function(){throw 1;});' + self.complete())
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['script_failures'], 2)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        result = self.execute('queueMicrotask(function(){while(true){}});' + self.complete(), timeout=5)
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertGreater(result['actual']['script_failures'], result['actual']['reported_exceptions'])
+
     def test_malformed_completion_is_error(self):
         for source in ['__wptComplete(1);', '__wptComplete("not json");', '__wptComplete("{}");', '__wptComplete("{}\\x00junk");']:
             self.assertEqual(self.execute(source)['status'], 'ERROR')
@@ -75,9 +121,12 @@ class AsyncDriverContract(unittest.TestCase):
         self.assertEqual(len(manifest['cases']), 3)
 
     def test_strict_protocol_rejection(self):
-        good = {'protocol': 1, 'completions': 1, 'script_failures': 0, 'failed_source': -1,
+        good = {'protocol': 2, 'completions': 1, 'script_failures': 0, 'reported_exceptions': 0,
+                'completion_script_failures': 0, 'failed_source': -1,
                 'elapsed_ms': 1, 'message': '', 'payload': json.dumps(PAYLOAD)}
-        for key, value in [('protocol', True), ('completions', True), ('elapsed_ms', -1), ('failed_source', -2)]:
+        for key, value in [('protocol', True), ('protocol', 1), ('completions', True), ('elapsed_ms', -1), ('failed_source', -2),
+                           ('reported_exceptions', True), ('reported_exceptions', -1), ('reported_exceptions', 1),
+                           ('completion_script_failures', True), ('completion_script_failures', -1), ('completion_script_failures', 1)]:
             report = dict(good, **{key: value})
             with self.assertRaises(ValueError):
                 runner.classify(report)

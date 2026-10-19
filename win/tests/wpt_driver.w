@@ -10,6 +10,8 @@ int wpt_completions = 0
 json_value* wpt_observed = 0
 int wpt_observed_bytes = 0
 int wpt_observed_count = 0
+win_script* wpt_script = 0
+int wpt_completion_failures = -1
 
 js_value* wpt_observe(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
@@ -31,6 +33,7 @@ js_value* wpt_observe(void* context, list[js_value*] args):
 js_value* wpt_complete(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
 	wpt_completions = wpt_completions + 1
+	if (wpt_completions == 1): wpt_completion_failures = wpt_script.failures
 	if (args.length != 1 || args[0].kind != 4):
 		js_runtime_fail(rt, 6, c"invalid WPT completion payload")
 		return rt.undefined_value
@@ -79,6 +82,7 @@ int main(int argc, int argv):
 	char* html = c"<!doctype html><html><head><title>WPT</title></head><body></body></html>"
 	win_page* page = win_page_parse(html, strlen(html))
 	win_script* script = win_script_new(page)
+	wpt_script = script
 	# The upstream harness is larger than the product per-source limit. This
 	# automation-only limit admits the original bytes; product limits stay fixed.
 	script.runtime.max_source_bytes = 1048576
@@ -102,17 +106,19 @@ int main(int argc, int argv):
 			break
 		free(source)
 	if (failed_source < 0): win_script_run_pending(script, 0)
-	while (failed_source < 0 && script.failures == 0 && wpt_completions == 0 && time_monotonic_ms() - start < timeout):
+	while (failed_source < 0 && script.failures == script.reported_exceptions && wpt_completions == 0 && time_monotonic_ms() - start < timeout):
 		win_script_poll(script)
 		sleep_ms(1)
 	# One final checkpoint observes duplicate completion and queued failures.
-	if (wpt_completions > 0 && script.failures == 0): win_script_poll(script)
+	if (wpt_completions > 0 && script.failures == script.reported_exceptions): win_script_poll(script)
 	json_value* report = json_object()
-	json_object_set(report, c"protocol", json_int(1))
+	json_object_set(report, c"protocol", json_int(2))
 	json_object_set(report, c"diagnostics", diagnostics)
 	json_object_set(report, c"observed_payloads", wpt_observed)
 	json_object_set(report, c"completions", json_int(wpt_completions))
 	json_object_set(report, c"script_failures", json_int(script.failures))
+	json_object_set(report, c"reported_exceptions", json_int(script.reported_exceptions))
+	json_object_set(report, c"completion_script_failures", json_int(wpt_completion_failures))
 	json_object_set(report, c"failed_source", json_int(failed_source))
 	json_object_set(report, c"message", json_string(script.error))
 	json_object_set(report, c"elapsed_ms", json_int(time_monotonic_ms() - start))

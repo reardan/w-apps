@@ -57,11 +57,16 @@ def evidence(driver):
 
 
 def classify(report):
-    require(isinstance(report, dict) and type(report.get('protocol')) is int and report['protocol'] == 1, 'invalid protocol')
-    for key in ('completions', 'script_failures', 'failed_source', 'elapsed_ms'):
+    require(isinstance(report, dict) and type(report.get('protocol')) is int and report['protocol'] == 2, 'invalid protocol')
+    for key in ('completions', 'script_failures', 'reported_exceptions', 'completion_script_failures', 'failed_source', 'elapsed_ms'):
         require(type(report.get(key)) is int, 'missing integer ' + key)
     require(report['completions'] >= 0 and report['script_failures'] >= 0 and report['elapsed_ms'] >= 0, 'negative count')
     require(report['failed_source'] >= -1 and isinstance(report.get('message'), str), 'invalid execution evidence')
+    require(0 <= report['reported_exceptions'] <= report['script_failures'], 'invalid reported exception count')
+    if report['completions']:
+        require(0 <= report['completion_script_failures'] <= report['script_failures'], 'invalid completion failure snapshot')
+    else:
+        require(report['completion_script_failures'] == -1, 'unexpected completion failure snapshot')
     observations = report.get('observed_payloads', [])
     require(isinstance(observations, list), 'invalid observed subtests')
     observed = []
@@ -73,8 +78,10 @@ def classify(report):
                 (item.get('message') is None or isinstance(item.get('message'), str)), 'invalid observed subtest')
         observed.append(item)
     report['observed_subtests'] = observed
-    if report['script_failures'] or report['failed_source'] >= 0:
+    if report['script_failures'] != report['reported_exceptions'] or report['failed_source'] >= 0:
         return 'ERROR', 'script execution failed'
+    if report['completions'] and report['script_failures'] > report['completion_script_failures']:
+        return 'ERROR', 'script exception after completion callback'
     if report['completions'] == 0:
         return 'ERROR', 'timeout before completion callback'
     require(report['completions'] == 1, 'completion callback must run exactly once')

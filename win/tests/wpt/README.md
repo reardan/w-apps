@@ -165,3 +165,22 @@ verify accounting, malformed environment admission and missing-driver behavior;
 their synthetic executor results are not upstream WPT passes. Full Window,
 HTML/resource loading, worker and multi-origin execution remain implementation
 requirements beyond this script-host seam.
+
+## Reported exceptions and completion integrity
+
+Native driver protocol 2 retains raw `script_failures`, separately counts
+`reported_exceptions` dispatched through Window error events, and snapshots the
+raw count at the first completion callback. Only the original harness decides
+whether an expected uncaught exception is acceptable. Unreported failures,
+source-evaluation failures, terminal limits and any later exception after the
+completion snapshot remain ERROR. Reported exceptions without an original
+completion callback cannot become PASS. Counter types and relationships are
+validated strictly; protocol-1 driver output is rejected by the current adapter.
+
+The original three selected files still pass all eight subtests. A fresh full
+parent-family checkpoint after microtask reporting records 10 PASS, 23 mandatory
+UNSUPPORTED and 2 ERROR across all 35 items. The unchanged
+`queue-microtask-exceptions.any.js` now passes with one raw exception, one
+reported exception and one original completion callback. MutationObserver
+delivery and string timer callbacks remain execution blockers. This is a
+checkpoint of these families, not general Window/WPT conformance.

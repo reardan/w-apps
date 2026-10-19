@@ -8,6 +8,58 @@ commits on W's `codex/modern-browser-integration`. Those branches are preserved;
 the local main merge is recorded below. Remote publication has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
 
+## Completion implementation: Phase 0 / first wave (2026-10-19)
+
+Started exactly at application `82f06c3720d0522396e2c59c119a1a4cb2a2ec1d`
+and W `79b5378f553db17303efdecc1506156891757260`. Coordinator plus F/A/B use
+separate application and W worktrees and independent build outputs, as recorded
+in [shared contracts](browser-contracts.md). No publication is authorized or done.
+
+Coordinator checkpoint `46c5b14` adds the [standards ledger](standards-ledger.json),
+content-pinned specification inventory and artifact/measurement runner. The ledger
+retains every matched gap paragraph from the four compatibility documents and
+plan/progress baseline, including historical evidence. Algorithm-level normative
+review and complete applicable test/variant denominators remain open; initial
+family ownership is not a claim that Phase 0 is complete. CSS module expansion
+adds the complete 59-entry module-classification inventory from CSS Snapshot 2024.
+
+Fresh baseline W validation on the original dependency passed **1,606 targets**:
+`(cd w && env -u NO_COLOR ./wbuild -j 4 tests)` with Node 20.19.3. Raw log and
+machine-readable result: `win/bin/completion-baseline/{w.log,validation.json}`.
+Win and selected standards baseline checks are still running at this checkpoint.
+No later worker result is included in this baseline count.
+
+`python3 win/tests/browser_measurements.py freeze` copied unchanged host, current
+M1/M2 Wasm modules, workflow and graphics sources into
+`win/bin/completion-baseline/frozen/`. `verify` passes; four measurement-integrity
+tests pass. `run -- true` refused the busy host before executing a timing command,
+recording `idle-refusal.json`. Concurrent compiler jobs in other checkouts prevent
+an idle hardware claim. Current presentation timing, vsync tolerance, required
+sample counts and real-GPU qualification are still missing; proposed budgets are
+not measured results. Historical CPU-only Wasm numbers remain historical.
+
+Reviewable worker commits (not integrated at this checkpoint):
+
+- A W `0543c247c8c8cbadf4127401f24fa8aa704f9523`: ordinary Object/Reflect descriptors;
+  W `019a9642d4c052704635e5dd5fa796eddd3d5133`: host global-object API and intrinsic
+  error constructors. Focused normal/guard tests pass. Independent review found
+  array reflection and host global get/set integration issues; follow-ups pending.
+- B W `8aed59d1`: owned HTML fragments/text contexts, plaintext and upstream adapter;
+  app `e313b8a`: DOM DocumentFragment insertion/identity/atomicity. First unchanged
+  upstream file records 8 PASS / 1 UNSUPPORTED over all 9 cases; full pinned tree
+  corpus inventory is 1,796 cases, including 192 fragment cases. Full parser
+  insertion modes, streaming/encoding and DOM/Web IDL families remain blockers.
+- F's fresh complete archives contain 53,616 Test262 JS files excluding `_FIXTURE`
+  and 165,375 WPT regular files. File counts are not runnable variant counts.
+  Original WPT harness currently stops at missing `switch` lowering. Native async
+  supervisor negative tests pass; no upstream harness PASS is claimed.
+
+Next runnable work: finish/review A global and switch hooks, validate unchanged
+upstream harness again, integrate W commits before DOM/host/application commits,
+fix exit/EOF classification with deterministic native regression, register new
+checks, then run full integrated W, Win, standards and affected upstream families.
+Repeat idle preflight after builders stop; never substitute a loaded-host run.
+
 ## Mutable query parameters (2026-10-19)
 
 This application-only increment starts from `cf0be72ea835971ead89a753f170670aa3b05786`

@@ -8,7 +8,9 @@
       "bytes": 15774529,
       "retrieved_utc": "2026-10-19T19:55:37.817442+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/html.snapshot"
+      "archive": "win/bin/completion-baseline/specs/html.snapshot",
+      "immutable_url": "https://html.spec.whatwg.org/commit-snapshots/1ea5faabf97bb6735dadd7919425cffce0c75dba/",
+      "revision": "1ea5faabf97bb6735dadd7919425cffce0c75dba"
     },
     "dom": {
       "url": "https://dom.spec.whatwg.org/",
@@ -16,7 +18,9 @@
       "bytes": 2714595,
       "retrieved_utc": "2026-10-19T19:55:37.494413+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/dom.snapshot"
+      "archive": "win/bin/completion-baseline/specs/dom.snapshot",
+      "immutable_url": "https://dom.spec.whatwg.org/commit-snapshots/3c53f93a3e1fb11ef5bd38029b7a9c97baaf0177/",
+      "revision": "3c53f93a3e1fb11ef5bd38029b7a9c97baaf0177"
     },
     "webidl": {
       "url": "https://webidl.spec.whatwg.org/",
@@ -24,7 +28,9 @@
       "bytes": 2553632,
       "retrieved_utc": "2026-10-19T19:55:37.652631+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/webidl.snapshot"
+      "archive": "win/bin/completion-baseline/specs/webidl.snapshot",
+      "immutable_url": "https://webidl.spec.whatwg.org/commit-snapshots/622910c67c724e362f71e8255a0380bade261acb/",
+      "revision": "622910c67c724e362f71e8255a0380bade261acb"
     },
     "url": {
       "url": "https://url.spec.whatwg.org/",
@@ -32,7 +38,9 @@
       "bytes": 703601,
       "retrieved_utc": "2026-10-19T19:55:37.372071+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/url.snapshot"
+      "archive": "win/bin/completion-baseline/specs/url.snapshot",
+      "immutable_url": "https://url.spec.whatwg.org/commit-snapshots/845bafca22fb0c5a42c4bf384a9bdea525a2f10d/",
+      "revision": "845bafca22fb0c5a42c4bf384a9bdea525a2f10d"
     },
     "encoding": {
       "url": "https://encoding.spec.whatwg.org/",
@@ -40,7 +48,9 @@
       "bytes": 591175,
       "retrieved_utc": "2026-10-19T19:55:37.361187+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/encoding.snapshot"
+      "archive": "win/bin/completion-baseline/specs/encoding.snapshot",
+      "immutable_url": "https://encoding.spec.whatwg.org/commit-snapshots/dd7943441a861a60a073bffa55869d91cb6a8288/",
+      "revision": "dd7943441a861a60a073bffa55869d91cb6a8288"
     },
     "fetch": {
       "url": "https://fetch.spec.whatwg.org/",
@@ -48,7 +58,9 @@
       "bytes": 1854393,
       "retrieved_utc": "2026-10-19T19:55:37.520235+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/fetch.snapshot"
+      "archive": "win/bin/completion-baseline/specs/fetch.snapshot",
+      "immutable_url": "https://fetch.spec.whatwg.org/commit-snapshots/59afe349913d56898c947576216f1c2579308be7/",
+      "revision": "59afe349913d56898c947576216f1c2579308be7"
     },
     "streams": {
       "url": "https://streams.spec.whatwg.org/",
@@ -56,7 +68,9 @@
       "bytes": 1905055,
       "retrieved_utc": "2026-10-19T19:55:38.419690+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/streams.snapshot"
+      "archive": "win/bin/completion-baseline/specs/streams.snapshot",
+      "immutable_url": "https://streams.spec.whatwg.org/commit-snapshots/337e8e4f06b2d9e482d4eae7fb6b6bed58de6445/",
+      "revision": "337e8e4f06b2d9e482d4eae7fb6b6bed58de6445"
     },
     "storage": {
       "url": "https://storage.spec.whatwg.org/",
@@ -64,7 +78,9 @@
       "bytes": 203660,
       "retrieved_utc": "2026-10-19T19:55:38.131837+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/storage.snapshot"
+      "archive": "win/bin/completion-baseline/specs/storage.snapshot",
+      "immutable_url": "https://storage.spec.whatwg.org/commit-snapshots/115691c5158395b89063dee09278703f10494171/",
+      "revision": "115691c5158395b89063dee09278703f10494171"
     },
     "ecma262": {
       "url": "https://262.ecma-international.org/17.0/",
@@ -88,7 +104,8 @@
       "bytes": 439830,
       "retrieved_utc": "2026-10-19T19:55:37.824380+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/css.snapshot"
+      "archive": "win/bin/completion-baseline/specs/css.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/NOTE-css-2024-20250225/"
     },
     "http": {
       "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
@@ -128,7 +145,8 @@
       "bytes": 1410696,
       "retrieved_utc": "2026-10-19T19:55:38.276487+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/wai-aria.snapshot"
+      "archive": "win/bin/completion-baseline/specs/wai-aria.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/REC-wai-aria-1.2-20230606/"
     },
     "wasm": {
       "url": "https://www.w3.org/TR/wasm-core-2/",
@@ -136,7 +154,8 @@
       "bytes": 18480184,
       "retrieved_utc": "2026-10-19T19:55:38.920696+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/wasm.snapshot"
+      "archive": "win/bin/completion-baseline/specs/wasm.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-wasm-core-2-20261013/"
     },
     "webgl": {
       "url": "https://registry.khronos.org/webgl/specs/latest/1.0/",
@@ -149,7 +168,8 @@
       "bytes": 1011213,
       "retrieved_utc": "2026-10-19T19:55:38.412046+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/csp.snapshot"
+      "archive": "win/bin/completion-baseline/specs/csp.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-CSP3-20260916/"
     },
     "cookies": {
       "url": "https://www.rfc-editor.org/rfc/rfc6265.txt",
@@ -165,7 +185,8 @@
       "bytes": 72652,
       "retrieved_utc": "2026-10-19T19:55:38.546396+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/svg.snapshot"
+      "archive": "win/bin/completion-baseline/specs/svg.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CR-SVG2-20261006/"
     },
     "mathml": {
       "url": "https://www.w3.org/TR/MathML3/",
@@ -173,7 +194,539 @@
       "bytes": 51136,
       "retrieved_utc": "2026-10-19T19:55:38.658551+00:00",
       "status": "content-pinned",
-      "archive": "win/bin/completion-baseline/specs/mathml.snapshot"
+      "archive": "win/bin/completion-baseline/specs/mathml.snapshot",
+      "version_url": "https://www.w3.org/TR/2014/REC-MathML3-20140410/"
+    },
+    "css-module-css2": {
+      "url": "https://www.w3.org/TR/CSS2/",
+      "sha256": "1e43327015ed94d3e6a3bb5b3948dc5e56f54ed76cfd2ef4918ad8f8ca86c5dd",
+      "bytes": 127147,
+      "retrieved_utc": "2026-10-19T20:01:15.852001+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css2.snapshot",
+      "version_url": "https://www.w3.org/TR/2011/REC-CSS2-20110607"
+    },
+    "css-module-compositing-1": {
+      "url": "https://www.w3.org/TR/compositing-1/",
+      "sha256": "0fb91119308e706a5e4df368a91fa3b43cd5fe8cd8f192418b2df0a30ba8a62b",
+      "bytes": 234781,
+      "retrieved_utc": "2026-10-19T20:01:15.879927+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-compositing-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CRD-compositing-1-20240321/"
+    },
+    "css-module-css-align-3": {
+      "url": "https://www.w3.org/TR/css-align-3/",
+      "sha256": "1bec648f3606e2dda5ae1cc95073cad8e942f13c97bb0bbe23c14d26640c7afa",
+      "bytes": 545770,
+      "retrieved_utc": "2026-10-19T20:01:16.050755+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-align-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-css-align-3-20261008/"
+    },
+    "css-module-css-backgrounds-3": {
+      "url": "https://www.w3.org/TR/css-backgrounds-3/",
+      "sha256": "8a291792b2fd351eee443df466626d02b889d890f5d80e315bf80181b408712a",
+      "bytes": 544031,
+      "retrieved_utc": "2026-10-19T20:01:15.853804+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-backgrounds-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CRD-css-backgrounds-3-20240311/"
+    },
+    "css-module-css-box-3": {
+      "url": "https://www.w3.org/TR/css-box-3/",
+      "sha256": "5330ef95e4b8ae6ee3f87ea24f52b2b23092fb0dd0f9011736e1878db96c702e",
+      "bytes": 162853,
+      "retrieved_utc": "2026-10-19T20:01:15.838254+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-box-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/REC-css-box-3-20240411/"
+    },
+    "css-module-css-break-3": {
+      "url": "https://www.w3.org/TR/css-break-3/",
+      "sha256": "4d47d4b2dd36a28e2b0275833b9734b1d5a0b18299a3f278e238bed8e2ecd509",
+      "bytes": 171462,
+      "retrieved_utc": "2026-10-19T20:01:15.969413+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-break-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2018/CR-css-break-3-20181204/"
+    },
+    "css-module-css-cascade-4": {
+      "url": "https://www.w3.org/TR/css-cascade-4/",
+      "sha256": "7787bd75c1f7187fdfdfdf9e7b5b8391faeac0e7c80dd19461de8426931138e5",
+      "bytes": 269589,
+      "retrieved_utc": "2026-10-19T20:01:15.975732+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-cascade-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2022/CR-css-cascade-4-20220113/"
+    },
+    "css-module-css-cascade-5": {
+      "url": "https://www.w3.org/TR/css-cascade-5/",
+      "sha256": "1fe27cdb69e4990a801bdad630d4bea755b4d472ff9aa23bf07f743056a3a2a1",
+      "bytes": 328235,
+      "retrieved_utc": "2026-10-19T20:01:15.971119+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-cascade-5.snapshot",
+      "version_url": "https://www.w3.org/TR/2022/CR-css-cascade-5-20220113/"
+    },
+    "css-module-css-color-4": {
+      "url": "https://www.w3.org/TR/css-color-4/",
+      "sha256": "2174f6360440f9820b30934368308a68bd514160f86621476b83eb2004c2c63f",
+      "bytes": 1048849,
+      "retrieved_utc": "2026-10-19T20:01:16.042376+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-color-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-css-color-4-20261009/"
+    },
+    "css-module-css-color-5": {
+      "url": "https://www.w3.org/TR/css-color-5/",
+      "sha256": "edd73a15937fb6e90b5ca5d940bd0a760b87cc78a591a0985390176ab26c9666",
+      "bytes": 570480,
+      "retrieved_utc": "2026-10-19T20:01:16.180864+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-color-5.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-css-color-5-20260913/"
+    },
+    "css-module-css-color-adjust-1": {
+      "url": "https://www.w3.org/TR/css-color-adjust-1/",
+      "sha256": "588c2672bb45911303f78a0590fa587f593234ef80d60b0f7a7af48afc91517c",
+      "bytes": 282841,
+      "retrieved_utc": "2026-10-19T20:01:16.099035+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-color-adjust-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CR-css-color-adjust-1-20251216/"
+    },
+    "css-module-css-conditional-3": {
+      "url": "https://www.w3.org/TR/css-conditional-3/",
+      "sha256": "672eb79c78c53b9c92a460ffcfd8718af3c1e38ecf317566d955ffa1df470b35",
+      "bytes": 260197,
+      "retrieved_utc": "2026-10-19T20:01:16.620360+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-conditional-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CRD-css-conditional-3-20240815/"
+    },
+    "css-module-css-conditional-4": {
+      "url": "https://www.w3.org/TR/css-conditional-4/",
+      "sha256": "59e3eaee1e7311d7c1c295ae5f27d30abf64c424d21ed007b74849aec7ab000f",
+      "bytes": 98907,
+      "retrieved_utc": "2026-10-19T20:01:16.160305+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-conditional-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CRD-css-conditional-4-20250904/"
+    },
+    "css-module-css-contain-1": {
+      "url": "https://www.w3.org/TR/css-contain-1/",
+      "sha256": "eb6ea8d5435697776878bee6f58e0284c73f4ecd682ee43381d99f97bc69f56b",
+      "bytes": 183585,
+      "retrieved_utc": "2026-10-19T20:01:16.210209+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-contain-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/REC-css-contain-1-20240625/"
+    },
+    "css-module-css-counter-styles-3": {
+      "url": "https://www.w3.org/TR/css-counter-styles-3/",
+      "sha256": "7d697581c3eb238c3e8d18bcf0c03aa889380041fa208c8bf06c51dd07be9807",
+      "bytes": 343799,
+      "retrieved_utc": "2026-10-19T20:01:16.263091+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-counter-styles-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/CR-css-counter-styles-3-20210727/"
+    },
+    "css-module-css-display-3": {
+      "url": "https://www.w3.org/TR/css-display-3/",
+      "sha256": "872cdd7c49fdbfba1ff7ea5b6689145c168b17d09542f11af717a55bc16ab9ed",
+      "bytes": 581657,
+      "retrieved_utc": "2026-10-19T20:01:16.373271+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-display-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-css-display-3-20260605/"
+    },
+    "css-module-css-easing-1": {
+      "url": "https://www.w3.org/TR/css-easing-1/",
+      "sha256": "ea2901fc46cb032cd659c8024c0ef82ccad9009e4abb945615d59ce4fe506925",
+      "bytes": 94324,
+      "retrieved_utc": "2026-10-19T20:01:16.258631+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-easing-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/CRD-css-easing-1-20230213/"
+    },
+    "css-module-css-flexbox-1": {
+      "url": "https://www.w3.org/TR/css-flexbox-1/",
+      "sha256": "b0e3b097bc6db0688d4712968c290cda280f8f750eb998bc358c28df490ff3f5",
+      "bytes": 1525929,
+      "retrieved_utc": "2026-10-19T20:01:16.344263+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-flexbox-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CRD-css-flexbox-1-20251014/"
+    },
+    "css-module-css-font-loading": {
+      "url": "https://www.w3.org/TR/css-font-loading/",
+      "sha256": "1a443ea0a7f67bab99daac264808df5268d652f0abbd63989c2a31b1d489a340",
+      "bytes": 288547,
+      "retrieved_utc": "2026-10-19T20:01:16.481432+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-font-loading.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/WD-css-font-loading-3-20230406/"
+    },
+    "css-module-css-fonts-3": {
+      "url": "https://www.w3.org/TR/css-fonts-3/",
+      "sha256": "e3982d57e3992dfa7c0e56c1ff39977bd71d807731247decc794c61d2eacd63b",
+      "bytes": 240662,
+      "retrieved_utc": "2026-10-19T20:01:16.389303+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-fonts-3.snapshot",
+      "version_url": "https://drafts.csswg.org/css-fonts/"
+    },
+    "css-module-css-fonts-4": {
+      "url": "https://www.w3.org/TR/css-fonts-4/",
+      "sha256": "13f1d4394a071b5fc6e3e72b756d17e976ab5171998c4ef80f580cb6844a7538",
+      "bytes": 1392036,
+      "retrieved_utc": "2026-10-19T20:01:16.426425+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-fonts-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-css-fonts-4-20261016/"
+    },
+    "css-module-css-grid-1": {
+      "url": "https://www.w3.org/TR/css-grid-1/",
+      "sha256": "53a47980a217f0b976e1ab8fa0b56944421f7e6311deef96a6aa591ddc693317",
+      "bytes": 957488,
+      "retrieved_utc": "2026-10-19T20:01:16.678748+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-grid-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CRD-css-grid-1-20250326/"
+    },
+    "css-module-css-grid-2": {
+      "url": "https://www.w3.org/TR/css-grid-2/",
+      "sha256": "05aa64853c4428146973943b35caf121e44c1076bdf5b8c29f8896dba9b778e2",
+      "bytes": 885659,
+      "retrieved_utc": "2026-10-19T20:01:16.562135+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-grid-2.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CRD-css-grid-2-20250326/"
+    },
+    "css-module-css-images-3": {
+      "url": "https://www.w3.org/TR/css-images-3/",
+      "sha256": "74eb4b475aa0845a50ebedb4bbb3ba7bf3966f975817d1c5cf8e3d512f53447e",
+      "bytes": 353703,
+      "retrieved_utc": "2026-10-19T20:01:16.643134+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-images-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/CRD-css-images-3-20231218/"
+    },
+    "css-module-css-lists-3": {
+      "url": "https://www.w3.org/TR/css-lists-3/",
+      "sha256": "f898eb5b58818862a598d23d225da2ca3a58396b7bb32c9515c2cc8e31470ccf",
+      "bytes": 251726,
+      "retrieved_utc": "2026-10-19T20:01:16.630409+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-lists-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2020/WD-css-lists-3-20201117/"
+    },
+    "css-module-css-logical-1": {
+      "url": "https://www.w3.org/TR/css-logical-1/",
+      "sha256": "4c0f9fbefd2c66a86f220d5daa1514facca3ad7dbae68a4c1a82b569de370edc",
+      "bytes": 411946,
+      "retrieved_utc": "2026-10-19T20:01:16.752651+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-logical-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/WD-css-logical-1-20251204/"
+    },
+    "css-module-css-masking-1": {
+      "url": "https://www.w3.org/TR/css-masking-1/",
+      "sha256": "79ff953b47472ae5bc1eace14c0c470d7bd75d128e933806c97c50b640194671",
+      "bytes": 489424,
+      "retrieved_utc": "2026-10-19T20:01:16.849416+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-masking-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/CRD-css-masking-1-20210805/"
+    },
+    "css-module-css-multicol-1": {
+      "url": "https://www.w3.org/TR/css-multicol-1/",
+      "sha256": "0768f4526ac5b4be220169db13f1db9fb617c81c8112062a9df4883078220d09",
+      "bytes": 580366,
+      "retrieved_utc": "2026-10-19T20:01:16.768000+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-multicol-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CR-css-multicol-1-20240516/"
+    },
+    "css-module-css-namespaces": {
+      "url": "https://www.w3.org/TR/css-namespaces/",
+      "sha256": "a23b00b30e8e3c550f35f85291cd514e0907c00899e12802569b7f977207daa8",
+      "bytes": 27439,
+      "retrieved_utc": "2026-10-19T20:01:16.794253+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-namespaces.snapshot",
+      "version_url": "https://www.w3.org/TR/2014/REC-css-namespaces-3-20140320/"
+    },
+    "css-module-css-position-3": {
+      "url": "https://www.w3.org/TR/css-position-3/",
+      "sha256": "3c8a8120af2c32d9259eb2feb80506cadffb29c716dbf571b9c1154ab06079a6",
+      "bytes": 413143,
+      "retrieved_utc": "2026-10-19T20:01:16.770803+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-position-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/WD-css-position-3-20251007/"
+    },
+    "css-module-css-scroll-anchoring-1": {
+      "url": "https://www.w3.org/TR/css-scroll-anchoring-1/",
+      "sha256": "19072694d9cb63f46fcb122d020452401218f4c5e5c9ef576f56bc3ff205455b",
+      "bytes": 83475,
+      "retrieved_utc": "2026-10-19T20:01:16.854123+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-scroll-anchoring-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2020/WD-css-scroll-anchoring-1-20201111/"
+    },
+    "css-module-css-scroll-snap-1": {
+      "url": "https://www.w3.org/TR/css-scroll-snap-1/",
+      "sha256": "9e5f5353d73d6df89aedafb11258fb44b8e00cd2b37332a658f417093a3b1e64",
+      "bytes": 241617,
+      "retrieved_utc": "2026-10-19T20:01:17.022576+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-scroll-snap-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/CR-css-scroll-snap-1-20210311/"
+    },
+    "css-module-css-scrollbars-1": {
+      "url": "https://www.w3.org/TR/css-scrollbars-1/",
+      "sha256": "bc4dd22757fd674e717b025d9826a95bd5674ed3ae4d0e5bb137e2ef1f6533af",
+      "bytes": 76960,
+      "retrieved_utc": "2026-10-19T20:01:16.946731+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-scrollbars-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/CR-css-scrollbars-1-20211209/"
+    },
+    "css-module-css-shapes-1": {
+      "url": "https://www.w3.org/TR/css-shapes-1/",
+      "sha256": "f7e528fad3094f91fb9591ba6f849e2453353d50d0f136ca9e0749371fc31763",
+      "bytes": 609115,
+      "retrieved_utc": "2026-10-19T20:01:16.998340+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-shapes-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2025/CRD-css-shapes-1-20250612/"
+    },
+    "css-module-css-sizing-3": {
+      "url": "https://www.w3.org/TR/css-sizing-3/",
+      "sha256": "ca0f1db3d5ad0c9799bf9dc04b9c30b4d9adf8d4d6f222787e4759ed81a6bbad",
+      "bytes": 531778,
+      "retrieved_utc": "2026-10-19T20:01:16.955366+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-sizing-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-css-sizing-3-20260904/"
+    },
+    "css-module-css-speech-1": {
+      "url": "https://www.w3.org/TR/css-speech-1/",
+      "sha256": "bb7b59c925640f089f19196a9d72f0c381bdcb10cec8ec411ba99cb9bc9b5c9a",
+      "bytes": 261800,
+      "retrieved_utc": "2026-10-19T20:01:17.047243+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-speech-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/CRD-css-speech-1-20230214/"
+    },
+    "css-module-css-style-attr": {
+      "url": "https://www.w3.org/TR/css-style-attr/",
+      "sha256": "711c9a43978ff186225d21d7a7bff580037bc032ba70a7ba33c4fab16e396746",
+      "bytes": 17513,
+      "retrieved_utc": "2026-10-19T20:01:17.020724+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-style-attr.snapshot",
+      "version_url": "http://dev.w3.org/csswg/css-style-attr/"
+    },
+    "css-module-css-syntax-3": {
+      "url": "https://www.w3.org/TR/css-syntax-3/",
+      "sha256": "8dc3adcc2b4e8fd8fa73c0be85cec67f006874ab42010cdf4528af4aa83f2878",
+      "bytes": 657320,
+      "retrieved_utc": "2026-10-19T20:01:17.099361+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-syntax-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-css-syntax-3-20261001/"
+    },
+    "css-module-css-text-3": {
+      "url": "https://www.w3.org/TR/css-text-3/",
+      "sha256": "17c26f1b41455947f106dac81736944b12da328ee4892c7c5b601f5b65ced55a",
+      "bytes": 540326,
+      "retrieved_utc": "2026-10-19T20:01:17.095217+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-text-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-css-text-3-20260814/"
+    },
+    "css-module-css-text-decor-3": {
+      "url": "https://www.w3.org/TR/css-text-decor-3/",
+      "sha256": "feebf9327271a19fdffe0d6e70fb8d01e3f3c1fca78abd3b7f223646ac3b6b95",
+      "bytes": 179502,
+      "retrieved_utc": "2026-10-19T20:01:17.178836+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-text-decor-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2022/CRD-css-text-decor-3-20220505/"
+    },
+    "css-module-css-transforms-1": {
+      "url": "https://www.w3.org/TR/css-transforms-1/",
+      "sha256": "4672e86844bfbe7af670c6702e873a36aee5a925d7fa30f374b79e88a1e18351",
+      "bytes": 310421,
+      "retrieved_utc": "2026-10-19T20:01:17.179215+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-transforms-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2019/CR-css-transforms-1-20190214/"
+    },
+    "css-module-css-transforms-2": {
+      "url": "https://www.w3.org/TR/css-transforms-2/",
+      "sha256": "f1ada25106706968fc7b12ecb83bebc437de6ef309ee9dce1d990bd5fe8eead8",
+      "bytes": 270532,
+      "retrieved_utc": "2026-10-19T20:01:17.204222+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-transforms-2.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/WD-css-transforms-2-20211109/"
+    },
+    "css-module-css-transitions-1": {
+      "url": "https://www.w3.org/TR/css-transitions-1/",
+      "sha256": "969d35d13ee4e4248421ebf991156a1af6b577d17a1be2565ffeaa94a012ec80",
+      "bytes": 346601,
+      "retrieved_utc": "2026-10-19T20:01:17.204749+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-transitions-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-css-transitions-1-20260108/"
+    },
+    "css-module-css-ui-3": {
+      "url": "https://www.w3.org/TR/css-ui-3/",
+      "sha256": "6dfbf85a9d9c6d682d9c0621872021e8a57216737acacd5dee31c2936d7da67e",
+      "bytes": 293306,
+      "retrieved_utc": "2026-10-19T20:01:17.225058+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-ui-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/REC-css-ui-3-20260407/"
+    },
+    "css-module-css-values-3": {
+      "url": "https://www.w3.org/TR/css-values-3/",
+      "sha256": "dcce1f2ff24d66a05373696e07dda59727303a421ee4593eb433092029df0094",
+      "bytes": 371644,
+      "retrieved_utc": "2026-10-19T20:01:17.244161+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-values-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CRD-css-values-3-20240322/"
+    },
+    "css-module-css-variables-1": {
+      "url": "https://www.w3.org/TR/css-variables-1/",
+      "sha256": "5ce7b2c106af576328f222dd622598f847881f2ba9a64d53d6681d27d07ea0db",
+      "bytes": 267867,
+      "retrieved_utc": "2026-10-19T20:01:17.303202+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-variables-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2022/CR-css-variables-1-20220616/"
+    },
+    "css-module-css-view-transitions-1": {
+      "url": "https://www.w3.org/TR/css-view-transitions-1/",
+      "sha256": "7f8e537956b6c0fb0259d0e9231395ea985b35ee8f690e5d9e05e226110fc044",
+      "bytes": 508125,
+      "retrieved_utc": "2026-10-19T20:01:17.472232+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-view-transitions-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/CRD-css-view-transitions-1-20240328/"
+    },
+    "css-module-css-will-change-1": {
+      "url": "https://www.w3.org/TR/css-will-change-1/",
+      "sha256": "66d3e479cd2b49c5998afa78cb8a571235c04fa42c3a47a053494d296b1bd9f4",
+      "bytes": 67364,
+      "retrieved_utc": "2026-10-19T20:01:17.336069+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-will-change-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2022/CRD-css-will-change-1-20220505/"
+    },
+    "css-module-css-writing-modes-3": {
+      "url": "https://www.w3.org/TR/css-writing-modes-3/",
+      "sha256": "39564c2366c0d46ad5cb4bf9363f232667e2d0b6833ac79931117baa24873aec",
+      "bytes": 355883,
+      "retrieved_utc": "2026-10-19T20:01:17.458760+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-writing-modes-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2019/REC-css-writing-modes-3-20191210/"
+    },
+    "css-module-css-writing-modes-4": {
+      "url": "https://www.w3.org/TR/css-writing-modes-4/",
+      "sha256": "30a59de49343d984c8570e2c1a5fa5bda511dda4f2e83841c862caa99d155fcd",
+      "bytes": 379734,
+      "retrieved_utc": "2026-10-19T20:01:17.469072+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css-writing-modes-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2019/CR-css-writing-modes-4-20190730/"
+    },
+    "css-module-css3-mediaqueries": {
+      "url": "https://www.w3.org/TR/css3-mediaqueries/",
+      "sha256": "5223a2f53fbcd9b85ee78c81d7db9ea9508624eec403241944c3324d7fdf851e",
+      "bytes": 61605,
+      "retrieved_utc": "2026-10-19T20:01:17.522520+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-css3-mediaqueries.snapshot",
+      "version_url": "https://drafts.csswg.org/css3-mediaqueries/"
+    },
+    "css-module-cssom-1": {
+      "url": "https://www.w3.org/TR/cssom-1/",
+      "sha256": "24d77393e4ea56b04570066701d42c9ff6546a6d5e97d433a18cc1deaf6c9cd4",
+      "bytes": 635594,
+      "retrieved_utc": "2026-10-19T20:01:17.445211+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-cssom-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2021/WD-cssom-1-20210826/"
+    },
+    "css-module-filter-effects-1": {
+      "url": "https://www.w3.org/TR/filter-effects-1/",
+      "sha256": "b73408da406802d4aa405c8ab1c0591732ff1403bae74f7267d53dc74b0dfb3d",
+      "bytes": 1600081,
+      "retrieved_utc": "2026-10-19T20:01:17.673039+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-filter-effects-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2018/WD-filter-effects-1-20181218/"
+    },
+    "css-module-mediaqueries-4": {
+      "url": "https://www.w3.org/TR/mediaqueries-4/",
+      "sha256": "41310724809c30304b674442d35e09ec59b0b7b74ba6104bb1d90334953522e0",
+      "bytes": 409001,
+      "retrieved_utc": "2026-10-19T20:01:17.564362+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-mediaqueries-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/CRD-mediaqueries-4-20260219/"
+    },
+    "css-module-motion-1": {
+      "url": "https://www.w3.org/TR/motion-1/",
+      "sha256": "5f3e94be9b120ab48065ecc17cf4a57b47af3fd2859a79c464c406d9996891c5",
+      "bytes": 361381,
+      "retrieved_utc": "2026-10-19T20:01:17.672049+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-motion-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2024/WD-motion-1-20241105/"
+    },
+    "css-module-resize-observer-1": {
+      "url": "https://www.w3.org/TR/resize-observer-1/",
+      "sha256": "7bed69027b1b3bb7d406c73ebee4f34deb693885c77f8db38259438492240528",
+      "bytes": 135169,
+      "retrieved_utc": "2026-10-19T20:01:17.646196+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-resize-observer-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2020/WD-resize-observer-1-20200211/"
+    },
+    "css-module-selectors-3": {
+      "url": "https://www.w3.org/TR/selectors-3/",
+      "sha256": "a30f0c0bd31b599b3163f8759b66536b7cc274fdc0b27e14046122afe3418183",
+      "bytes": 134902,
+      "retrieved_utc": "2026-10-19T20:01:17.598641+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-selectors-3.snapshot",
+      "version_url": "https://www.w3.org/TR/2018/REC-selectors-3-20181106/"
+    },
+    "css-module-selectors-4": {
+      "url": "https://www.w3.org/TR/selectors-4/",
+      "sha256": "5d3b3f7e1fcc562dcec1a01ad2c5651e9f0bac294b255a75352e9df202604e6d",
+      "bytes": 978757,
+      "retrieved_utc": "2026-10-19T20:01:17.669516+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-selectors-4.snapshot",
+      "version_url": "https://www.w3.org/TR/2026/WD-selectors-4-20260122/"
+    },
+    "css-module-web-animations-1": {
+      "url": "https://www.w3.org/TR/web-animations-1/",
+      "sha256": "e814a799ef2442a6c2f5bb783307080054441215ae75921349c018aaef3a2e55",
+      "bytes": 1000120,
+      "retrieved_utc": "2026-10-19T20:01:17.838792+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css-module-web-animations-1.snapshot",
+      "version_url": "https://www.w3.org/TR/2023/WD-web-animations-1-20230605/"
     }
   }
 }

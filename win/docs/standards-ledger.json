@@ -2731,6 +2731,2248 @@
       "performance_fixture": "unchanged M1/M2/M3 in native/isolated/sandboxed profiles",
       "status": "mandatory-open",
       "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css2",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/CSS2/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css2",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css2",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-compositing-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/compositing-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-compositing-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-compositing-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-align-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-align-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-align-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-align-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-backgrounds-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-backgrounds-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-backgrounds-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-backgrounds-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-box-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-box-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-box-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-box-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-break-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-break-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-break-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-break-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-cascade-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-cascade-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-cascade-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-cascade-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-cascade-5",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-cascade-5/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-cascade-5",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-cascade-5",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-color-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-color-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-color-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-color-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-color-5",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-color-5/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-color-5",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-color-5",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-color-adjust-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-color-adjust-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-color-adjust-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-color-adjust-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-conditional-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-conditional-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-conditional-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-conditional-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-conditional-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-conditional-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-conditional-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-conditional-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-contain-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-contain-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-contain-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-contain-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-counter-styles-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-counter-styles-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-counter-styles-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-counter-styles-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-display-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-display-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-display-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-display-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-easing-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-easing-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-easing-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-easing-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-flexbox-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-flexbox-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-flexbox-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-flexbox-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-font-loading",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-font-loading/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-font-loading",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-font-loading",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-fonts-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-fonts-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-fonts-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-fonts-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-fonts-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-fonts-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-fonts-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-fonts-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-grid-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-grid-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-grid-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-grid-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-grid-2",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-grid-2/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-grid-2",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-grid-2",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-images-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-images-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-images-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-images-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-lists-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-lists-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-lists-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-lists-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-logical-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-logical-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-logical-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-logical-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-masking-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-masking-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-masking-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-masking-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-multicol-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-multicol-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-multicol-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-multicol-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-namespaces",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-namespaces/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-namespaces",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-namespaces",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-position-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-position-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-position-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-position-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-scroll-anchoring-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-scroll-anchoring-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-scroll-anchoring-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-scroll-anchoring-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-scroll-snap-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-scroll-snap-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-scroll-snap-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-scroll-snap-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-scrollbars-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-scrollbars-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-scrollbars-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-scrollbars-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-shapes-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-shapes-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-shapes-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-shapes-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-sizing-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-sizing-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-sizing-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-sizing-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-speech-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-speech-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-speech-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-speech-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-style-attr",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-style-attr/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-style-attr",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-style-attr",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-syntax-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-syntax-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-syntax-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-syntax-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-text-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-text-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-text-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-text-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-text-decor-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-text-decor-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-text-decor-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-text-decor-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-transforms-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-transforms-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-transforms-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-transforms-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-transforms-2",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-transforms-2/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-transforms-2",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-transforms-2",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-transitions-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-transitions-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-transitions-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-transitions-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-ui-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-ui-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-ui-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-ui-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-values-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-values-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-values-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-values-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-variables-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-variables-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-variables-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-variables-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-view-transitions-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-view-transitions-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-view-transitions-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-view-transitions-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-will-change-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-will-change-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-will-change-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-will-change-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-writing-modes-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-writing-modes-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-writing-modes-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-writing-modes-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css-writing-modes-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css-writing-modes-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css-writing-modes-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css-writing-modes-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-css3-mediaqueries",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/css3-mediaqueries/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-css3-mediaqueries",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-css3-mediaqueries",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-cssom-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/cssom-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-cssom-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-cssom-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-filter-effects-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/filter-effects-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-filter-effects-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-filter-effects-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-mediaqueries-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/mediaqueries-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-mediaqueries-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-mediaqueries-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-motion-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/motion-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-motion-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-motion-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-resize-observer-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/resize-observer-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-resize-observer-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-resize-observer-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-selectors-3",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/selectors-3/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-selectors-3",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-selectors-3",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-selectors-4",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/selectors-4/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-selectors-4",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-selectors-4",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
+    },
+    {
+      "id": "C.css-module-web-animations-1",
+      "requirement": "Pinned CSS snapshot module https://www.w3.org/TR/web-animations-1/",
+      "mandatory": true,
+      "applicability": "Linux x64 target; other platforms remain explicit qualification work",
+      "spec": {
+        "snapshot": "css-module-web-animations-1",
+        "section": "Complete module algorithms/properties; supersession and applicability review pending"
+      },
+      "implementation_paths": [
+        "win/src/win/document.w",
+        "win/src/win/style.w",
+        "w/libs/extras/css/"
+      ],
+      "dependencies": [
+        "C.cascade",
+        "F.wpt-harness"
+      ],
+      "owner": "C",
+      "upstream": {
+        "suite": "WPT",
+        "family": "css-module-web-animations-1",
+        "total": null,
+        "executed": 0,
+        "counts": null,
+        "count_state": "not yet inventoried; never zero inferred"
+      },
+      "harness_blockers": [
+        "F.suite-inventory",
+        "F.wpt-harness"
+      ],
+      "negative_tests": [
+        "Required adversarial/error/lifecycle family; review pending"
+      ],
+      "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
+      "status": "mandatory-open",
+      "closure_evidence": []
     }
   ],
   "compatibility_evidence": [
@@ -3594,5 +5836,6 @@
     "p95_regression_percent": 10,
     "vsync_period_ms": null,
     "presentation_tolerance_ms": null
-  }
+  },
+  "css_inventory_note": "All specification entries in CSS Snapshot 2024 module classification are retained mandatory pending applicability/supersession review. No unsupported module silently excluded."
 }

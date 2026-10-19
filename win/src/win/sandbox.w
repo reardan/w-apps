@@ -6,6 +6,7 @@ import lib.process
 import lib.env
 import structures.string
 
+char* win_sandbox_origin
 char* win_sandbox_root
 
 int win_sandbox_abi():

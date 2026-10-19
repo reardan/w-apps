@@ -9,12 +9,14 @@ import win.execution
 import win.sandbox
 import win.interactive_history
 import win.interactive_input
+import win.broker
 import win.storage_rpc
 
 const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
 
 struct win_interactive_worker:
+	win_broker* broker
 	int require_history
 	list[win_interactive_history_entry*] pending_history
 	int pending_history_current
@@ -79,6 +81,9 @@ struct win_interactive_worker:
 	list[win_frame_surface*] pending_surfaces
 
 void win_interactive_fail(win_interactive_worker* worker, int status, char* error):
+	if (worker.broker != 0):
+		win_broker_free(worker.broker)
+		worker.broker = 0
 	worker.status = status
 	worker.error = error
 	worker.busy = 0
@@ -144,7 +149,7 @@ win_interactive_worker* win_interactive_start_owned(char* executable, char* addr
 	string_append_char(config, 0)
 	int budget_at = config.length
 	string_append_int(config, budget)
-	char*[22] argv
+	char*[24] argv
 	argv[0] = executable
 	argv[1] = c"--interactive-worker"
 	argv[2] = c"--page"
@@ -173,18 +178,37 @@ win_interactive_worker* win_interactive_start_owned(char* executable, char* addr
 		argv[argc] = c"--sandbox-root"
 		argv[argc + 1] = win_sandbox_root
 		argc = argc + 2
+	if (win_sandbox_origin != 0):
+		argv[argc] = c"--sandbox-origin"
+		argv[argc + 1] = win_sandbox_origin
+		argc = argc + 2
 	argv[argc] = 0
-	int pid = fork()
+	int broker_parent = -1
+	int broker_child = -1
+	if (win_sandbox_origin != 0):
+		char[8] broker_pair
+		if (syscall7(53, 1, 1 | 524288, 0, cast(int, &broker_pair[0]), 0, 0) >= 0):
+			broker_parent = load_int32(&broker_pair[0])
+			broker_child = load_int32(&broker_pair[4])
+	int pid = -1
+	if (win_sandbox_origin == 0 || broker_parent >= 0): pid = fork()
 	if (pid == 0):
 		setpgid(0, 0)
 		close(parent_fd)
 		process_redirect(child_fd, 0)
-		process_redirect_null(1, 1)
+		if (broker_parent >= 0):
+			close(broker_parent)
+			process_redirect(broker_child, 1)
+		else: process_redirect_null(1, 1)
 		process_redirect_null(2, 1)
 		process_close_from(3)
 		execve(executable, &argv[0], environment)
 		exit(127)
 	close(child_fd)
+	if (broker_child >= 0): close(broker_child)
+	if (broker_parent >= 0):
+		if (pid < 0): close(broker_parent)
+		else: worker.broker = win_broker_new(broker_parent, executable)
 	if (win_sandbox_requested()): win_sandbox_environment_free(environment)
 	else:
 		for i in range(env_vector_count(environment)):
@@ -514,6 +538,10 @@ void win_interactive_publish(win_interactive_worker* worker):
 		win_interactive_history_clear(worker.pending_history)
 
 int win_interactive_poll(win_interactive_worker* worker):
+	win_broker_poll(worker.broker)
+	if (worker.broker != 0 && worker.broker.wire.failed):
+		win_interactive_fail(worker, 4, c"Sandbox resource broker failed")
+		return -1
 	win_storage_job_poll(worker.local_store)
 	if (worker.child == 0): return -1
 	if (process_try_wait(worker.child) != process_status_running):

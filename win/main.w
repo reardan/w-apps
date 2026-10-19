@@ -60,9 +60,20 @@ int main(int argc, int argv):
 	args_declare_bool(c"help")
 	args_declare_bool(c"reftest")
 	if (args_has_flag(c"help")):
-		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--execution-budget 1..200000000] [--sandbox-root ABS_DIR (offline isolated mode)] [--reftest]")
+		println(c"win [--page PATH_OR_URL] [--dump | --isolated-dump] [--worker-timeout MS] [--isolated-interactive] [--frames N --screenshot FILE.ppm] [--report FILE.json] [--storage FILE] [--execution-budget 1..200000000] [--sandbox-root ABS_DIR [--sandbox-origin HTTP(S)_ORIGIN]] [--reftest]")
 		return 0
+	win_sandbox_origin = args_value(c"sandbox-origin")
 	win_sandbox_root = args_value(c"sandbox-root")
+	if (args_has_flag(c"sandbox-origin")):
+		URL* origin = 0
+		if (win_sandbox_origin != 0): origin = url_parse(win_sandbox_origin)
+		int valid = origin != 0 && win_sandbox_root != 0 && (args_has_flag(c"isolated-interactive") || args_has_flag(c"interactive-worker")) && args_has_flag(c"resource") == 0 && args_has_flag(c"fetch") == 0
+		if (origin != 0):
+			if (strcmp(origin.path, c"/") != 0 || origin.has_query || origin.has_fragment): valid = 0
+			url_free(origin)
+		if (valid == 0):
+			println2(c"Sandbox origin requires an HTTP(S) origin, sandbox root and isolated interactive mode")
+			return 1
 	if (args_has_flag(c"sandbox-root")):
 		if (args_has_flag(c"isolated-dump") || args_has_flag(c"script-worker")):
 			println2(c"Offline sandbox is not supported by the headless isolated worker")
@@ -109,7 +120,7 @@ int main(int argc, int argv):
 	if (home == 0): home = c"win/fixtures/start.html"
 	char* start = args_value(c"page")
 	if (start == 0): start = home
-	if (win_sandbox_requested() && win_remote(start)):
+	if (win_sandbox_requested() && win_sandbox_origin == 0 && win_remote(start)):
 		println2(c"Offline sandbox requires a local page; HTTP content needs a resource broker")
 		return 1
 	if (args_has_flag(c"interactive-worker")):

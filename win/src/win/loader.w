@@ -1,5 +1,6 @@
 # Linux loader process. Network/file reads never block the UI thread. The
 # parent polls a bounded pipe and destroys the old child on stop/navigation.
+import win.broker_wire
 import win.images
 import win.sandbox
 import win.network_state
@@ -279,7 +280,7 @@ int win_fetch_kind_worker_bytes(char* address, char* kind, char* method, char* b
 		if (strcmp(kind, c"fetch") == 0): http_req_add_header(req, c"Accept", accept)
 		else if (strcmp(kind, c"document") == 0): http_req_add_header(req, c"Accept", c"text/html")
 		else if (strcmp(kind, c"css") == 0): http_req_add_header(req, c"Accept", c"text/css")
-		else if (strcmp(kind, c"image") == 0): http_req_add_header(req, c"Accept", c"image/png, image/jpeg")
+		else if (strcmp(kind, c"image") == 0): http_req_add_header(req, c"Accept", c"image/png, image/jpeg, image/gif")
 		else: http_req_add_header(req, c"Accept", c"text/javascript, application/javascript")
 		http_req_add_header(req, c"Accept-Encoding", c"gzip, deflate")
 		http_stream* stream = win_form_http_open(req)
@@ -425,6 +426,7 @@ int win_resource_worker(char* address, char* kind):
 	return win_fetch_kind_worker(address, kind, c"GET", c"")
 
 struct win_load:
+	int broker_id
 	string_builder* outgoing
 	int sent
 	process* child
@@ -444,8 +446,37 @@ struct win_load:
 	char* request_address
 	char* kind
 
+win_broker_wire* win_broker_client
+list[win_load*] win_broker_loads
+int win_broker_sequence
+
+void win_broker_forget(win_load* load):
+	if (load.broker_id == 0 || win_broker_loads == 0): return
+	for i in range(win_broker_loads.length):
+		if (win_broker_loads[i] == load):
+			win_broker_loads[i] = win_broker_loads[win_broker_loads.length - 1]
+			win_broker_loads.pop()
+			break
+	if (load.finished == 0):
+		string_builder* cancel = win_broker_packet(load.broker_id, 2)
+		win_broker_queue(win_broker_client, cancel)
+		string_free(cancel)
+		win_broker_pump(win_broker_client)
+	load.broker_id = 0
+
+# Cancellation is transport-neutral: AbortSignal must notify the parent even
+# when a completed Promise settlement will defer freeing the win_load object.
+void win_load_cancel(win_load* load):
+	if (load == 0): return
+	win_broker_forget(load)
+	if (load.child != 0):
+		process_free(load.child)
+		load.child = 0
+	load.finished = 1
+
 void win_load_free(win_load* load):
 	if (load == 0): return
+	win_broker_forget(load)
 	if (load.child != 0): process_free(load.child)
 	string_free(load.output)
 	if (load.outgoing != 0): string_free(load.outgoing)
@@ -454,6 +485,79 @@ void win_load_free(win_load* load):
 	if (load.error != 0): free(load.error)
 	if (load.address != 0): free(load.address)
 	free(load)
+
+int win_broker_kind(char* kind):
+	if (strcmp(kind, c"document") == 0): return 1
+	if (strcmp(kind, c"css") == 0): return 2
+	if (strcmp(kind, c"script") == 0): return 3
+	if (strcmp(kind, c"image") == 0): return 4
+	if (strcmp(kind, c"fetch") == 0): return 5
+	return 0
+
+char* win_broker_kind_name(int kind):
+	if (kind == 1): return c"document"
+	if (kind == 2): return c"css"
+	if (kind == 3): return c"script"
+	if (kind == 4): return c"image"
+	return c"fetch"
+
+win_load* win_broker_load_start(win_load* load, char* address, char* kind, char* method, char* body, int body_length, char* content_type, char* accept):
+	if (win_broker_client.failed || win_broker_sequence >= WIN_BROKER_REQUESTS || win_broker_loads.length >= 16 || strlen(address) > WIN_ADDRESS_LIMIT || win_broker_kind(kind) == 0 || strlen(method) > 32 || strlen(content_type) > 1024 || strlen(accept) > 1024 || body_length < 0 || body_length > WIN_FETCH_REQUEST_LIMIT):
+		load.error = strclone(c"Sandbox broker request limit exceeded")
+		load.finished = 1
+		return load
+	win_broker_sequence = win_broker_sequence + 1
+	load.broker_id = win_broker_sequence
+	win_broker_loads.push(load)
+	string_builder* request = win_broker_packet(load.broker_id, 1)
+	for i in range(24): string_append_char(request, 0)
+	save_int32(request.data + 24, win_broker_kind(kind))
+	save_int32(request.data + 28, strlen(address))
+	save_int32(request.data + 32, strlen(method))
+	save_int32(request.data + 36, strlen(content_type))
+	save_int32(request.data + 40, strlen(accept))
+	save_int32(request.data + 44, body_length)
+	string_append(request, address)
+	string_append(request, method)
+	string_append(request, content_type)
+	string_append(request, accept)
+	string_append_bytes(request, body, body_length)
+	win_broker_queue(win_broker_client, request)
+	string_free(request)
+	return load
+
+void win_broker_client_poll():
+	if (win_broker_client == 0): return
+	win_broker_pump(win_broker_client)
+	if (win_broker_complete(win_broker_client)):
+		char* data = win_broker_client.input.data
+		int length = win_broker_client.input.length
+		int id = load_int32(data + 12)
+		if (load_int32(data + 16) != 3 || length < 40): win_broker_client.failed = 1
+		else:
+			int error = load_int32(data + 24)
+			int status = load_int32(data + 28)
+			int mime = load_int32(data + 32)
+			int address_length = load_int32(data + 36)
+			if (error < 0 || error > 1 || status < 0 || status > 599 || mime < 0 || mime > 1 || address_length < 0 || address_length > WIN_ADDRESS_LIMIT || address_length > length - 40): win_broker_client.failed = 1
+			else:
+				for win_load* load in win_broker_loads:
+					if (load.broker_id != id): continue
+					load.finished = 1
+					if (error): load.error = strclone(c"Sandbox broker refused or failed resource request")
+					else:
+						load.address = str_copy_range(data, 40, 40 + address_length)
+						load.status = status
+						load.wasm_mime = mime
+						string_append_bytes(load.output, data + 40 + address_length, length - 40 - address_length)
+						load.source = load.output.data
+						load.length = load.output.length
+		string_clear(win_broker_client.input)
+	if (win_broker_client.failed):
+		for win_load* load in win_broker_loads:
+			if (load.finished): continue
+			load.finished = 1
+			load.error = strclone(c"Sandbox broker disconnected or violated protocol")
 
 win_load* win_load_start_network_bytes(char* executable, char* address, char* kind, char* method, char* body, int body_length, char* content_type, char* accept, char* origin):
 	win_load* load = new win_load()
@@ -474,7 +578,20 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	load.request_address = win_without_fragment(address)
 	load.kind = strclone(kind)
 	load.child = 0
-	if (win_sandbox_requested() && win_remote(address)):
+	if (win_sandbox_origin != 0):
+		URL* allowed_origin = url_parse(win_sandbox_origin)
+		URL* target = url_parse(address)
+		int allowed = allowed_origin != 0 && target != 0 && url_same_origin(allowed_origin, target)
+		if (allowed_origin != 0): url_free(allowed_origin)
+		if (target != 0): url_free(target)
+		if (allowed == 0):
+			load.error = strclone(c"Sandbox broker requires its configured HTTP(S) origin.")
+			load.finished = 1
+			return load
+		origin = win_sandbox_origin
+	if (win_broker_client != 0):
+		return win_broker_load_start(load, address, kind, method, body, body_length, content_type, accept)
+	if (win_sandbox_requested() && win_sandbox_origin == 0 && win_remote(address)):
 		load.error = strclone(c"Offline sandbox does not permit network resources.")
 		load.finished = 1
 		return load
@@ -518,7 +635,7 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	argv[7] = c"--body"
 	argv[8] = body
 	argv[9] = 0
-	if (win_sandbox_requested()):
+	if (win_sandbox_requested() && win_sandbox_origin == 0):
 		argv[9] = c"--sandbox-root"
 		argv[10] = win_sandbox_root
 		argv[11] = 0
@@ -527,7 +644,7 @@ win_load* win_load_start_network_bytes(char* executable, char* address, char* ki
 	char** worker_env = env_copy_with(cookie_env, c"WIN_FETCH_ORIGIN", origin)
 	opts.env = worker_env
 	char** sandbox_env = 0
-	if (win_sandbox_requested()):
+	if (win_sandbox_requested() && win_sandbox_origin == 0):
 		sandbox_env = win_sandbox_environment(getpid())
 		opts.env = sandbox_env
 	if (strcmp(kind, c"fetch") == 0):
@@ -607,13 +724,17 @@ win_load* win_load_start_request(char* executable, char* address, char* method, 
 	return win_load_start_kind(executable, address, c"document", method, body)
 
 void win_load_fail(win_load* load, char* error):
+	win_load_cancel(load)
 	load.error = strclone(error)
-	load.finished = 1
-	if (load.child != 0):
-		process_free(load.child)
-		load.child = 0
 
 int win_load_poll(win_load* load):
+	if (load.broker_id):
+		win_broker_client_poll()
+		if (load.finished == 0 && time_monotonic_ms() - load.started > 15000):
+			win_broker_forget(load)
+			load.error = strclone(c"Sandbox broker request timed out")
+			load.finished = 1
+		return load.finished
 	if (load.finished): return 1
 	if (time_monotonic_ms() - load.started > 12000):
 		win_load_fail(load, c"Document loading timed out.")

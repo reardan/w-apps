@@ -436,7 +436,7 @@ int win_interactive_document_loading(win_browser* browser):
 int win_script_interactive_execute_config(char* executable, char* address, char* home, int limit, int generation, int width, int height, int budget):
 	if (limit < 40 || limit > WIN_INTERACTIVE_LIMIT || generation < 0 || generation > 2147483647 || width < 1 || width > 4096 || height < 1 || height > 4096 || budget < 1 || budget > WIN_EXECUTION_MAX): return 2
 	if (win_sandbox_requested()):
-		if (win_remote(address)): return 2
+		if (win_remote(address) && win_sandbox_origin == 0): return 2
 		char* display = env_get(c"DISPLAY")
 		if (display != 0 && display[0] != ':' && starts_with(display, c"unix:") == 0): return 2
 		# Direct worker invocations may inherit descriptors; close before GL opens
@@ -452,6 +452,9 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		win_frame_sender_free(sender)
 		win_worker_graphics_free(graphics)
 		return 2
+	if (win_sandbox_origin != 0):
+		win_broker_client = win_broker_wire_new(1)
+		win_broker_loads = new list[win_load*]
 	char** previous = env_current()
 	char** environment = win_script_worker_environment()
 	environ_ptr = cast(int, environment)
@@ -477,6 +480,7 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 	int sequence = 0
 	int running = 1
 	while (running):
+		win_broker_client_poll()
 		win_browser_poll(&browser)
 		while (win_interactive_document_loading(&browser)):
 			win_browser_poll(&browser)
@@ -556,6 +560,12 @@ int win_script_interactive_execute_config(char* executable, char* address, char*
 		free(payload)
 		sequence = next
 	win_browser_free(&browser)
+	if (win_broker_client != 0):
+		win_broker_wire_free(win_broker_client)
+		win_broker_client = 0
+		list_free[win_load*](win_broker_loads)
+		win_broker_loads = 0
+		win_broker_sequence = 0
 	ui_render_destroy(&renderer)
 	win_frame_sender_free(sender)
 	win_script_graphics_available = 0

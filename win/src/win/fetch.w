@@ -79,10 +79,7 @@ js_value* win_fetch_abort_reject(js_runtime* rt, js_value* promise, win_fetch_re
 void win_fetch_abort_transport(void* context):
 	win_fetch_request* request = cast(win_fetch_request*, context)
 	if (request.load == 0): return
-	if (request.load.child != 0):
-		process_free(request.load.child)
-		request.load.child = 0
-	request.load.finished = 1
+	win_load_cancel(request.load)
 
 js_value* win_fetch_text(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
@@ -412,12 +409,9 @@ void win_fetch_stop(win_fetch_context* context):
 		win_fetch_request* request = context.requests[i]
 		if (request.load == 0): continue
 		win_load* load = request.load
-		if (load.child != 0):
-			process_free(load.child)
-			load.child = 0
+		win_load_cancel(load)
 		free(load.error)
 		load.error = strclone(c"Fetch aborted")
-		load.finished = 1
 	win_fetch_poll(context)
 
 void win_fetch_free(win_fetch_context* context):

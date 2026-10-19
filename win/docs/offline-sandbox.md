@@ -20,7 +20,9 @@ The initial address must be local. Network resources are rejected; no TCP port,
 origin wildcard or unrestricted fetch fallback is permitted. Win's existing
 Fetch API requires HTTP(S), so selecting this profile does **not** make the
 unchanged HTTP/Wasm acceptance hosts work offline. A parent-owned resource
-broker remains necessary for sandboxed HTTP compatibility.
+broker is available through the separate explicit
+[`--sandbox-origin` profile](network-broker.md). The restrictions described here
+continue to apply when that option is omitted.
 
 ## Installation and retained authority
 

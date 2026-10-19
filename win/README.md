@@ -20,6 +20,12 @@ Ctrl+L selects the address; Enter or Go navigates. Ctrl+T or **+** opens a tab, 
 
 Back/Forward restore history and scroll. Stop cancels pending document and resource workers. The mouse wheel and scrollbar move through the page. Tab/Shift+Tab navigate page controls; Enter submits a text field or activates a button, and Space activates buttons/choices.
 
+Document keyboard navigation also includes links and explicit `tabindex` elements.
+Positive indices precede ordinary DOM order, Shift+Tab reverses traversal, and
+Enter activates a focused link. Focus rings follow native and isolated layout;
+disabled and hidden content are skipped. See the
+[keyboard accessibility scope](docs/javascript-compatibility.md#keyboard-accessibility).
+
 HTTPS uses W's verified TLS client with the host CA bundle. The merged dependency includes P-384 certificate and handshake signature support, addressing the previously observed chain-verification gap. See [HTTPS compatibility](docs/foundation-readiness.md#https-compatibility) for the remaining transport boundaries.
 
 ## Features and compatibility
@@ -34,8 +40,8 @@ scenarios at two viewport sizes, preserving live same-document history.
 See the [implementation evidence](docs/modern-browser-progress.md) for limits and
 remaining platform work.
 
-- **CSS:** embedded and linked stylesheets, inline declarations, attribute and filtered structural selectors, forgiving `:is()`/`:where()` lists, specificity, `!important`, inheritance, media width queries, RGB/HSL colors with missing components, text styling, box dimensions, margins, padding, backgrounds, functional border colors, intrinsic row-flex sizing/shrinking, explicit row flex factors/basis, wrapped rows, column flow, main/cross-axis alignment, equal-track grid layouts, viewport-fixed boxes, sibling margin collapse, custom properties and bounded `calc()`. [Exact CSS compatibility](docs/css-compatibility.md).
-- **Images:** intrinsic/aspect-ratio layout, HTML/CSS sizing, scaling, clipping, alpha, and alt-text fallback. Decoding runs in resource processes; texture upload occurs on the rendering thread. W supports non-interlaced 8-bit PNG and baseline JPEG. Progressive JPEG, SVG, GIF, WebP, animation, and data URLs are unsupported.
+- **CSS:** embedded and linked stylesheets, inline declarations, attribute and filtered structural selectors, forgiving `:is()`/`:where()` lists, specificity, `!important`, inheritance, media width queries, RGB/HSL colors with missing components, text styling, box dimensions, margins, padding, backgrounds, functional border colors, intrinsic row-flex sizing/shrinking, explicit row flex factors/basis, wrapped rows, reversed row/column flow, main/cross-axis alignment, inherited pointer targeting, equal-track grid layouts, viewport-fixed boxes, sibling margin collapse, custom properties and bounded `calc()`. [Exact CSS compatibility](docs/css-compatibility.md).
+- **Images:** intrinsic/aspect-ratio layout, HTML/CSS sizing, scaling, clipping, alpha, and alt-text fallback. Decoding runs in resource processes; texture upload occurs on the rendering thread. W supports non-interlaced 8-bit PNG, baseline JPEG, and the first image of GIF87a/GIF89a (including interlacing, palettes and transparency). Progressive JPEG, SVG, WebP, animation playback, and data URLs are unsupported.
 - **Forms:** text/password fields, textareas, checkboxes, radio groups, single selects, submit/reset buttons, required fields, disabled/readonly controls, and URL-encoded GET/POST. Duplicate names and successful-control order are preserved. Submit and click handlers can cancel default actions. Single selects cycle through enabled options when activated. File uploads, multiple selects, multipart encoding, specialized date/number widgets, and full constraint validation are unsupported. Change events currently fire with each edit. History stores URLs; returning to or reloading a POST result fetches that URL with GET.
 - **JavaScript:** ordered classic inline/external scripts, per-page interpreter state, DOM queries and mutations, styles/classes, capture/target/bubble events, once/passive listeners, canceled default actions, lifecycle events, synchronous DOM properties, inline CSSOM methods, bounded console storage, timers, Promise microtasks, origin-scoped storage with opt-in local persistence, and same-origin fetch with bounded binary uploads, abort signals and text/binary/JSON response consumption. W's interpreter supports `let`/`const`/`var`, ordinary/async functions, arrows, classes and a bounded RegExp subset, and method/event receivers; it does not execute full ECMAScript. [Exact JavaScript compatibility](docs/javascript-compatibility.md).
 - **Loading:** final-URL/base-relative resources, three concurrent subresource workers per page (plus up to three Fetch workers), MIME/UTF-8 checks, gzip/deflate, bounded decoding, deadlines, and cancellation. Cross-origin HTTP(S) stylesheets/scripts/images are allowed; HTTPS pages reject HTTP subresources and resource redirects cannot downgrade HTTPS. Web pages cannot load native files.
@@ -43,8 +49,10 @@ remaining platform work.
 Cookies and explicitly fresh HTTP responses now have bounded in-memory state; see [network compatibility](docs/network-compatibility.md). DOM insertion and resource URL changes trigger bounded resource discovery, with stale loads canceled. Persistent HTTP caching, downloads, session restoration and complete web APIs remain future work. Use `--storage FILE` with an existing parent directory for durable localStorage; sessionStorage stays in memory. Opt-in interactive isolation supports native input, canvas frames and [parent-owned durable storage](docs/isolated-storage.md), with documented snapshot limitations. Loader processes isolate blocking I/O and image decoding; interactive scripts execute with deterministic interpreter/DOM budgets inside the application process. `--isolated-dump` executes the entire page in a separate process with a watchdog and validated text output; see [headless process isolation](docs/script-isolation.md). This process boundary alone does not restrict the worker's OS authority.
 For local content, opt-in `--isolated-interactive --sandbox-root ABS_DIR` adds
 [Linux offline confinement](docs/offline-sandbox.md) with fail-closed Landlock
-and seccomp installation. It retains graphics-server/driver authority and does
-not yet support sandboxed HTTP applications.
+and seccomp installation. It retains graphics-server/driver authority and supports
+local content. Add `--sandbox-origin http://host:port` for the explicit
+[same-origin HTTP broker](docs/network-broker.md), which keeps direct worker
+network access denied and runs network helpers in the parent.
 
 ## Check and test
 

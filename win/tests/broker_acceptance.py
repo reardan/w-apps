@@ -25,7 +25,8 @@ OUT = ROOT/'win/bin/broker-validation'
 OUT.mkdir(parents=True, exist_ok=True)
 compiler = os.environ.get('WIN_TEST_COMPILER', str(ROOT/'w/bin/wv2'))
 if ctypes.CDLL(None).syscall(444, 0, 0, 1) < 8:
-    raise SystemExit('Landlock ABI 8 is required for broker acceptance')
+    print('SKIP: Landlock ABI 8 is required for broker acceptance')
+    raise SystemExit(0)
 for name in ('isolated_mobile', 'isolated_workflow'):
     original = ROOT/f'win/tests/{name}_probe.w'
     generated = OUT/f'{name}_broker.w'

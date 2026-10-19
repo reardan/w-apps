@@ -3,7 +3,7 @@
 For the current app-driven implementation and final dependency/check results,
 see [modern browser progress](modern-browser-progress.md). The older milestones
 below are historical checkpoints. The current selected gate contains 20 pinned
-WPT reftests and 113 Test262 variants (90 PASS, 23 explicit UNSUPPORTED), with
+WPT reftests and 145 Test262 variants (110 PASS, 35 explicit UNSUPPORTED), with
 zero unexpected failures or harness errors; these are feature slices, not an
 overall browser conformance percentage.
 
@@ -117,8 +117,8 @@ or `xvfb-run` is required. Network access is unnecessary during test execution.
 - [WPT static rendering contract](../tests/wpt/README.md): 20 pinned color, selector and CSS Variables
   reftests, an 800×600 content viewport, exact pixel comparisons,
   captured evidence, and explicit unsupported/error handling.
-- [Test262 runtime contract](../../w/tests/javascript/test262/README.md): 58
-  upstream files, 113 metadata-selected variants, native boolean/SameValue
+- [Test262 runtime contract](../../w/tests/javascript/test262/README.md): 74
+  upstream files, 145 metadata-selected variants, native boolean/SameValue
   assertions, phase/type-checked negatives, and separate unsupported results.
 - WPT screenshots and JSON are saved under `win/bin/wpt-results/`. Test262
   writes its full report to `w/bin/test262-conformance.json`.

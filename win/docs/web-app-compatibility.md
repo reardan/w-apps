@@ -28,7 +28,9 @@ python3 -m http.server 8000
 fixture with a minimal WASI adapter. The unchanged mobile UI host requires an
 explicit larger execution budget. Native input, resize, wheel scrolling and
 continued rendering pass; isolated input and resize also pass focused acceptance.
-Full page CSS fidelity and the separate framework workflow remain incomplete. Its exact entry point and measured bottlenecks are in the progress note.
+Full page CSS fidelity remains incomplete. The separate pinned Preact workflow
+passes native and isolated API, routing and persistent-settings scenarios. The
+mobile host's exact entry point and measured bottlenecks are in the progress note.
 
 ## Available layers
 
@@ -48,7 +50,8 @@ Full page CSS fidelity and the separate framework workflow remain incomplete. It
   relative resolution, named imports, cached evaluation, immutable const exports,
   and function exports with live bindings.
   Top-level await and async dependencies suspend through the browser event loop.
-  This does not implement cycles, dynamic import, or live mutable exports. The current loader aborts its graph on a load failure.
+  Live mutable named exports are supported. This does not implement cycles or
+  dynamic import. The current loader aborts its graph on a load failure.
 - Animation: requestAnimationFrame/cancelAnimationFrame on Window and the global
   scope; up to 256 queued callbacks, one shared timestamp per visible paint,
   microtask checkpoints between callbacks, and deferred nested registration.
@@ -84,9 +87,19 @@ It presents atomic DOM snapshots and bounded RGBA8 canvas surfaces from the
 worker, with generation validation and acknowledgement backpressure. The unchanged
 graphics host passes sustained rendering and resize in this mode. See
 [isolated graphics](isolated-graphics.md) and [process isolation](script-isolation.md)
-for ordered input and the remaining shared-storage/workflow limitations. The
-[offline Linux sandbox](offline-sandbox.md) is opt-in and does not support HTTP
-applications; connected desktop/GPU authority remains explicit.
+for ordered input and the parent-owned storage/workflow contracts. The
+[offline Linux sandbox](offline-sandbox.md) is opt-in. The explicit
+[`--sandbox-origin` broker](network-broker.md) now runs the unchanged mobile
+and Preact applications with same-origin HTTP served by parent-owned helpers.
+Connected desktop/GPU authority remains explicit.
+
+Wasm dispatch now borrows validated instruction/local storage and prioritizes
+common operations. Three alternating CPU-time benchmark pairs on the unchanged
+mobile wasm measured median steady frames of 78.6 ms before and 58.3 ms after
+(26% lower), with identical fuel, memory digest and host-call counts. This uses
+deterministic host stubs and excludes browser/GL work; it is not end-to-end frame
+latency. [Raw measurements](browser-gap-performance.json) and
+[`wasm_mobile_bench.w`](../../w/tests/wasm_mobile_bench.w) record the experiment.
 
 ## Verification
 

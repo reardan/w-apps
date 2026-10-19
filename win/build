@@ -36,6 +36,10 @@ if [[ "$action" == test ]]; then
   done
   python3 "$win_root/tests/mobile_native_acceptance.py"
   python3 "$win_root/tests/isolated_mobile_acceptance.py"
+  python3 "$win_root/tests/broker_acceptance.py" "$win_root/bin/win"
+  python3 "$win_root/tests/reverse_flex_render_test.py" "$win_root/bin/win"
+  python3 "$win_root/tests/gif_render_test.py" "$win_root/bin/win"
+  python3 "$win_root/tests/keyboard_focus_render_test.py" "$win_root/bin/win"
 fi
 
 if [[ "$action" == standards ]]; then

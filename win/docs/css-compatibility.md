@@ -51,7 +51,8 @@ are re-evaluated on layout, including viewport resize.
 Supported properties are:
 
 - `color`, `font-size`, `font-weight`, `font-style`, `text-decoration`,
-  `white-space`, `text-align`, `line-height`, `display`, and `visibility`.
+  `white-space`, `text-align`, `line-height`, `display`, `visibility`, and
+  inherited `pointer-events:auto/none`.
 - `width`, `height`, `max-width`, `box-sizing`, `margin`, `padding`, and their
   four physical side longhands. Horizontal auto margins center or right-align
   constrained block boxes.
@@ -175,7 +176,7 @@ Flex and grid generate anonymous items for non-whitespace text runs. Hidden
 nodes and `display:none` children do not consume items or gaps; `visibility:hidden`
 items retain geometry. `display:grid` creates equal tracks based on the number of
 column tokens or `repeat(N, ...)`, wrapping later children into rows. Gap separates
-rows/tracks. Column wrapping, wrap-reverse, reverse directions, baseline alignment,
+rows/tracks. Column wrapping, wrap-reverse, baseline alignment,
 vertical auto margins, explicit align-content, explicit min-width, intrinsic sizing keywords in flex-basis, proportional/fixed grid track
 sizes, grid placement, and complete intrinsic sizing algorithms remain unsupported.
 Grid alignment remains unsupported.
@@ -205,8 +206,21 @@ paragraph UA margins are `1em` at the computed font size. See the
 [bounded margin contract](margin-collapse.md) for inline/flex/grid separation.
 Parent/child and empty-block-through margin collapse remain unsupported.
 
+`row-reverse` and `column-reverse` reverse the flex main axis, including allocated
+sizes, margins, justification and wrapped row geometry. Descendant geometry and
+hit targets move with the item; DOM and paint ordering remain unchanged. Direction
+and writing-mode-dependent axis reversal, column wrapping and wrap-reverse remain
+unsupported.
+
+`pointer-events:none` excludes a box and its inherited text/image runs from native
+targeting. Descendants may restore `auto`; those events still propagate through
+their excluded ancestors. Native form widgets share DOM hit targeting while
+remaining painted and keyboard-operable. Explicit pointer capture and synthetic
+event dispatch remain effective. Inline CSSOM and computed style expose
+`pointerEvents`/`pointer-events` and `flexDirection`/`flex-direction`.
+
 Inline backgrounds/borders, floats, relative/absolute/sticky
-positioning, z-index/full stacking, opacity, pointer-events, transforms,
+positioning, z-index/full stacking, opacity, transforms,
 animations, generated content, table layout, vertical writing and
 full font-family selection remain unsupported. `visibility:hidden` preserves
 layout geometry while suppressing painting and hit testing, and visible descendants

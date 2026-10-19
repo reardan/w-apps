@@ -111,7 +111,9 @@ without a display. The default mode is unchanged. With X11/GLX, the graphics
 profile presents bounded canvas frames and forwards ordered native input; see
 [isolated graphics](isolated-graphics.md) for that protocol. Process separation
 alone retains OS authority; [offline confinement](offline-sandbox.md) is a
-separate opt-in profile for local content.
+separate opt-in profile for local content. Adding the explicit
+[`--sandbox-origin` broker](network-broker.md) admits same-origin HTTP resources
+through the parent while retaining direct network denial in content.
 
 The parent renders an inert HTML snapshot and does not create a script realm
 or execute scripts from it. Script elements are omitted; numeric

@@ -8,7 +8,54 @@ W's `codex/modern-browser-integration`. These are local implementation branches;
 publication/merge has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
 
-## Final validated checkpoint
+## Browser gap expansion (2026-10-19)
+
+The follow-up starts from application `4b3543f` and W
+`3d1e5ce46d6e5dff5760fc6a533381680f93f49d`, on local branches
+`codex/browser-gap-expansion` in both repositories. Parallel implementation and
+cross-review added these bounded capabilities without changing the mobile host,
+wasm application sources, or pinned Preact artifact:
+
+- JavaScript: generic `every`, `forEach`, `map`, `filter`, `find`, `findIndex`,
+  `findLast`, `findLastIndex`, `reduce`, and `reduceRight`, including live property
+  lookup, sparse/mutated receivers, callback exceptions, shared budgets and
+  async callback lifetime. Species and the remaining general language gaps are
+  still outside this subset.
+- CSS: inherited `pointer-events: auto/none`, native-control hit ownership,
+  inline/computed CSSOM properties, and `row-reverse`/`column-reverse` main-axis
+  placement. Reverse flow changes visual placement, preserving document order.
+- Images: bounded GIF87a/GIF89a first-image decoding with LZW, palettes,
+  interlacing, offsets and transparency. Animated GIFs display their first frame.
+- Keyboard access: Tab/Shift-Tab in tabindex order, programmatic negative
+  tabindex focus, hidden/disabled filtering, visible focus rings and cancelable
+  Enter activation for links in native and isolated content. This does not add
+  an accessibility tree, screen-reader integration, full IME, iframe/shadow
+  focus navigation or radio-group roving focus.
+- Isolation: explicit [same-origin HTTP brokerage](network-broker.md) through
+  trusted parent-owned helpers while content retains its Landlock/seccomp
+  restrictions. Bounds, origin checks before cache and every redirect, async
+  cancellation, stalled-reader watchdogs and worker lifetime identity are tested.
+  The original offline profile and opt-in default remain unchanged.
+- Performance: wasm dispatch avoids repeated instruction/local container access
+  and prioritizes common operations, preserving exact fuel and traps. Three
+  alternating pairs with the unchanged mobile wasm measured median steady-frame
+  CPU time of **78.6 ms → 58.3 ms (26% lower)**. Deterministic host stubs exclude
+  browser/GL work; these are not end-to-end frame timings. The
+  [raw measurements](browser-gap-performance.json) preserve fuel, memory digest
+  and host-call counts alongside timing samples.
+
+The pinned Test262 selection grows from 58 to 74 unmodified upstream files:
+145 variants, **110 PASS / 35 explicit UNSUPPORTED / zero FAIL or ERROR**.
+The added neighbors retain explicit unsupported classifications for array
+literal elisions, sloppy mapped arguments and `delete`; no existing expected
+PASS was relaxed. Native WPT continues to use the original 20 pinned reftests.
+
+Full ECMAScript/CSS conformance, SVG/WebP/progressive JPEG/GIF animation,
+audio/video, platform accessibility and IME, and general Internet/CORS/cookie/
+cache behavior remain roadmap work. The broker retains the documented X11/GPU
+and parent-parser authority; it is not complete desktop isolation.
+
+## Original M1–M4 validated checkpoint
 
 The initial M1–M4 application milestones pass under the documented bounds.
 Isolation remains opt-in. M5 expands independently scoped upstream coverage;

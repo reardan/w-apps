@@ -243,6 +243,7 @@ int main(int argc, int argv):
 				if (browser.page.width != 800): win_page_layout(browser.page, 800)
 				win_browser_paint(browser, &ctx, viewport, 0.0)
 				win_forms_draw(browser.forms, &ctx, 0.0, 0.0)
+				win_browser_focus_paint(browser, &ctx, viewport, 0.0)
 		else: win_app_frame(&app, &ctx, window.width, window.height)
 		ui_end(&ctx)
 		frames = frames + 1

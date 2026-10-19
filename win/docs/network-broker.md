@@ -37,7 +37,7 @@ credential, origin override, executable path or parent environment is sent to
 content. Each worker receives a fresh channel, which supplies its lifetime
 identity; request IDs increase monotonically within that channel.
 
-The WBRO0001 header has six fields: eight magic bytes, then payload length,
+The 24-byte WBRO0001 header contains eight magic bytes, then payload length,
 request ID, message kind and revision as four little-endian int32 values.
 Revision is 1. Kinds are request (1), cancellation (2), response (3).
 Requests contain six int32 values: enumerated resource kind (document, CSS,
@@ -115,6 +115,9 @@ no late success, routing/history, theme, reload, and 800×600/360×640 viewports
 Separate runs verify parent-owned storage persistence, `localhost` versus
 `127.0.0.1` separation and mode-0600 publication outside the worker root.
 Reports/screenshots/probe binaries are under `win/bin/broker-validation`.
+The full `win/build test` action includes this acceptance runner after building
+the mobile wasm. On kernels below Landlock ABI 8 it reports an explicit skip;
+the production sandbox still fails closed.
 
 The offline kernel and GL integration tests still pass, including direct raw
 network denial, environment/descriptor hygiene, fail-closed unsupported kernels,

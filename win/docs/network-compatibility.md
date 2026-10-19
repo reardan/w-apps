@@ -9,6 +9,11 @@ No initialization is required. Call `win_network_state_clear()` after stopping
 loaders at final application shutdown or to reset isolated tests; do not call it
 on ordinary tab/page destruction.
 
+The explicit [sandboxed HTTP broker](network-broker.md) reuses this transport
+in trusted parent-owned helpers. It restricts every resource and redirect to the
+selected origin while content retains its direct network denial. The default
+loader and offline sandbox behavior are unchanged.
+
 ## Cookies
 
 - At most 32 cookies, with a 2 KiB limit per received combined Set-Cookie header.

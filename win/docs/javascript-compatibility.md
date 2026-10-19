@@ -4,6 +4,12 @@ Win executes inline classic scripts and fetched external classic scripts in docu
 
 This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary and async functions/closures, synchronous and async arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver; global `this` and sloppy receiver substitution/boxing remain unsupported. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including generators, async methods, and arbitrary-precision BigInt arithmetic. RegExp literals/constructors, exec/test and String.replace implement a bounded UTF-16 subset with explicit unsupported features; see [the RegExp contract](../../w/docs/projects/javascript_regexp.md). Bounded classes support constructors, prototype/static methods, inheritance, super-constructor calls and instanceof; accessors/private fields/super-property access remain outside the class subset. Bounded 64-bit BigInt arithmetic preserves exact bits and rejects overflow. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Bounded abstract equality (`==`/`!=`) performs ordinary primitive conversion; Addition and bitwise operators implement bounded ordinary primitive/numeric conversion; other arithmetic coercion and many standard built-ins remain outside the subset. Iterative logical, comma, conditional, binary and statement-tail evaluation avoids artificial AST recursion while retaining execution and call-depth limits. For-in enumerates descriptor/prototype keys with mutation rules; `in` uses descriptor lookup and explicit native presence hooks. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, live named variable/function/class exports and top-level await. Pending module evaluation lets Fetch/timers/Promise jobs advance and delays the initial DOMContentLoaded/load lifecycle; rejection is cached and reported without replaying module bodies. The bounded scheduling and storage APIs below are available, along with same-origin `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` / `Response.json()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, location assignment, and access to W/OS capabilities from page code remain unavailable.
 
+Array callback methods now include generic `every`, `forEach`, `map`, `filter`,
+`find`, `findIndex`, `findLast`, `findLastIndex`, `reduce` and `reduceRight`.
+They preserve callback order, sparse/inherited properties, live mutation and
+shared execution limits; custom species and Symbol hooks remain unsupported.
+See the [array iteration contract](../../w/docs/projects/javascript_array.md#callback-iteration).
+
 `String(value)` supports bounded ordinary object conversion and Error
 stringification; wrapper construction and Symbol hooks remain unsupported.
 `parseFloat` and `Number.parseFloat` share a bounded decimal-prefix parser with
@@ -153,7 +159,7 @@ navigation assignment and the Navigation API remain unsupported.
 
 The additional host surface includes `location.search`, string-initialized
 `URLSearchParams.get`, viewport globals and resize events, `getBoundingClientRect`,
-client/offset dimensions, and live computed padding/font-size reads through
+client/offset dimensions, and live computed padding/font-size/pointer-events/flex-direction reads through
 `getComputedStyle`. VisualViewport, general computed styles, and navigation
 assignment are not implemented.
 
@@ -168,7 +174,7 @@ Available operations:
 - Input/textarea `selectionStart`, `selectionEnd`, `selectionDirection`, and `setSelectionRange` use UTF-16 offsets with clamping. Native focus, editing and selection task events remain incomplete.
 - `createElement`, `createTextNode`, `appendChild`, `replaceChildren`, and `remove`. Element `replaceChildren` accepts nodes and primitive strings with preflight hierarchy validation; Document and DocumentFragment variants are absent. Detached nodes remain owned until the page is freed, so retained wrappers remain safe.
 - `classList.add`, `.remove`, `.toggle`, and `.contains` with one class token per call.
-- `style.cssText`, `.color`, `.backgroundColor`, `.display`, `.fontSize`, `.fontWeight`, `.width`, `.height`, `.margin`, `.padding`, `.border`, `.flex`, `.flexGrow`, `.flexShrink`, `.flexBasis`, and `.justifyContent` reads/writes. `getPropertyValue`, `getPropertyPriority`, `setProperty`, and `removeProperty` operate on supported CSS property names; `setProperty` accepts an optional `important` priority. Reads return specified inline values, not computed cascade values. `cssText` normalizes declaration order, separators, and spacing. Invalid individual property assignments leave existing declarations unchanged; replacing `cssText` keeps only valid supported declarations. The interface does not implement general computed styles, stylesheet rule APIs, or complete CSSStyleDeclaration enumeration/serialization; limited computed padding/font-size reads are listed above.
+- `style.cssText`, `.color`, `.backgroundColor`, `.display`, `.fontSize`, `.fontWeight`, `.width`, `.height`, `.margin`, `.padding`, `.border`, `.flex`, `.flexGrow`, `.flexShrink`, `.flexBasis`, `.flexDirection`, `.pointerEvents`, and `.justifyContent` reads/writes. `getPropertyValue`, `getPropertyPriority`, `setProperty`, and `removeProperty` operate on supported CSS property names; `setProperty` accepts an optional `important` priority. Reads return specified inline values, not computed cascade values. `cssText` normalizes declaration order, separators, and spacing. Invalid individual property assignments leave existing declarations unchanged; replacing `cssText` keeps only valid supported declarations. The interface does not implement general computed styles, stylesheet rule APIs, or complete CSSStyleDeclaration enumeration/serialization; limited computed padding/font-size/pointer-events/flex-direction reads are listed above.
 - `addEventListener`, `removeEventListener`, function-valued `on...` properties, and inline event attributes for the supported language subset. Listener registration accepts a boolean capture argument or an options object with `capture`, `once`, and `passive`; removal matches the callback, event type, and capture flag.
 - `console.log`, `.warn`, and `.error` retain their first argument in a bounded per-page console buffer (the last 32 entries, at most 4 KiB each). A console panel is not yet provided.
 
@@ -262,3 +268,25 @@ and generic array-like `slice` uses property presence before reading elements.
 Sloppy mapped arguments remain unsupported. Shared String prototype casing uses
 Unicode 12.1 mappings with default final-sigma handling and resource bounds; see
 [W’s casing contract](../../w/docs/projects/javascript_string_case.md).
+
+## Keyboard accessibility
+
+Tab and Shift+Tab traverse links, form controls and explicit `tabindex` elements.
+Positive indices sort first by value, with DOM order breaking ties; zero/native
+entries follow current DOM order. Negative indices remain programmatically
+focusable but are omitted from sequential traversal. Hidden and disabled content
+are skipped; visible descendants may override inherited `visibility:hidden`.
+`pointer-events:none` does not remove keyboard access.
+
+Traversal and Enter-link activation run through the ordered native input path,
+including isolated workers. Canceling keydown suppresses the default; link
+activation dispatches a cancelable click and observes a handler's changed href
+before navigating. Focus rings and reveal use the final box or inline-run
+geometry. Native new-tab link targets work; isolated new-tab transport is still
+unsupported. Traversal wraps within the document and is bounded to 20,000 nodes
+and depth 128.
+
+These changes improve keyboard access. Linux AT-SPI/screen-reader integration,
+ARIA semantic trees, shadow/iframe focus scopes, radio-group roving focus and
+complete platform keyboard/IME support remain open. Tests cover native and
+isolated traversal/activation and actual rendered focus pixels.

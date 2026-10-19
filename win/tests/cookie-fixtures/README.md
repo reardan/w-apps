@@ -78,3 +78,10 @@ per-field/address lengths and record count. Oversized, incomplete, or malformed
 metadata prevents cookie-jar mutation, including worker ERROR exits. Integration
 checks include a 1 MiB body with a long URL and 32 large cookie fields, the exact
 maximum valid COOKIE metadata envelope, and rejected over-cap/malformed cases.
+
+Standalone reports include exact application/W HEAD revisions, driver SHA256
+(or a null hash plus an explicit error when missing), adapter SHA256, verified
+fixture/license hashes, and a UTC fresh-execution timestamp. The frozen cookie
+clock is separately recorded and is not the execution timestamp. Run
+`python3 win/tests/cookie-fixtures/report_test.py` for missing-driver/full-denominator
+and changed-license admission regressions; no native rebuild is required.

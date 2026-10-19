@@ -4,15 +4,18 @@ import argparse
 import collections
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
 PIN = "6d4552a8b1057e42a180119d70273f563e53a264"
 HASHES = {
     "expires.html": "0c237f0247b1c1c59b74e832ece358b77c70173f3594dd4faa83351dda95a451",
     "max-age.html": "9a6fe4fd1edb9a8cd094a99b4a6fc191a31fbb698fcc8890e87bdbc7ae487af5",
 }
+SOURCE_PINS = {**HASHES, "LICENSE.md": "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570"}
 # Execute unchanged inline scripts to enumerate upstream cookie/expected/name
 # arguments. This only collects data; Node does not perform the cookie tests.
 COLLECT = r"""
@@ -29,12 +32,35 @@ for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
 process.stdout.write(JSON.stringify(cases));
 """
 
+def evidence(binary, fixture_hashes):
+    revisions = {}
+    for name, directory in [('application_revision', ROOT), ('w_revision', ROOT / 'w')]:
+        try:
+            proc = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'],
+                                  capture_output=True, text=True, timeout=5)
+            revisions[name] = proc.stdout.strip() if proc.returncode == 0 else None
+        except (OSError, UnicodeError, subprocess.TimeoutExpired):
+            revisions[name] = None
+    try:
+        driver_hash, hash_error = hashlib.sha256(binary.read_bytes()).hexdigest(), None
+    except OSError as error:
+        driver_hash, hash_error = None, str(error)
+    return dict(**revisions, driver_sha256=driver_hash, driver_hash_error=hash_error,
+                adapter_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                fixture_sha256=fixture_hashes, kind='fresh-execution',
+                recorded_at_utc=datetime.now(timezone.utc).isoformat())
+
+
 def run(binary):
-    results = []
-    for name, digest in HASHES.items():
-        path = HERE / name
-        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+    fixture_hashes = {}
+    for name, digest in SOURCE_PINS.items():
+        actual = hashlib.sha256((HERE / name).read_bytes()).hexdigest()
+        if actual != digest:
             raise ValueError(f"pinned fixture changed: {name}")
+        fixture_hashes[name] = actual
+    results = []
+    for name in HASHES:
+        path = HERE / name
         cases = json.loads(subprocess.run(['node', '-e', COLLECT, str(path)],
                                          check=True, capture_output=True, text=True, timeout=5).stdout)
         for index, case in enumerate(cases, 1):
@@ -57,7 +83,8 @@ def run(binary):
                     result.update(status='ERROR', reason=str(error))
             results.append(result)
     return dict(kind='upstream-data-case-adapter', upstream_commit=PIN, clock='2026-01-01T00:00:00Z',
-                total=len(results), counts=dict(collections.Counter(r['status'] for r in results)), results=results)
+                total=len(results), counts=dict(collections.Counter(r['status'] for r in results)), results=results,
+                evidence=evidence(binary, fixture_hashes))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

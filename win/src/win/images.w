@@ -1,6 +1,7 @@
 # Images are decoded in loader processes, then uploaded on the rendering thread.
 import graphics.image.png
 import graphics.image.jpeg
+import graphics.image.gif
 import graphics.ui.render
 import libs.extras.html.html
 
@@ -38,6 +39,7 @@ void win_image_draw(ui_renderer* renderer, win_image* image, ui_rect rect):
 	if (image.texture != 0): ui_draw_image(renderer, image.texture, rect, 1.0)
 
 wresult[rgba_image*]* win_image_decode(char* source, int length):
+	if (source == 0 || length < 0): return result_new_error[rgba_image*](IMAGE_BAD_FORMAT)
 	image_limits limits
 	limits.input_bytes = WIN_IMAGE_INPUT_LIMIT
 	limits.width = 4096
@@ -45,6 +47,7 @@ wresult[rgba_image*]* win_image_decode(char* source, int length):
 	limits.rgba_bytes = WIN_IMAGE_RGBA_LIMIT
 	if (length >= 8 && (source[0] & 255) == 137): return png_decode_n(source, length, &limits)
 	if (length >= 2 && (source[0] & 255) == 255 && (source[1] & 255) == 216): return jpeg_decode_n(source, length, &limits)
+	if (length >= 6 && source[0] == 'G' && source[1] == 'I' && source[2] == 'F'): return gif_decode_n(source, length, &limits)
 	return result_new_error[rgba_image*](IMAGE_UNSUPPORTED)
 
 # Fixed-width binary dimensions avoid ambiguous delimiters in pixel data.

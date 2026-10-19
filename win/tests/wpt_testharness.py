@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = Path(__file__).resolve().parent / 'wpt'
@@ -24,6 +25,29 @@ def require(value, message):
         raise ValueError(message)
 
 
+def strict_json(text):
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            require(key not in result, 'duplicate JSON field: ' + key)
+            result[key] = value
+        return result
+    def constant(value):
+        raise ValueError('non-finite JSON value: ' + value)
+    return json.loads(text, object_pairs_hook=pairs, parse_constant=constant)
+
+
+def evidence(driver):
+    revisions = {}
+    for name, directory in [('application_revision', ROOT), ('w_revision', ROOT / 'w')]:
+        proc = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'], text=True, capture_output=True)
+        revisions[name] = proc.stdout.strip() if proc.returncode == 0 else None
+    return {**revisions, 'driver_sha256': hashlib.sha256(driver.read_bytes()).hexdigest(),
+            'recorded_at_utc': datetime.now(timezone.utc).isoformat(), 'kind': 'fresh-execution',
+            'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            'driver_source_sha256': hashlib.sha256((ROOT / 'win/tests/wpt_driver.w').read_bytes()).hexdigest()}
+
+
 def classify(report):
     require(isinstance(report, dict) and type(report.get('protocol')) is int and report['protocol'] == 1, 'invalid protocol')
     for key in ('completions', 'script_failures', 'failed_source', 'elapsed_ms'):
@@ -35,7 +59,7 @@ def classify(report):
     if report['completions'] == 0:
         return 'ERROR', 'timeout before completion callback'
     require(report['completions'] == 1, 'completion callback must run exactly once')
-    payload = json.loads(report['payload'])
+    payload = strict_json(report['payload'])
     require(isinstance(payload, dict), 'invalid completion payload')
     require(type(payload.get('status')) is int and 0 <= payload['status'] <= 3, 'invalid harness status')
     require(isinstance(payload.get('tests'), list) and payload['tests'], 'completion requires subtest evidence')
@@ -70,7 +94,7 @@ def execute(driver, sources, timeout=10):
         return {'status': 'ERROR', 'reason': 'process crash' if proc.returncode < 0 else 'driver error',
                 'exit_code': proc.returncode, 'stderr': proc.stderr[-4000:]}
     try:
-        actual = json.loads(proc.stdout)
+        actual = strict_json(proc.stdout)
         status, reason = classify(actual)
         return {'status': status, 'reason': reason, 'actual': actual}
     except (ValueError, KeyError, TypeError) as error:
@@ -78,7 +102,7 @@ def execute(driver, sources, timeout=10):
 
 
 def load_manifest(path):
-    manifest = json.loads(path.read_text())
+    manifest = strict_json(path.read_text())
     require(manifest.get('version') == 1 and isinstance(manifest.get('files'), dict), 'invalid manifest')
     require(isinstance(manifest.get('cases'), list) and manifest['cases'], 'empty cases')
     for name, digest in manifest['files'].items():
@@ -109,6 +133,8 @@ def run(manifest_path, driver, timeout=10):
             results.append({'id': case['id'], 'blockers': case['blockers'], **result})
     counts = Counter(item['status'] for item in results)
     return {'protocol': 1, 'profile': 'native-window-script-testharness-v1', 'upstream': manifest['upstream'],
+            'evidence': evidence(driver), 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'bridge_sha256': hashlib.sha256(BRIDGE.encode()).hexdigest(), 'wall_timeout_seconds': timeout, 'inventory': strict_json((manifest_path.parent / 'wpt-inventory.json').read_text()),
             'selected_files': len(results), 'executed_files': sum('actual' in r and r['actual']['failed_source'] == -1 for r in results),
             'counts': {key: counts[key] for key in STATUSES}, 'results': results,
             'limitations': 'Window script seam only: not wptrunner/WebDriver, HTML/resource loading, multi-origin/TLS, variants or testdriver. Failures and mandatory unsupported features remain blockers.'}

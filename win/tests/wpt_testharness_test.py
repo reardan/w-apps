@@ -55,8 +55,14 @@ class AsyncDriverContract(unittest.TestCase):
         self.assertEqual(self.execute(self.complete() + 'throw 1;')['status'], 'ERROR')
 
     def test_malformed_completion_is_error(self):
-        for source in ['__wptComplete(1);', '__wptComplete("not json");', '__wptComplete("{}");']:
+        for source in ['__wptComplete(1);', '__wptComplete("not json");', '__wptComplete("{}");', '__wptComplete("{}\\x00junk");']:
             self.assertEqual(self.execute(source)['status'], 'ERROR')
+
+    def test_valid_json_prefix_cannot_hide_nul_suffix(self):
+        source = '__wptComplete(' + json.dumps(json.dumps(PAYLOAD) + '\x00junk') + ');'
+        result = self.execute(source)
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['script_failures'], 1)
 
     def test_fresh_realms(self):
         for _ in range(2):
@@ -84,10 +90,14 @@ class AsyncDriverContract(unittest.TestCase):
             self.assertEqual(runner.classify(dict(good, payload=json.dumps(payload)))[0],
                              'UNSUPPORTED' if status == 4 else 'ERROR')
 
+    def test_duplicate_and_nonfinite_json_are_rejected(self):
+        for text in ['{"status":0,"status":1}', '{"value":NaN}', '{"value":Infinity}']:
+            with self.assertRaises(ValueError):
+                runner.strict_json(text)
+
     def test_crash_and_malformed_process_output(self):
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / 'driver'
-            binary.chmod(0o755) if binary.exists() else None
             for body, reason in [('import os,signal;os.kill(os.getpid(),signal.SIGKILL)', 'process crash'),
                                  ('print("{}")', 'malformed report')]:
                 binary.write_text('#!/usr/bin/env python3\n' + body + '\n')

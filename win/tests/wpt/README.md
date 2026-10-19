@@ -86,17 +86,18 @@ The contract suite proves real timers, Promise checkpoints and suspended async
 functions, failure propagation, missing/duplicate completion, fresh realms,
 crashes, invalid output and malformed statuses. These are local driver tests,
 not upstream WPT passes. The strict upstream command currently exits 1: all
-three original async files are blocked before execution by the original
-harness's switch statement at line 1439. Reports retain these ERROR results;
-there is no expected-failure success mode. The subsequent global-object,
-Object/reflection, Window/Document and error-constructor requirements are tracked
-with A/B/coordinator. The larger source limit is automation-only, for the
+three original async files currently reach the harness's `expose` function but
+stop at `name.split(".")` (line 4967), because String.prototype.split is missing.
+Earlier switch lowering, globals, numeric keys, remainder, fromCharCode and
+indexOf blockers have been implemented. Reports retain all three ERROR results;
+there is no expected-failure success mode. Runtime and DOM dependencies remain
+tracked with A/B/coordinator. The larger source limit is automation-only, for the
 original 190+ KiB harness; ordinary browser execution limits remain unchanged.
 
 This is an asynchronous native script-host execution path, not a complete
 wptrunner product adapter. HTML/resources, server headers/substitutions,
 multi-origin HTTP/TLS, variants, worker environments, testdriver/WebDriver,
-dynamic reftest readiness and full upstream manifest expansion remain mandatory
+dynamic reftest readiness and manifest-driven product execution remain mandatory
 integration work. The three selected `.any.js` files also require worker
 variants which this window seam does not execute. Those variants remain pending,
 not passed or declared inapplicable.
@@ -104,7 +105,12 @@ not passed or declared inapplicable.
 `wpt-inventory.json` freezes the complete upstream archive and sorted per-file
 hash index: 165,375 regular files, including 29,029 markup files referencing
 `testharness.js` and 4,286 generated-test source files. These are file counts,
-not applicable tests/variants; those denominators remain explicitly unknown.
+not applicable tests/variants. The unchanged upstream manifest generator now
+expands the entire archive into version 9 manifest items: 32,080 testharness
+source files produce 39,257 declared items; 28,227 reftest sources produce
+28,601 items. Manual, support, crash, visual, print, accessibility, WebDriver
+and vendored Test262 entries remain separate in the pinned summary. Declared
+items are candidates, not executed tests or resolved product applicability.
 Reproduce the complete archive/index and summary with:
 
 ```sh
@@ -112,6 +118,19 @@ python3 win/tests/wpt_inventory.py --output win/bin/upstream-inventory wpt
 python3 win/tests/wpt_inventory.py --output win/bin/upstream-inventory test262
 ```
 
-Only this explicit inventory refresh uses the network. Archive and index hashes
+Then expand metadata from those hash-verified archives offline:
+
+```sh
+python3 win/tests/wpt_inventory.py --expand-existing --output win/bin/upstream-inventory wpt
+python3 win/tests/wpt_inventory.py --expand-existing --output win/bin/upstream-inventory test262
+```
+
+WPT expansion requires Python 3.12+ for safe archive extraction and runs the
+unchanged upstream manifest code with its pinned vendored dependencies. Test262
+expansion runs its original metadata parser: 53,616 candidate files yield
+102,994 declared strict/sloppy/raw/module variants, with zero parse diagnostics
+or unexpanded files. Neither expansion is a conformance execution.
+
+Only the explicit inventory download uses the network. Archive and index hashes
 are pinned in the committed summaries. The GitHub recursive-tree API truncates
 both suites and is not a valid complete-suite denominator.

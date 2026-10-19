@@ -15,8 +15,41 @@ js_value* wpt_complete(void* context, list[js_value*] args):
 		js_runtime_fail(rt, 6, c"invalid WPT completion payload")
 		return rt.undefined_value
 	int length = 0
-	if (wpt_payload == 0): wpt_payload = js_text_to_utf8(args[0].text, &length)
+	if (wpt_payload == 0):
+		wpt_payload = js_text_to_utf8(args[0].text, &length)
+		if (length > 1048576 || strlen(wpt_payload) != length):
+			free(wpt_payload)
+			wpt_payload = 0
+			js_runtime_fail(rt, 6, c"invalid WPT completion bytes or size")
 	return rt.undefined_value
+
+void wpt_unsupported_node(json_value* messages, js_node* node):
+	if (node == 0 || js_runtime_supported(node)): return
+	int failed_child = 0
+	for i in range(node.children.length):
+		if (js_runtime_supported(node.children[i]) == 0):
+			failed_child = 1
+			wpt_unsupported_node(messages, node.children[i])
+	if (failed_child == 0):
+		json_value* diagnostic = json_object()
+		json_object_set(diagnostic, c"message", json_string(c"Unsupported runtime AST node"))
+		json_object_set(diagnostic, c"kind", json_string(node.kind))
+		json_object_set(diagnostic, c"operation", json_string(node.text))
+		json_object_set(diagnostic, c"offset", json_int(node.offset))
+		json_array_push(messages, diagnostic)
+
+void wpt_diagnostics(json_value* messages, char* source, char* filename):
+	pg_parse_result* parsed = js_parse(source, strlen(source), filename, 0)
+	js_node* tree = js_lower(parsed)
+	wpt_unsupported_node(messages, tree)
+	js_node_free(tree)
+	for pg_diagnostic* item in parsed.diagnostics.items:
+		json_value* diagnostic = json_object()
+		json_object_set(diagnostic, c"message", json_string(item.message))
+		json_object_set(diagnostic, c"line", json_int(item.line))
+		json_object_set(diagnostic, c"column", json_int(item.column))
+		json_array_push(messages, diagnostic)
+	pg_parse_result_free(parsed)
 
 int main(int argc, int argv):
 	args_init(argc, argv)
@@ -32,6 +65,7 @@ int main(int argc, int argv):
 	js_runtime_bind(script.runtime, c"__wptComplete", wpt_complete)
 	int start = time_monotonic_ms()
 	int failed_source = -1
+	json_value* diagnostics = json_array()
 	for i in range(2, argc):
 		char* source = file_read_text(args_get(i))
 		if (source == 0):
@@ -39,10 +73,12 @@ int main(int argc, int argv):
 			break
 		script.now_ms = time_monotonic_ms()
 		int success = win_script_eval(script, source, strlen(source))
-		free(source)
 		if (success == 0):
+			wpt_diagnostics(diagnostics, source, args_get(i))
+			free(source)
 			failed_source = i - 2
 			break
+		free(source)
 	if (failed_source < 0): win_script_run_pending(script, 0)
 	while (failed_source < 0 && script.failures == 0 && wpt_completions == 0 && time_monotonic_ms() - start < timeout):
 		win_script_poll(script)
@@ -51,6 +87,7 @@ int main(int argc, int argv):
 	if (wpt_completions > 0 && script.failures == 0): win_script_poll(script)
 	json_value* report = json_object()
 	json_object_set(report, c"protocol", json_int(1))
+	json_object_set(report, c"diagnostics", diagnostics)
 	json_object_set(report, c"completions", json_int(wpt_completions))
 	json_object_set(report, c"script_failures", json_int(script.failures))
 	json_object_set(report, c"failed_source", json_int(failed_source))

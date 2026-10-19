@@ -5,7 +5,7 @@ from collections import Counter
 import hashlib
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -27,6 +27,13 @@ add_completion_callback(function(tests, status) {
 def require(value, message):
     if not value:
         raise ValueError(message)
+
+
+def require_relative_source(name):
+    require(isinstance(name, str), 'source path must be text')
+    path = PurePosixPath(name)
+    require(bool(path.parts) and name == path.as_posix() and not path.is_absolute() and
+            all(part not in ('.', '..') for part in path.parts), 'source path must be canonical and relative')
 
 
 def strict_json(text):
@@ -54,6 +61,49 @@ def evidence(driver):
             'recorded_at_utc': datetime.now(timezone.utc).isoformat(), 'kind': 'fresh-execution',
             'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             'driver_source_sha256': hashlib.sha256((ROOT / 'win/tests/wpt_driver.w').read_bytes()).hexdigest()}
+
+
+def freeze_inputs(manifest_path, manifest, inventory):
+    """Validate the exact bytes copied into each run's private source directory."""
+    frozen = {name: (manifest_path.parent / name).read_bytes() for name in manifest['files']}
+    for name, data in frozen.items():
+        require(hashlib.sha256(data).hexdigest() == manifest['files'][name], 'pin changed before execution: ' + name)
+    frozen[manifest_path.name] = manifest_path.read_bytes()
+    frozen['wpt-inventory.json'] = (manifest_path.parent / 'wpt-inventory.json').read_bytes()
+    require(strict_json(frozen[manifest_path.name]) == manifest, 'manifest changed before execution')
+    require(strict_json(frozen['wpt-inventory.json']) == inventory, 'inventory changed before execution')
+    return frozen
+
+
+def write_inputs(directory, frozen):
+    for name, data in frozen.items():
+        require_relative_source(name)
+        path = directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+def check_provenance(manifest_path, frozen, driver, execution_evidence, results, adapters=()):
+    changed = []
+    expected = [(manifest_path.parent / name, hashlib.sha256(data).hexdigest()) for name, data in frozen.items()]
+    expected += [(Path(__file__), execution_evidence['adapter_sha256']),
+                 (ROOT / 'win/tests/wpt_driver.w', execution_evidence['driver_source_sha256'])]
+    expected.extend(adapters)
+    expected.append((driver, execution_evidence['driver_sha256']))
+    for path, digest in expected:
+        try:
+            if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                changed.append(str(path))
+        except OSError:
+            if digest is not None:
+                changed.append(str(path) + ' disappeared')
+    execution_evidence['changed_during_execution'] = changed
+    if changed:
+        for result in results:
+            if result.get('admitted', True):
+                result['observed_status'], result['observed_reason'] = result['status'], result.get('reason')
+                result['status'] = 'ERROR'
+                result['reason'] = 'provenance changed during execution: ' + ', '.join(changed)
 
 
 def classify(report):
@@ -135,6 +185,7 @@ def load_manifest(path):
             isinstance(upstream.get('revision'), str) and re.fullmatch(r'[0-9a-f]{40}', upstream['revision']), 'invalid upstream provenance')
     require(isinstance(manifest.get('cases'), list) and manifest['cases'], 'empty cases')
     for name, digest in manifest['files'].items():
+        require_relative_source(name)
         file = (path.parent / name).resolve()
         require(file.is_relative_to(path.parent.resolve()), 'path escapes corpus')
         require(hashlib.sha256(file.read_bytes()).hexdigest() == digest, 'pin mismatch: ' + name)
@@ -153,19 +204,24 @@ def load_manifest(path):
 def run(manifest_path, driver, timeout=10):
     manifest = load_manifest(manifest_path)
     inventory = strict_json((manifest_path.parent / 'wpt-inventory.json').read_text())
-    require(inventory.get('revision') == manifest['upstream']['revision'], 'suite inventory revision mismatch')
+    require(all(inventory.get(key) == manifest['upstream'][key] for key in ('repository', 'revision')),
+            'suite inventory revision mismatch')
     execution_evidence = evidence(driver)
+    frozen = freeze_inputs(manifest_path, manifest, inventory)
     results = []
     with tempfile.TemporaryDirectory(prefix='win-wpt-') as directory:
+        sources = Path(directory) / 'corpus'
+        write_inputs(sources, frozen)
         bridge = Path(directory) / 'bridge.js'
         bridge.write_text(BRIDGE)
         for case in manifest['cases']:
-            result = execute(driver, [manifest_path.parent / 'resources/testharness.js', bridge,
-                                      manifest_path.parent / case['source']], timeout)
+            result = execute(driver, [sources / 'resources/testharness.js', bridge,
+                                      sources / case['source']], timeout)
             results.append({'id': case['id'], 'blockers': case['blockers'], **result})
+    check_provenance(manifest_path, frozen, driver, execution_evidence, results)
     counts = Counter(item['status'] for item in results)
     return {'protocol': 1, 'profile': 'native-window-script-testharness-v1', 'upstream': manifest['upstream'],
-            'evidence': execution_evidence, 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'evidence': execution_evidence, 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(frozen[manifest_path.name]).hexdigest(),
             'bridge_sha256': hashlib.sha256(BRIDGE.encode()).hexdigest(), 'wall_timeout_seconds': timeout, 'inventory': inventory,
             'selected_files': len(results), 'executed_files': sum('actual' in r and r['actual']['failed_source'] == -1 for r in results),
             'counts': {key: counts[key] for key in STATUSES}, 'results': results,

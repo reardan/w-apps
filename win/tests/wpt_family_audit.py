@@ -20,6 +20,7 @@ def load_manifest(path):
     runner.require(data['official_manifest_sha256'] == inventory['metadata_expansion']['manifest_sha256'], 'official manifest hash mismatch')
     runner.require(data['families'] and all(f.endswith('/') and '..' not in f.split('/') for f in data['families']), 'invalid family paths')
     for name, digest in data['files'].items():
+        runner.require_relative_source(name)
         source = (path.parent / name).resolve()
         runner.require(source.is_relative_to(path.parent.resolve()), 'source escapes corpus')
         runner.require(hashlib.sha256(source.read_bytes()).hexdigest() == digest, 'pin mismatch: ' + name)
@@ -51,20 +52,26 @@ def admission(case):
 def run(manifest_path, driver, timeout=10):
     manifest, inventory = load_manifest(manifest_path)
     evidence = runner.evidence(driver)
+    frozen = runner.freeze_inputs(manifest_path, manifest, inventory)
+    adapter_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     results = []
     with tempfile.TemporaryDirectory(prefix='win-wpt-family-') as directory:
+        sources = Path(directory) / 'corpus'
+        runner.write_inputs(sources, frozen)
         bridge = Path(directory) / 'bridge.js'
         bridge.write_text(runner.BRIDGE)
         for case in manifest['cases']:
             blocker = admission(case)
             result = {'status': 'UNSUPPORTED', 'reason': blocker} if blocker else runner.execute(
-                driver, [manifest_path.parent / 'resources/testharness.js', bridge, manifest_path.parent / case['source']], timeout)
+                driver, [sources / 'resources/testharness.js', bridge, sources / case['source']], timeout)
             results.append({**case, 'admitted': blocker is None, **result})
+    runner.check_provenance(manifest_path, frozen, driver, evidence, results, [(Path(__file__), adapter_hash)])
     counts = Counter(item['status'] for item in results)
     admitted = Counter(item['status'] for item in results if item['admitted'])
     return {'protocol': 1, 'profile': 'native-window-script-parent-families-v1', 'upstream': manifest['upstream'],
             'families': manifest['families'], 'official_manifest_sha256': manifest['official_manifest_sha256'],
-            'family_manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'family_manifest_sha256': hashlib.sha256(frozen[manifest_path.name]).hexdigest(),
+            'family_adapter_sha256': adapter_hash,
             'source_pins': manifest['files'], 'evidence': evidence, 'inventory': inventory,
             'declared_items': len(results), 'source_files': len({r['source'] for r in results}),
             'support_files': manifest['support_files'], 'admitted_items': sum(admitted.values()),

@@ -87,16 +87,13 @@ functions, failure propagation, missing/duplicate completion, fresh realms,
 crashes, invalid output and malformed statuses. These are local driver tests,
 not upstream WPT passes. The upstream `add_result_callback` additionally records
 completed subtests even when a later harness error prevents completion. Observed
-subtest passes never turn an incomplete file into PASS. The strict upstream
-command currently exits 1: all
-three original async files now initialize the original harness and bridge and
-execute their test scripts. The microtask case currently stops on sloppy receiver
-conversion; timer completion reaches the harness's negative-lookahead surrogate
-sanitizer (line 4013), which remains unsupported. Earlier switch lowering,
-globals, numeric keys, remainder, fromCharCode, indexOf and split blockers have
-been implemented. Reports retain all three ERROR results;
-there is no expected-failure success mode. Runtime and DOM dependencies remain
-tracked with A/B/coordinator. The larger source limit is automation-only, for the
+subtest passes never turn an incomplete file into PASS. All three selected
+original async files now pass eight original subtests. Historical runs stopped
+on switch lowering, globals, numeric keys, remainder, fromCharCode, indexOf,
+split, sloppy receivers and the negative-lookahead sanitizer; their original
+ERROR reports remain preserved separately. There is no expected-failure success
+mode. Runtime and DOM dependencies remain tracked with A/B/coordinator.
+The larger source limit is automation-only, for the
 original 190+ KiB harness; ordinary browser execution limits remain unchanged.
 
 This is an asynchronous native script-host execution path, not a complete
@@ -160,11 +157,19 @@ python3 win/tests/wpt_family_audit.py --json win/bin/wpt-family-audit.json
 
 The audit has no favorable-file filter or expected-failure masking. It retains
 all statuses and separately reports admitted-item counts. Its strict exit status
-remains nonzero for any FAIL, ERROR or UNSUPPORTED. The four local contract tests
+remains nonzero for any FAIL, ERROR or UNSUPPORTED. The six local contract tests
 verify accounting, malformed environment admission and missing-driver behavior;
 their synthetic executor results are not upstream WPT passes. Full Window,
 HTML/resource loading, worker and multi-origin execution remain implementation
 requirements beyond this script-host seam.
+
+Each execution copies hash-verified original source bytes into a private
+directory. Reports retain the initial manifest hash and recheck source,
+inventory, driver and adapter hashes afterward. A changed input marks every
+admitted result ERROR while preserving its observed status and reason; mandatory
+unadmitted items retain their UNSUPPORTED records. Local contracts change source,
+manifest, inventory and fake-driver bytes to verify this accounting. Those
+contracts do not modify upstream files or count synthetic outcomes as WPT passes.
 
 ## Reported exceptions and completion integrity
 

@@ -2,6 +2,7 @@
 """Native async driver and strict result-accounting contracts, not WPT passes."""
 import copy
 import json
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -198,10 +199,44 @@ class AsyncDriverContract(unittest.TestCase):
 
     def test_inventory_revision_mismatch_is_rejected(self):
         manifest = runner.load_manifest(runner.CORPUS / 'testharness-manifest.json')
-        manifest['upstream']['revision'] = '0' * 40
-        with patch.object(runner, 'load_manifest', return_value=manifest):
-            with self.assertRaisesRegex(ValueError, 'inventory revision mismatch'):
-                runner.run(runner.CORPUS / 'testharness-manifest.json', DRIVER)
+        for key in ('repository', 'revision'):
+            malformed = copy.deepcopy(manifest)
+            malformed['upstream'][key] = '0' * 40
+            with patch.object(runner, 'load_manifest', return_value=malformed):
+                with self.assertRaisesRegex(ValueError, 'inventory revision mismatch'):
+                    runner.run(runner.CORPUS / 'testharness-manifest.json', DRIVER)
+
+    def test_source_path_aliases_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            corpus = Path(directory) / 'corpus'
+            shutil.copytree(runner.CORPUS, corpus)
+            path = corpus / 'testharness-manifest.json'
+            original = json.loads(path.read_text())
+            for alias in (str(corpus / 'LICENSE.md'), 'resources/../LICENSE.md', './LICENSE.md'):
+                malformed = copy.deepcopy(original)
+                malformed['files'][alias] = malformed['files']['LICENSE.md']
+                path.write_text(json.dumps(malformed))
+                with self.assertRaisesRegex(ValueError, 'canonical and relative'):
+                    runner.load_manifest(path)
+
+    def test_changed_source_keeps_selected_denominator_and_observed_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            corpus = Path(directory) / 'corpus'
+            shutil.copytree(runner.CORPUS, corpus)
+            manifest = corpus / 'testharness-manifest.json'
+            calls = []
+            def execute(driver, sources, timeout):
+                if not calls:
+                    original = corpus / sources[-1].relative_to(sources[0].parent.parent)
+                    original.write_bytes(original.read_bytes() + b'\nchanged')
+                calls.append(sources[-1])
+                return {'status': 'FAIL', 'reason': 'synthetic assertion failure'}
+            with patch.object(runner, 'execute', side_effect=execute):
+                report = runner.run(manifest, DRIVER)
+        self.assertEqual(report['selected_files'], 3)
+        self.assertEqual(report['counts'], {'PASS': 0, 'FAIL': 0, 'UNSUPPORTED': 0, 'ERROR': 3})
+        self.assertTrue(report['evidence']['changed_during_execution'])
+        self.assertTrue(all(r['observed_status'] == 'FAIL' for r in report['results']))
 
 
 if __name__ == '__main__':

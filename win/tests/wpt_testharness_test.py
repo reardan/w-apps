@@ -92,6 +92,27 @@ class AsyncDriverContract(unittest.TestCase):
         self.assertEqual(result['actual']['reported_exceptions'], 1)
         self.assertNotEqual(result['actual']['completion']['status'], 0)
 
+    def test_original_allowed_timer_exception_keeps_identity_and_continues(self):
+        result = self.execute_original('setup({allow_uncaught_exception:true});async_test(function(t){var thrown=new Error("expected timer");var observed=false;addEventListener("error",t.step_func(function(event){assert_equals(event.error,thrown);observed=true;}),{once:true});setTimeout(function(){throw thrown;},0);setTimeout(t.step_func_done(function(){assert_true(observed);}),0);},"reported timer continues");')
+        self.assertEqual(result['status'], 'PASS', result)
+        self.assertEqual(result['actual']['script_failures'], 1)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertEqual(result['actual']['completion_script_failures'], 1)
+
+    def test_original_unexpected_timer_exception_is_error(self):
+        result = self.execute_original('async_test(function(t){setTimeout(function(){throw new Error("unexpected timer");},0);setTimeout(function(){t.done();},0);},"unexpected timer error");')
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertNotEqual(result['actual']['completion']['status'], 0)
+
+    def test_reported_timer_throw_after_completion_is_error(self):
+        result = self.execute('setTimeout(function(){' + self.complete() + 'throw 1;},0);')
+        self.assertEqual(result['status'], 'ERROR', result)
+        self.assertEqual(result['actual']['script_failures'], 1)
+        self.assertEqual(result['actual']['reported_exceptions'], 1)
+        self.assertEqual(result['actual']['completion_script_failures'], 0)
+        self.assertIn('after completion', result['reason'])
+
     def test_error_listener_throw_and_terminal_budget_remain_errors(self):
         result = self.execute('addEventListener("error",function(){throw 2;});queueMicrotask(function(){throw 1;});' + self.complete())
         self.assertEqual(result['status'], 'ERROR', result)

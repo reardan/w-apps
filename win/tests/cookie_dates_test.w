@@ -1,0 +1,84 @@
+import lib.assert
+import win.network_state
+
+void cookie_dates_expect(int now, char* expected):
+	char* actual = win_cookie_header_at(c"https://example.test/", now)
+	assert_strings_equal(expected, actual)
+	free(actual)
+
+void cookie_dates_native():
+	int now = datetime_to_unix(datetime_with_offset(datetime_new(2026, 1, 1, 0, 0, 0, 0), 0))
+	win_network_state_clear()
+	win_cookie_set_at(c"https://example.test/", c"sid=old; Expires=Apr 10 1980 16:33:12 GMT", now)
+	cookie_dates_expect(now, c"")
+	win_cookie_set_at(c"https://example.test/", c"sid=future; Expires=Fri, 01 Jan 2038 00:00:00 GMT; HttpOnly; Secure", now)
+	cookie_dates_expect(now, c"sid=future")
+	assert_equal(1, win_cookies[0].http_only)
+	assert_equal(1, win_cookies[0].persistent)
+	int expiry = win_cookies[0].expires
+	char* snapshot = win_cookie_snapshot_at(now)
+	asserts(c"absolute expiry snapshot", index_of(snapshot, c"Expires=Fri, 01 Jan 2038") >= 0)
+	asserts(c"HttpOnly snapshot", index_of(snapshot, c"HttpOnly") >= 0)
+	win_network_state_clear()
+	win_cookie_restore_at(snapshot, now + 1000)
+	free(snapshot)
+	assert_equal(expiry, win_cookies[0].expires)
+	assert_equal(1, win_cookies[0].http_only)
+	cookie_dates_expect(expiry - 1, c"sid=future")
+	cookie_dates_expect(expiry, c"")
+	win_cookie_set_at(c"https://example.test/", c"sid=age; Expires=Thu Apr 10 1980 16:33:12 GMT; Max-Age=20", now)
+	cookie_dates_expect(now + 19, c"sid=age")
+	cookie_dates_expect(now + 20, c"")
+	win_cookie_set_at(c"https://example.test/", c"sid=age; Max-Age=20; Expires=Thu Apr 10 1980 16:33:12 GMT", now)
+	cookie_dates_expect(now + 19, c"sid=age")
+	win_cookie_set_at(c"https://example.test/", c"sid=invalid-age; Max-Age=-garbage", now)
+	cookie_dates_expect(now, c"sid=invalid-age")
+	assert_equal(0, win_cookies[0].persistent)
+	win_cookie_set_at(c"https://example.test/", c"sid=invalid-date; Expires=31 Apr 2038 1:2:3; Max-Age=+20", now)
+	assert_equal(0, win_cookies[0].persistent)
+	win_cookie_set_at(c"https://example.test/", c"sid=comma-age; Max-Age=50,399", now)
+	cookie_dates_expect(now, c"sid=comma-age")
+	win_cookie_set_at(c"https://example.test/", c"sid=trailing-date; Expires=Fri 01 Jan 2038 00:00:00 GMT, baz=qux", now)
+	cookie_dates_expect(now, c"sid=trailing-date")
+	win_cookie_set_at(c"https://example.test/", c"sid=delete; Expires=Fri, 01 Jan 2038 00:00:00 GMT; Max-Age=-1", now)
+	cookie_dates_expect(now, c"")
+	win_cookie_set_at(c"https://example.test/", c"sid=huge; Max-Age=999999999999999999999999999999", now)
+	asserts(c"saturated age remains future", win_cookies[0].expires > now)
+	win_cookie_set_at(c"https://example.test/", c"sid=secure; Secure; HttpOnly; Max-Age=50", now)
+	win_cookie_set_at(c"http://example.test/", c"sid=attack; Max-Age=0", now)
+	cookie_dates_expect(now, c"sid=secure")
+	win_cookie_set_at(c"https://example.test/", c"foreign=attack; Domain=test; Expires=Fri, 01 Jan 2038 00:00:00 GMT", now)
+	win_cookie_set_at(c"https://example.test/", c"bad=attack, other=1", now)
+	win_cookie_set_at(c"https://example.test/", c"bad=attack; Path=/,other=1", now)
+	win_cookie_set_at(c"https://example.test/", c"bad=attack\r\nSet-Cookie:evil=1", now)
+	cookie_dates_expect(now, c"sid=secure")
+	win_cookie_restore_at(c"https://example.test/\nbad=truncated", now)
+	cookie_dates_expect(now, c"sid=secure")
+	# An already-expired new cookie must never evict an unrelated full-jar entry.
+	win_network_state_clear()
+	for i in range(WIN_COOKIE_COUNT):
+		char* number = itoa(i)
+		char* pair = strjoin(c"name", number)
+		char* complete = strjoin(pair, c"=present")
+		win_cookie_set_at(c"https://example.test/", complete, now)
+		free(complete)
+		free(pair)
+		free(number)
+	win_cookie* original = win_cookies[0]
+	win_cookie_set_at(c"https://example.test/", c"missing=expired; Max-Age=0", now)
+	asserts(c"expired absent key never evicts", win_cookies[0] == original)
+	win_network_state_clear()
+
+int main(int argc, char** argv):
+	# Adapter mode supplies unchanged upstream header strings and a frozen clock.
+	if (argc > 1 && strcmp(argv[1], c"--upstream") == 0):
+		int now = datetime_to_unix(datetime_new(2026, 1, 1, 0, 0, 0, 0))
+		for i in range(2, argc): win_cookie_set_at(c"https://example.test/", argv[i], now)
+		char* header = win_cookie_header_at(c"https://example.test/", now)
+		println(header)
+		free(header)
+		win_network_state_clear()
+		return 0
+	cookie_dates_native()
+	println(c"Win cookie date/age precedence, HttpOnly, snapshot and expiry limits: OK")
+	return 0

@@ -1,7 +1,8 @@
 # Bounded, memory-only browser network state. Domain attributes are accepted
 # only for the exact response host: no public-suffix list is bundled yet.
-# Expires-only cookies are rejected; Max-Age and session cookies are supported.
+# Expires/Max-Age and HttpOnly metadata use the reusable W cookie parsers.
 import libs.standard.web.http_client
+import libs.standard.web.cookies
 import lib.time
 
 const int WIN_COOKIE_COUNT = 32
@@ -11,6 +12,8 @@ struct win_cookie:
 	char* path
 	char* pair
 	int secure
+	int http_only
+	int persistent
 	int expires
 
 win_cookie*[32] win_cookies
@@ -49,12 +52,13 @@ int win_cookie_name_equal(char* a, char* b):
 	while (a[i] != 0 && a[i] != '=' && a[i] == b[i]): i = i + 1
 	return a[i] == '=' && b[i] == '='
 
-void win_cookie_set(char* address, char* header):
+void win_cookie_set_at(char* address, char* header, int now):
+	if (now < 0): return
 	if (header == 0 || strlen(header) > WIN_COOKIE_LIMIT): return
 	int length = strlen(header)
-	# Comma-folded Set-Cookie is ambiguous (notably Expires); fail closed.
+	# A single original response field may contain commas in Expires/attributes.
 	for i in range(length):
-		if (header[i] < 32 || header[i] >= 127 || header[i] == ','): return
+		if ((header[i] < 32 && header[i] != 9) || header[i] >= 127): return
 	URL* u = url_parse(address)
 	if (u == 0): return
 	int end = 0
@@ -65,6 +69,8 @@ void win_cookie_set(char* address, char* header):
 	int valid = eq > 0 && pair[eq] == '='
 	for i in range(eq):
 		if (http_is_token_char(pair[i]) == 0): valid = 0
+	for i in range(strlen(pair)):
+		if (pair[i] == 44 || pair[i] == 9): valid = 0
 	int plen = strlen(u.path)
 	int slash = 0
 	for i in range(plen):
@@ -76,7 +82,9 @@ void win_cookie_set(char* address, char* header):
 	int secure = 0
 	int age = -1
 	int has_age = 0
-	int expires_attr = 0
+	int http_only = 0
+	int expires = 0
+	int has_expires = 0
 	while (header[end] != 0):
 		int start = end + 1
 		end = start
@@ -84,25 +92,44 @@ void win_cookie_set(char* address, char* header):
 		char* attr = http_trimmed_value(header, start, end)
 		int split = 0
 		while (attr[split] != 0 && attr[split] != '='): split = split + 1
-		char* value = c""
+		char* value = strclone(c"")
 		if (attr[split] == '='):
-			attr[split] = 0
-			value = attr + split + 1
-		if (win_net_equal(attr, c"secure")): secure = 1
-		else if (win_net_equal(attr, c"domain")):
-			if (value[0] == '.'): value = value + 1
-			if (win_net_equal(value, u.host) == 0): valid = 0
-		else if (win_net_equal(attr, c"path") && value[0] == '/'):
+			free(value)
+			value = cookie_trimmed(attr, split + 1, strlen(attr))
+		char* name = cookie_trimmed(attr, 0, split)
+		if (win_net_equal(name, c"secure")): secure = 1
+		else if (win_net_equal(name, c"httponly")): http_only = 1
+		else if (win_net_equal(name, c"domain")):
+			char* domain = value
+			if (domain[0] == '.'): domain = domain + 1
+			if (win_net_equal(domain, u.host) == 0): valid = 0
+		else if (win_net_equal(name, c"path") && value[0] == '/'):
+			# Keep synthetic snapshot attributes unambiguous and control-free.
+			for i in range(strlen(value)):
+				if (value[i] == 44 || value[i] == 9): valid = 0
 			free(path)
 			path = strclone(value)
-		else if (win_net_equal(attr, c"max-age")):
-			has_age = 1
-			age = win_net_decimal(value, 31536000)
-			if (value[0] == '-'): age = 0
-			if (age < 0): valid = 0
-		else if (win_net_equal(attr, c"expires")): expires_attr = 1
+		else if (win_net_equal(name, c"max-age")):
+			int candidate = 0
+			if (cookie_parse_max_age(value, &candidate)):
+				has_age = 1
+				age = candidate
+		else if (win_net_equal(name, c"expires")):
+			datetime parsed
+			int candidate = 0
+			if (cookie_parse_date(value, &parsed) && datetime_to_unix_checked(parsed, &candidate)):
+				has_expires = 1
+				expires = candidate
+		free(name)
+		free(value)
 		free(attr)
-	if (expires_attr && has_age == 0): valid = 0
+	int persistent = has_age || has_expires
+	if (has_age):
+		expires = 0
+		if (age > 0):
+			int latest = datetime_to_unix(cookie_epoch_max())
+			if (now >= latest - age): expires = latest
+			else: expires = now + age
 	if (secure && strcmp(u.scheme, c"https") != 0): valid = 0
 	if (starts_with(pair, c"__Secure-") && secure == 0): valid = 0
 	# __Host- additionally forbids Domain, conservatively reject this prefix.
@@ -114,7 +141,7 @@ void win_cookie_set(char* address, char* header):
 			# HTTP cannot overwrite a Secure cookie.
 			if (c.secure && strcmp(u.scheme, c"https") != 0): valid = 0
 			slot = i
-	if (valid):
+	if (valid && (slot >= 0 || !persistent || expires > now)):
 		if (slot < 0):
 			for i in range(WIN_COOKIE_COUNT):
 				if (slot < 0 && win_cookies[i] == 0): slot = i
@@ -122,27 +149,31 @@ void win_cookie_set(char* address, char* header):
 			slot = win_cookie_next
 			win_cookie_next = (win_cookie_next + 1) % WIN_COOKIE_COUNT
 		win_cookie_drop(slot)
-		if (has_age == 0 || age > 0):
+		if (persistent == 0 || expires > now):
 			win_cookie* c = new win_cookie()
 			c.host = strclone(u.host)
 			c.path = strclone(path)
 			c.pair = strclone(pair)
 			c.secure = secure
-			c.expires = 0
-			if (has_age): c.expires = time_now() + age
+			c.http_only = http_only
+			c.persistent = persistent
+			c.expires = expires
 			win_cookies[slot] = c
 	free(path)
 	free(pair)
 	url_free(u)
 
-char* win_cookie_header(char* address):
+void win_cookie_set(char* address, char* header):
+	win_cookie_set_at(address, header, time_now())
+
+char* win_cookie_header_at(char* address, int now):
 	URL* u = url_parse(address)
 	string_builder* out = string_new()
 	if (u != 0):
 		for i in range(WIN_COOKIE_COUNT):
 			win_cookie* c = win_cookies[i]
 			if (c == 0): continue
-			if (c.expires != 0 && c.expires <= time_now()):
+			if (c.persistent && c.expires <= now):
 				win_cookie_drop(i)
 				continue
 			if (strcmp(c.host, u.host) != 0 || (c.secure && strcmp(u.scheme, c"https") != 0)): continue
@@ -156,14 +187,17 @@ char* win_cookie_header(char* address):
 	string_free(out)
 	return result
 
+char* win_cookie_header(char* address):
+	return win_cookie_header_at(address, time_now())
+
 # Snapshot uses synthetic Set-Cookie records. Only sanitized stored strings
 # enter the environment; credentials never appear in argv or on disk.
-char* win_cookie_snapshot():
+char* win_cookie_snapshot_at(int now):
 	string_builder* out = string_new()
 	for i in range(WIN_COOKIE_COUNT):
 		win_cookie* c = win_cookies[i]
 		if (c == 0): continue
-		if (c.expires != 0 && c.expires <= time_now()): continue
+		if (c.persistent && c.expires <= now): continue
 		if (c.secure): string_append(out, c"https://")
 		else: string_append(out, c"http://")
 		string_append(out, c.host)
@@ -172,15 +206,21 @@ char* win_cookie_snapshot():
 		string_append(out, c"; Path=")
 		string_append(out, c.path)
 		if (c.secure): string_append(out, c"; Secure")
-		if (c.expires != 0):
-			string_append(out, c"; Max-Age=")
-			string_append_int(out, c.expires - time_now())
+		if (c.http_only): string_append(out, c"; HttpOnly")
+		if (c.persistent):
+			char* expiry = datetime_format_http(datetime_from_unix(c.expires))
+			string_append(out, c"; Expires=")
+			string_append(out, expiry)
+			free(expiry)
 		string_append(out, c"\n")
 	char* result = strclone(out.data)
 	string_free(out)
 	return result
 
-void win_cookie_restore(char* snapshot):
+char* win_cookie_snapshot():
+	return win_cookie_snapshot_at(time_now())
+
+void win_cookie_restore_at(char* snapshot, int now):
 	if (snapshot == 0 || strlen(snapshot) > 131072): return
 	int pos = 0
 	for i in range(WIN_COOKIE_COUNT):
@@ -191,12 +231,18 @@ void win_cookie_restore(char* snapshot):
 		pos = pos + 1
 		start = pos
 		while (snapshot[pos] != 0 && snapshot[pos] != 10): pos = pos + 1
+		if (snapshot[pos] == 0):
+			free(address)
+			return
 		char* value = substring(snapshot, start, pos)
-		win_cookie_set(address, value)
+		win_cookie_set_at(address, value, now)
 		free(address)
 		free(value)
 		if (snapshot[pos] == 0): return
 		pos = pos + 1
+
+void win_cookie_restore(char* snapshot):
+	win_cookie_restore_at(snapshot, time_now())
 
 # Cache only explicitly fresh, unvarying, credential-free 200 GET responses.
 # The parent stores already decoded/validated worker payloads, at most 8 MiB.

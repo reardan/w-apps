@@ -1093,7 +1093,7 @@ void win_script_result(win_script* script, js_completion* completion):
 
 int win_script_dispatch_event(win_script* script, html_node* node, js_value* event);
 
-# Report a parentless microtask exception inside the same remaining fuel budget.
+# Report an uncaught host callback exception inside the same remaining fuel budget.
 # The diagnostic counter stays cumulative even when the page handles the event.
 int win_script_report_exception(win_script* script):
 	js_runtime* rt = script.runtime
@@ -1368,8 +1368,11 @@ int win_script_frame_at(win_script* script, int now_ms):
 		script.animation_frames.pop()
 		frame.args.push(js_runtime_number(script.runtime, cast(float64, now_ms - script.time_origin)))
 		js_completion* result = js_runtime_invoke_receiver(script.runtime, frame.callback, win_script_wrap(script, script.window_node), frame.args, budget)
+		if (result.status == 2):
+			win_script_report_exception(script)
+			if (result.status != 0): win_script_result(script, result)
+		else: win_script_result(script, result)
 		budget = script.runtime.remaining
-		win_script_result(script, result)
 		if (result.status == 5): budget = 0
 		win_script_timer_free(script, frame)
 		if (budget > 0):
@@ -1451,8 +1454,11 @@ int win_script_poll_at(win_script* script, int now_ms):
 			script.timers.push(next)
 		script.executing_timer = next
 		js_completion* result = js_runtime_invoke_receiver(script.runtime, next.callback, win_script_wrap(script, script.window_node), next.args, budget)
+		if (result.status == 2):
+			win_script_report_exception(script)
+			if (result.status != 0): win_script_result(script, result)
+		else: win_script_result(script, result)
 		budget = script.runtime.remaining
-		win_script_result(script, result)
 		if (result.status == 5): budget = 0
 		script.executing_timer = 0
 		if (next.repeating == 0): win_script_timer_free(script, next)

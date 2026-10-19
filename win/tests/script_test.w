@@ -111,7 +111,7 @@ void script_event_tests():
 void script_task_tests():
 	win_page* page = win_page_parse(c"<body></body>", 13)
 	win_script* script = win_script_new(page)
-	script.now_ms = 1000
+	win_script_set_clock(script, 1000)
 	asserts(c"task setup", script_eval(script, c"let order=''; queueMicrotask(function(){order+='m';}); setTimeout(function(a){if(this!==window || a!=='arg') throw 'receiver'; order+='t'; queueMicrotask(function(){order+='q';}); setTimeout(function(){order+='n';},0);},10,'arg'); const canceled=setTimeout(function(){order+='X';},0); clearInterval(canceled); setTimeout(function(){order+='b';},10);"))
 	asserts(c"microtasks run after script", script_eval(script, c"if(order!=='m') throw order;"))
 	assert_equal(0, win_script_poll_at(script, 1009))

@@ -76,6 +76,7 @@ struct win_script:
 	list[win_script_timer*] timers
 	int timer_id
 	int now_ms
+	int clock_injected
 	win_storage_call_fn* storage_call
 	void* storage_context
 	win_storage_context* local_store
@@ -1185,46 +1186,73 @@ void win_script_collect_timers(win_script* script):
 			kept = kept + 1
 	while (script.timers.length > kept): script.timers.pop()
 
+# Explicit deterministic host clock for tests. Production registrations sample the
+# monotonic clock when the timer is created, including after long script work.
+void win_script_set_clock(win_script* script, int now_ms):
+	if (script == 0): return
+	script.clock_injected = 1
+	script.now_ms = now_ms
+
+int win_script_timer_property(js_runtime* rt, js_value* holder, char* name, js_value* value):
+	js_text* key = js_runtime_key(name)
+	int ok = js_runtime_define_data(rt, holder, key, value, 1, 0, 1)
+	js_text_free(key)
+	return ok
+
 js_value* win_script_timer_host(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
 	win_script* script = win_active_script
 	if (script == 0 || script.runtime != rt || args.length < 2): return rt.undefined_value
 	int operation = cast(int, args[0].number)
 	if (operation == 2):
+		int cancel_id = js_runtime_int32(js_array_like_number(rt, args[1]))
+		if (rt.completion.status != 0): return rt.undefined_value
 		for i in range(script.timers.length):
 			win_script_timer* timer = script.timers[i]
-			if (args[1].kind == 3 && cast(float64, timer.id) == args[1].number): timer.id = 0
+			if (timer.id == cancel_id): timer.id = 0
 		win_script_collect_timers(script)
 		return rt.undefined_value
 	if (args[1].kind != 7 && args[1].kind != 9):
 		js_runtime_fail(rt, 2, c"Timer callback must be a function")
 		return rt.undefined_value
+	int delay = 0
+	if (args.length > 2): delay = js_runtime_int32(js_array_like_number(rt, args[2]))
+	if (rt.completion.status != 0): return rt.undefined_value
+	if (delay < 0): delay = 0
+	# Conversion may reenter and register/cancel timers; check capacity afterward.
 	win_script_collect_timers(script)
 	if (script.timers.length >= 256 || script.timer_id >= 2147483647):
 		js_runtime_fail(rt, 5, c"Timer registration limit")
 		return rt.undefined_value
-	int delay = 0
-	if (args.length > 2 && args[2].kind == 3 && args[2].number > 0.0):
-		if (args[2].number >= 2147483647.0): delay = 2147483647
-		else: delay = cast(int, args[2].number)
 	if (operation == 1 && delay < 1): delay = 1
+	if (script.clock_injected == 0): script.now_ms = time_monotonic_ms()
 	win_script_timer* timer = new win_script_timer()
-	script.timer_id = script.timer_id + 1
-	timer.id = script.timer_id
+	timer.id = script.timer_id + 1
 	timer.due = script.now_ms + delay
 	if (operation == 1): timer.interval = delay
 	timer.callback = args[1]
 	timer.args = new list[js_value*]
 	timer.holder = js_runtime_alloc(rt, 5)
-	js_runtime_root(rt, timer.holder)
-	js_runtime_set(rt, timer.holder, c"callback", timer.callback)
+	int complete = rt.completion.status == 0
+	if (complete): complete = win_script_timer_property(rt, timer.holder, c"callback", timer.callback)
 	for i in range(args.length - 3):
+		if (complete == 0): break
 		timer.args.push(args[i + 3])
 		char* key = itoa(i)
-		js_runtime_set(rt, timer.holder, key, args[i + 3])
+		complete = win_script_timer_property(rt, timer.holder, key, args[i + 3])
 		free(key)
+	js_value* result = rt.undefined_value
+	if (complete): result = js_runtime_number(rt, cast(float64, timer.id))
+	if (rt.completion.status != 0): complete = 0
+	if (complete): complete = js_runtime_root(rt, timer.holder)
+	if (complete == 0):
+		__w_list_free(cast(__w_list*, timer.args))
+		free(timer)
+		return rt.undefined_value
+	# Publish only fully constructed, rooted timers. Quota failures consume no id.
+	script.timer_id = timer.id
 	script.timers.push(timer)
-	return js_runtime_number(rt, cast(float64, timer.id))
+	return result
 
 # Animation callbacks run only when the visible page is about to paint, never
 # from network/timer polling. Snapshot ids defer nested registrations one frame.
@@ -1568,7 +1596,7 @@ win_script* win_script_new(win_page* page):
 	js_runtime_bind(script.runtime, c"__winTimer", win_script_timer_host)
 	js_runtime_bind(script.runtime, c"__winHost", win_script_host)
 	js_runtime_bind(script.runtime, c"__winGL", win_script_gl_host)
-	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,a,b,c){return __winTimer(0,f,d,a,b,c);} function setInterval(f,d,a,b,c){return __winTimer(1,f,d,a,b,c);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
+	char* bootstrap = c"function __winStorageObject(k){return {__storeKind:k,getItem:function(n){return __winStorage(k,0,n);},setItem:function(n,v){return __winStorage(k,1,n,v);},removeItem:function(n){return __winStorage(k,2,n);},clear:function(){return __winStorage(k,3);},key:function(i){return __winStorage(k,4,i);}};} function setTimeout(f,d,...args){return __winTimer(0,f,d,...args);} function setInterval(f,d,...args){return __winTimer(1,f,d,...args);} function clearTimeout(id){__winTimer(2,id);} function clearInterval(id){__winTimer(2,id);} function __winNode(id) { return {getBoundingClientRect:function(){return __winHost(id,'rect');},getContext:function(k){return __winHost(id,'getContext',k);},style:{getPropertyValue:function(s){return __winHost(id,'styleGet',s);},getPropertyPriority:function(s){return __winHost(id,'stylePriority',s);},setProperty:function(s,v,p){return __winHost(id,'styleSet',s,v,p);},removeProperty:function(s){return __winHost(id,'styleRemove',s);}},classList:{add:function(s){return __winHost(id,'classAdd',s);},remove:function(s){return __winHost(id,'classRemove',s);},toggle:function(s,f){return __winHost(id,'classToggle',s,f);},contains:function(s){return __winHost(id,'classContains',s);}},getElementById:function(s){return __winHost(id,'id',s);},querySelector:function(s){return __winHost(id,'query',s);},querySelectorAll:function(s){return __winHost(id,'all',s);},matches:function(s){return __winHost(id,'matches',s);},closest:function(s){return __winHost(id,'closest',s);},getAttribute:function(s){return __winHost(id,'get',s);},setAttribute:function(s,v){return __winHost(id,'set',s,v);},removeAttribute:function(s){return __winHost(id,'removeAttr',s);},createElement:function(s){return __winHost(id,'create',s);},createTextNode:function(s){return __winHost(id,'text',s);},appendChild:function(n){return __winHost(id,'append',n);},remove:function(){return __winHost(id,'remove');},addEventListener:function(s,f,o){return __winHost(id,'listen',s,f,o);},removeEventListener:function(s,f,o){return __winHost(id,'unlisten',s,f,o);}}; } const console={log:function(v){__winHost(0,'console',v);},warn:function(v){__winHost(0,'console',v);},error:function(v){__winHost(0,'console',v);}};"
 	js_completion* completion = js_runtime_eval(script.runtime, bootstrap, strlen(bootstrap), script.execution_budget)
 	win_script_result(script, completion)
 	char* gl_source = win_canvas_bootstrap()

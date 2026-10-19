@@ -1879,6 +1879,7 @@ void win_script_focus_event(win_script* script, html_node* node, html_node* rela
 	js_runtime* rt = script.runtime
 	if (rt.completion.status != 0): return
 	js_value* event = win_event_new(rt, win_web_string(rt, name), bubbles, 0, 1, cast(float64, time_monotonic_ms() - script.time_origin))
+	if (rt.completion.status != 0): return
 	js_runtime_root(rt, event)
 	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
 	win_event_write(rt, event, c"relatedTarget", win_script_wrap(script, related))
@@ -2006,10 +2007,11 @@ int win_script_pointer_dispatch(win_script* script, html_node* node, char* name,
 			return 0
 	rt.running = 1
 	js_value* event = win_pointer_event(rt, &script.pointer, name, button, &script.viewport, cast(float64, time_monotonic_ms() - script.time_origin), delta, delta_mode)
-	js_runtime_root(rt, event)
 	int allowed = 0
-	if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
-	js_runtime_unroot(rt, event)
+	if (rt.completion.status == 0):
+		js_runtime_root(rt, event)
+		allowed = win_script_dispatch_event(script, node, event)
+		js_runtime_unroot(rt, event)
 	rt.running = nested
 	if (nested == 0):
 		win_script_result(script, rt.completion)
@@ -2126,12 +2128,13 @@ int win_script_dispatch(win_script* script, html_node* node, char* name):
 	rt.running = 1
 	int cancelable = strcmp(name, c"click") == 0 || strcmp(name, c"submit") == 0 || strcmp(name, c"reset") == 0
 	js_value* event = win_event_new(rt, win_js_string(rt, name), strcmp(name, c"load") != 0, cancelable, 0, cast(float64, time_monotonic_ms() - script.time_origin))
-	js_runtime_root(rt, event)
-	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
 	int allowed = 1
-	if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
+	if (rt.completion.status == 0):
+		js_runtime_root(rt, event)
+		win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+		if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
+		js_runtime_unroot(rt, event)
 	rt.running = 0
-	js_runtime_unroot(rt, event)
 	win_script_result(script, rt.completion)
 	if (rt.completion.status != 5): win_script_checkpoint(script)
 	win_active_script = previous

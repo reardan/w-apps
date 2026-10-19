@@ -150,12 +150,12 @@ void win_browser_history_event(win_browser* b):
 	if (js_runtime_begin(rt, script.execution_budget)):
 		rt.running = 1
 		js_value* event = win_event_new(rt, win_js_string(rt, c"popstate"), 0, 0, 0, cast(float64, time_monotonic_ms() - script.time_origin))
-		js_runtime_root(rt, event)
-		win_event_write(rt, event, c"state", js_runtime_get(rt, b.history_object, c"state"))
-		win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
-		if (rt.completion.status == 0): win_script_dispatch_event(script, script.window_node, event)
+		if (rt.completion.status == 0 && win_event_is(event) && js_runtime_root(rt, event)):
+			win_event_write(rt, event, c"state", js_runtime_get(rt, b.history_object, c"state"))
+			win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+			if (rt.completion.status == 0): win_script_dispatch_event(script, script.window_node, event)
+			js_runtime_unroot(rt, event)
 		rt.running = 0
-		js_runtime_unroot(rt, event)
 		win_script_result(script, rt.completion)
 		if (rt.completion.status != 5): win_script_checkpoint(script)
 	win_active_script = previous

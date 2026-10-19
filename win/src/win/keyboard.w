@@ -16,10 +16,12 @@ int win_keyboard_dispatch(win_script* script, html_node* node, win_keyboard_pack
 			return 0
 	rt.running = 1
 	js_value* event = win_keyboard_event(rt, packet, cast(float64, time_monotonic_ms() - script.time_origin))
-	js_runtime_root(rt, event)
 	int allowed = 0
-	if (rt.completion.status == 0): allowed = win_script_dispatch_event(script, node, event)
-	js_runtime_unroot(rt, event)
+	# Construction may return the shared undefined sentinel on refusal. Only
+	# this fresh, completed Event can acquire a root owned by this dispatch.
+	if (rt.completion.status == 0 && win_event_is(event) && js_runtime_root(rt, event)):
+		allowed = win_script_dispatch_event(script, node, event)
+		js_runtime_unroot(rt, event)
 	rt.running = nested
 	if (nested == 0):
 		win_script_result(script, rt.completion)

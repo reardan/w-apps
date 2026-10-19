@@ -210,6 +210,7 @@ void win_abort_fire(win_abort_state* state, js_value* reason):
 	js_runtime* rt = state.context.runtime
 	if (reason.kind == 0):
 		reason = js_runtime_error_value(rt, c"The operation was aborted")
+		if (rt.completion.status != 0): return
 		js_runtime_set(rt, reason, c"name", win_web_string(rt, c"AbortError"))
 	if (rt.completion.status != 0): return
 	state.reason = reason
@@ -221,8 +222,10 @@ void win_abort_fire(win_abort_state* state, js_value* reason):
 		win_abort_observer* observer = state.observers[i]
 		if (observer.callback != 0): observer.callback(observer.context)
 	js_value* event = win_event_new(rt, win_web_string(rt, c"abort"), 0, 0, 0, cast(float64, time_monotonic_ms()))
-	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
-	if (rt.completion.status == 0): win_abort_dispatch(state, event)
+	if (rt.completion.status == 0 && win_event_is(event) && js_runtime_root(rt, event)):
+		win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+		if (rt.completion.status == 0): win_abort_dispatch(state, event)
+		js_runtime_unroot(rt, event)
 
 js_value* win_abort_abort(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
@@ -244,27 +247,39 @@ js_value* win_abort_construct(void* runtime, void* host, js_value* receiver, lis
 	if (context.states.length >= 256):
 		js_runtime_fail(rt, 5, c"AbortController realm limit")
 		return rt.undefined_value
+	js_value* controller = js_runtime_alloc(rt, 5)
+	if (rt.completion.status != 0): return rt.undefined_value
+	js_value* signal = js_runtime_alloc(rt, 5)
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_abort_state* state = new win_abort_state()
 	state.context = context
-	state.controller = js_runtime_alloc(rt, 5)
-	state.signal = js_runtime_alloc(rt, 5)
+	state.controller = controller
+	state.signal = signal
 	state.reason = rt.undefined_value
 	state.listeners = new list[win_abort_listener*]
 	state.observers = new list[win_abort_observer*]
+	js_runtime_root(rt, controller)
+	js_runtime_root(rt, signal)
+	# Own definitions cannot call prototype setters or expose a partial state.
+	# Publish the native owner and its hooks only once every allocation succeeds.
+	win_event_write(rt, controller, c"signal", signal)
+	if (rt.completion.status == 0): win_event_write(rt, signal, c"reason", state.reason)
+	if (rt.completion.status == 0): win_event_own_method(rt, controller, c"abort", state, win_abort_abort)
+	if (rt.completion.status == 0): win_event_own_method(rt, signal, c"throwIfAborted", 0, win_abort_throw)
+	if (rt.completion.status == 0): win_event_own_method(rt, signal, c"addEventListener", 0, win_abort_listen)
+	if (rt.completion.status == 0): win_event_own_method(rt, signal, c"removeEventListener", cast(void*, 1), win_abort_listen)
+	if (rt.completion.status == 0): win_event_own_method(rt, signal, c"dispatchEvent", 0, win_abort_dispatch_host)
+	if (rt.completion.status != 0):
+		js_runtime_unroot(rt, controller)
+		js_runtime_unroot(rt, signal)
+		__w_list_free(cast(__w_list*, state.listeners))
+		__w_list_free(cast(__w_list*, state.observers))
+		free(state)
+		return rt.undefined_value
+	js_runtime_set_host_hooks(rt, signal, state, win_abort_signal_get, win_abort_signal_set)
+	js_runtime_set_host_has(rt, signal, win_abort_signal_has)
 	context.states.push(state)
-	js_runtime_root(rt, state.controller)
-	js_runtime_root(rt, state.signal)
-	if (rt.completion.status != 0): return rt.undefined_value
-	js_runtime_set_host_hooks(rt, state.signal, state, win_abort_signal_get, win_abort_signal_set)
-	js_runtime_set_host_has(rt, state.signal, win_abort_signal_has)
-	win_event_write(rt, state.controller, c"signal", state.signal)
-	win_event_write(rt, state.signal, c"reason", state.reason)
-	js_runtime_set(rt, state.controller, c"abort", js_runtime_host_callable(rt, state, win_abort_abort))
-	js_runtime_set(rt, state.signal, c"throwIfAborted", js_runtime_host_callable(rt, 0, win_abort_throw))
-	js_runtime_set(rt, state.signal, c"addEventListener", js_runtime_host_callable(rt, 0, win_abort_listen))
-	js_runtime_set(rt, state.signal, c"removeEventListener", js_runtime_host_callable(rt, cast(void*, 1), win_abort_listen))
-	js_runtime_set(rt, state.signal, c"dispatchEvent", js_runtime_host_callable(rt, 0, win_abort_dispatch_host))
-	return state.controller
+	return controller
 
 win_abort_observer* win_abort_observe(win_abort_state* state, void* context, win_abort_callback* callback):
 	if (state == 0): return 0

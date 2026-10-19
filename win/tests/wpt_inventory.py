@@ -32,6 +32,8 @@ def inventory(suite, directory):
         while data := source.read(1024 * 1024):
             digest.update(data)
             target.write(data)
+    if digest.hexdigest() != ARCHIVE_SHA256[suite]:
+        raise ValueError('upstream archive hash mismatch')
     counts = Counter()
     families = Counter()
     files = []

@@ -10,8 +10,8 @@ if [[ ! -x "$w_root/wbuild" ]]; then
   exit 1
 fi
 case "$action" in
-  build|run|check|test|standards|wpt-async) ;;
-  *) echo 'Usage: win/build [build|run|check|test|standards|wpt-async] [browser arguments]' >&2; exit 2 ;;
+  build|run|check|test|standards|wpt-async|cookie-upstream) ;;
+  *) echo 'Usage: win/build [build|run|check|test|standards|wpt-async|cookie-upstream] [browser arguments]' >&2; exit 2 ;;
 esac
 (cd "$w_root" && ./wbuild build javascript_parser)
 mkdir -p "$win_root/bin"
@@ -35,6 +35,16 @@ fi
 if [[ "$action" == wpt-async ]]; then
   python3 "$win_root/tests/wpt_testharness.py" --json "$win_root/bin/wpt-testharness.json"
 fi
+# The HTTP data-case gate retains DOM unsupported cases in its full report.
+# cookie-upstream is the strict all-cases gate and remains nonzero until those land.
+if [[ "$action" == standards || "$action" == cookie-upstream ]]; then
+  "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/cookie_dates_test.w"
+  "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/cookie_dates_test.w" -o "$win_root/bin/cookie_dates_test"
+  "$win_root/bin/cookie_dates_test"
+  cookie_gate=http
+  if [[ "$action" == cookie-upstream ]]; then cookie_gate=all; fi
+  python3 "$win_root/tests/cookie-fixtures/run.py" "$win_root/bin/cookie_dates_test" --gate "$cookie_gate" --output "$win_root/bin/cookie-upstream.json"
+fi
 if [[ "$action" == test ]]; then
   for source in "$win_root"/tests/*_test.w; do
     name="$(basename "$source" .w)"
@@ -42,6 +52,7 @@ if [[ "$action" == test ]]; then
     "${compiler[@]}" --strict "${imports[@]}" "$source" -o "$win_root/bin/$name"
     "$win_root/bin/$name" "$win_root/bin/win" "$win_root/fixtures/start.html"
   done
+  python3 "$win_root/tests/cookie-fixtures/run.py" "$win_root/bin/cookie_dates_test" --gate http --output "$win_root/bin/cookie-upstream.json"
   python3 "$win_root/tests/wpt_runner_test.py"
   for test in "$win_root"/tests/*integration.py; do
     python3 "$test" "$win_root/bin/win" "$win_root/fixtures/start.html"

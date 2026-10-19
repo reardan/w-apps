@@ -15,7 +15,7 @@ were copied, never hard-linked. No worker writes the coordinator checkout.
 | --- | --- | --- |
 | Coordinator | `/home/w/git/W/w-apps` | `win/main.w`, `win/build`, `win/src/win/{script,browser,app}.w`, documentation, gitlink, registration, `win/tests/browser_measurements*.py`, `win/tests/standards_ledger*.py` |
 | A | `/home/w/git/W/browser-workers/a` | `w/libs/extras/javascript/`, new object/global runtime tests under `w/tests/javascript/` |
-| B → D → runtime assertion support | `/home/w/git/W/browser-workers/b` | Parser/DOM and cookie/network slices complete for integration; now `w/libs/extras/javascript/{runtime_regexp,regexp_syntax}.w`, new lookahead tests and the existing lookahead rejection expectation. A retains all other JS paths; cookie adapter provenance remains B-owned. |
+| B → D → assertion support → B | `/home/w/git/W/browser-workers/b` | RegExp assertion support integrated and released to A. Current ownership: `w/libs/extras/html/`, its unchanged upstream corpus/reporting, new native tree tests and standards-correct `w/tests/html_test.w` expectations. Cookie adapter provenance remains B-owned. |
 | F | `/home/w/git/W/browser-workers/f` | `w/tools/test262_conformance.py`, `w/tools/test262_runtime_runner.w`, `w/tests/javascript/test262/{README.md,manifest.json,inventory.json}`, `w/tests/javascript/test262_runner_test.py`, `win/tests/wpt*` |
 
 The coordinator temporarily owns E's `win/src/win/interactive_worker.w` and
@@ -23,8 +23,14 @@ The coordinator temporarily owns E's `win/src/win/interactive_worker.w` and
 The coordinator also owns `history_state.w` and `history_test.w` for intrinsic
 prototype integration: history retains its bounded data-tree policy and rejects
 boxed values, arguments objects, mapped properties and serialization hooks.
-B released HTML and DOM implementation ownership after app `8fb08cb`; the coordinator
-now maintains those integrated files. The D transfer includes only cookie parsing,
+B initially released HTML and DOM implementation ownership after app `8fb08cb`;
+B now owns the next W HTML block/paragraph/tree-construction slice. The coordinator
+maintains integrated Win DOM files and owns `events.w` plus a native microtask-error
+test for the integrated exception-reporting slice. B temporarily owns
+`win/src/win/{keyboard,browser_history,abort}.w` and
+`win/tests/event_quota_test.w` for transactional Event/AbortController allocation
+and host-root preservation. The coordinator retains `script.w` callers and owns
+`win/tests/html_tree_integration_test.w` plus optional native probe timing instrumentation. The D transfer includes only cookie parsing,
 state and separate HTTP Set-Cookie field transport, preserving existing security
 denials. `document.w`, rendering, other network policy, graphics and platform modules are reserved
 for their plan owners; they cannot be edited without an explicit transfer. A sends

@@ -143,6 +143,70 @@ family reporting; affected original Object.defineProperty/Reflect.construct/conc
 split/RegExp audits; native global numeric intrinsics; scoped HTML block/paragraph
 construction and document ordering. Every broader mandatory family remains open.
 
+## Completion third integrated checkpoint and next slices (2026-10-19)
+
+The full integrated checkpoint at app
+`334b50fcb86beeb7e7d2894a3ab47dd5acd81694` and W
+`db6ab035a5b8a10d81f21070467f8f3c9f9690a4` **passed**. Exact commands,
+SHAs and measured correctness-run durations are recorded in
+[browser-checkpoints.json](browser-checkpoints.json); raw outputs are under
+`win/bin/completion-wave3/checkpoint/`. W passed 1,623 targets; Win passed 67
+native test programs and every integration, including native/isolated M1–M4,
+shared storage, History/input, broker confinement, cancellation/crash handling
+and rendering acceptance. Selected standards passed 127 Test262 variants with
+24 explicit UNSUPPORTED, and all 20 static WPT reftests. The independent original
+async WPT gate passed three files/eight subtests with one completion each.
+All these times were collected under shared load and are not performance results.
+
+Subsequent W commits add bounded parseInt/isNaN/isFinite (`08d05b08`), genuine
+RegExp SyntaxError identity (`6d6303dc`), intrinsic RegExp splitting (`d663c832`),
+UTF-16 charCodeAt (`dbb7504c`), exact Number MAX_VALUE/MIN_VALUE (`0c9c5bf8`),
+EvalError/URIError and ordered ErrorCause (`f6c4c730`), shared replacement-flags
+fuel (`33b91564`), verified helper/numeric admission (`672b3ba0`), block/tree
+scope (`9d336ee3`, `d5bd00be`), modern select context (`33e27e64`, `1adbd789`),
+and JSON allocation-failure sentinel protection (`057906c2`). Error-cause harness
+admission is `4fe4a834`. Focused normal/guard and adapter contracts pass; these
+new source revisions still require the next complete integrated checkpoint.
+
+App `ed54e2c` reports uncaught queueMicrotask exceptions as bounded Window error
+events with retained error identity, legacy onerror arguments and continued jobs.
+This does not complete ErrorEvent construction or all callback exception paths.
+The updated async driver remains under validation: fresh worker execution now
+reports 10 PASS / 23 UNSUPPORTED / 2 ERROR across all 35 timer/microtask items.
+MutationObserver and string timers remain blockers. Deliberate-failure contracts
+exposed computed-property ToPropertyKey conversion as a runtime prerequisite;
+no failure assertion is replaced or counted as a pass.
+
+Fresh complete original-harness follow-up covers 1,407 files / 2,801 variants:
+2,048 PASS / 118 FAIL / 635 UNSUPPORTED / zero ERROR. Error/NativeErrors covers
+all 187 files / 374 variants: 228 PASS / 24 FAIL / 122 UNSUPPORTED / zero ERROR.
+These worker snapshots retain their exact source, runner and adapter hashes in
+`win/bin/completion-wave1/f-conformance/`; the ledger links their raw artifacts.
+They are not execution of every Test262 family. Array descriptors, function
+prototype inheritance, Error prototype branding, Symbols, dynamic evaluation,
+host exotics and remaining syntax/intrinsics stay tracked.
+
+The historical pinned HTML adapter now passes all 61 cases in three complete
+files, both scripting modes, with 1,735 other cases NOT_RUN. A separately pinned
+modern 1,968-case inventory includes an 81-case fragment fixture: 12 PASS /
+2 FAIL / 67 UNSUPPORTED, with 1,887 other cases NOT_RUN. Its explicit select-context
+gate passes four cases in both modes; the whole-file and whole-corpus gates remain
+nonzero. Frameset and after-body comment failures stay visible. Parse-error lists
+and the 17 browser select WPT files plus four tentative files remain unexecuted;
+native tree output checks are not browser-WPT execution.
+
+After workers paused builds, the idle guard again refused before executing the
+native mobile probe: GNOME shell/terminal and Codex exceeded the frozen outside-load
+threshold. Evidence is `win/bin/completion-wave3/measurement/idle-refusal.json`.
+Frozen benchmark corpus verification passes. No fresh latency/frame/throughput
+result, presentation timestamp or proposed-budget qualification is claimed.
+
+Next runnable tasks: integrate reviewed array/key/function/error runtime slices,
+finish allocation-failure root ownership and strict async failure contracts, then
+run complete W/Win/standards/async gates at frozen revisions. Continue HTML tree
+families and full affected Test262 audits; retry performance only on idle hardware.
+All 136 mandatory ledger families remain open until their completion criteria pass.
+
 ## Mutable query parameters (2026-10-19)
 
 This application-only increment starts from `cf0be72ea835971ead89a753f170670aa3b05786`

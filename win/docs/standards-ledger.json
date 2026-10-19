@@ -44,7 +44,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -86,7 +86,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -119,7 +119,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -152,7 +152,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -185,7 +185,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -218,7 +218,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -251,7 +251,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -284,7 +284,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -317,18 +317,28 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
         "F.test262-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/tests/javascript/runtime_regexp_lookahead_test.w",
+        "w/tests/javascript/runtime_string_replace_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Bounded atomic positive/negative lookahead with shared live-state/depth/fuel limits",
+        "Callable replacement snapshots matches before callbacks, retains UTF-16 captures/offsets and GC ownership",
+        "Intrinsic RegExp separator splitting preserves captures, undefined entries, UTF-16 zero-width advancement, conversion order and original lastIndex with bounded sticky-clone execution"
+      ],
+      "remaining_blockers": [
+        "Full original RegExp audit retains FAIL, UNSUPPORTED and budget ERROR outcomes; bounded lookahead is not full RegExp",
+        "Lookbehind, backreferences, counted repeats, Unicode/Symbol/species and other documented mandatory operations remain incomplete"
+      ]
     },
     {
       "id": "A.intl",
@@ -350,7 +360,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -383,7 +393,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -416,7 +426,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -449,7 +459,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -482,7 +492,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -515,7 +525,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -548,7 +558,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -584,7 +594,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -620,18 +630,28 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/tests/html_test.w",
+        "win/tests/html_tree_integration_test.w",
+        "Unchanged pinned whole-file native tree adapters with separate selected/full gates"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Document doctype ordering, block/paragraph/list-item implied closing, scoped special-element barriers and adjacent text coalescing",
+        "Modern select/option/optgroup/hr context rules and selected context fragments"
+      ],
+      "remaining_blockers": [
+        "Whole modern 81-case fixture retains 2 FAIL and 67 UNSUPPORTED; 1887 other cases NOT_RUN in the 1968-case inventory",
+        "Frameset, after-body comment placement, adoption agency, foster parenting, table/template/foreign and streaming lifecycle remain incomplete; parse-error lists are not checked"
+      ]
     },
     {
       "id": "B.fragments",
@@ -656,7 +676,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -700,7 +720,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -736,7 +756,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -772,7 +792,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -808,7 +828,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -852,7 +872,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -875,8 +895,8 @@
         "section": "events"
       },
       "implementation_paths": [
-        "w/libs/extras/html/",
-        "win/src/win/dom_tree.w"
+        "win/src/win/script.w",
+        "win/src/win/events.w"
       ],
       "dependencies": [
         "A.objects"
@@ -888,20 +908,24 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "win/tests/microtask_error_test.w",
+        "win/tests/timer_contract_test.w",
+        "win/tests/events_test.w",
+        "win/tests/event_handlers_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
       "closure_evidence": [],
       "remaining_blockers": [
-        "HTML timer nesting/minimum-delay, string handlers and full Web IDL/event surface remain incomplete; clock/conversion/argument/rollback follow-up staged by coordinator"
+        "HTML timer nesting/minimum-delay, string handlers and full Web IDL/event surface remain incomplete; clock/conversion/arguments/rollback and zero-delay ordering are integrated",
+        "Window microtask exception reporting is integrated; full ErrorEvent constructor/source locations, timer/rAF callback exceptions and cross-realm behavior remain open"
       ]
     },
     {
@@ -927,7 +951,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -963,7 +987,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -999,7 +1023,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1035,7 +1059,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1071,7 +1095,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1108,7 +1132,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1145,7 +1169,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1182,7 +1206,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1219,7 +1243,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1256,7 +1280,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1293,7 +1317,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1330,7 +1354,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1367,7 +1391,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1404,7 +1428,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1441,7 +1465,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1478,7 +1502,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1515,7 +1539,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1552,7 +1576,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1589,7 +1613,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1626,7 +1650,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1662,7 +1686,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1698,7 +1722,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1734,7 +1758,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1770,7 +1794,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1806,7 +1830,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1842,7 +1866,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1878,7 +1902,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1914,7 +1938,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1950,7 +1974,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -1986,7 +2010,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2021,7 +2045,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2056,7 +2080,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2091,7 +2115,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2126,7 +2150,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2161,7 +2185,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2202,7 +2226,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2236,7 +2260,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2270,7 +2294,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2304,7 +2328,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2338,7 +2362,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2372,7 +2396,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2406,7 +2430,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2440,7 +2464,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2474,7 +2498,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2508,7 +2532,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2542,7 +2566,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2588,7 +2612,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2629,7 +2653,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2665,7 +2689,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2706,7 +2730,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2740,7 +2764,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2812,7 +2836,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2850,7 +2874,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2888,7 +2912,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2926,7 +2950,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -2964,7 +2988,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3002,7 +3026,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3040,7 +3064,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3078,7 +3102,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3116,7 +3140,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3154,7 +3178,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3192,7 +3216,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3230,7 +3254,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3268,7 +3292,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3306,7 +3330,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3344,7 +3368,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3382,7 +3406,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3420,7 +3444,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3458,7 +3482,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3496,7 +3520,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3534,7 +3558,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3572,7 +3596,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3610,7 +3634,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3648,7 +3672,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3686,7 +3710,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3724,7 +3748,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3762,7 +3786,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3800,7 +3824,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3838,7 +3862,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3876,7 +3900,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3914,7 +3938,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3952,7 +3976,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -3990,7 +4014,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4028,7 +4052,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4066,7 +4090,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4104,7 +4128,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4142,7 +4166,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4180,7 +4204,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4218,7 +4242,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4256,7 +4280,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4294,7 +4318,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4332,7 +4356,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4370,7 +4394,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4408,7 +4432,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4446,7 +4470,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4484,7 +4508,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4522,7 +4546,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4560,7 +4584,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4598,7 +4622,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4636,7 +4660,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4674,7 +4698,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4712,7 +4736,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4750,7 +4774,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4788,7 +4812,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4826,7 +4850,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4864,7 +4888,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4902,7 +4926,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4940,7 +4964,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -4978,7 +5002,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -5016,7 +5040,7 @@
         "total": null,
         "executed": 0,
         "counts": null,
-        "count_state": "not yet inventoried; never zero inferred"
+        "count_state": "Pinned complete source inventory exists; this requirement-to-test mapping and applicable/executed denominator remain unresolved. No zero inferred."
       },
       "harness_blockers": [
         "F.suite-inventory",
@@ -6015,6 +6039,316 @@
         "ERROR": 0
       },
       "variants": 42,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint5-test262-followup-families-original.json",
+      "sha256": "121b243f23f62b90fb3d5a4364588d3061aed24f759ee86a135e659db682d494",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:46:51.040003+00:00",
+        "w_revision": "538313e4ea4e8401d899b0cb3009c799491781a1",
+        "application_revision": "feb7a47ea13deea6d75b84bd7f6300f71dac4877",
+        "runner_sha256": "82b6f0ee9172247e890db4fd3d792b1104c5c38a56ffe5ddda33925a025f72f6",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "5fce26be23b017fc061d4f0f79f5f67795df41a355fe8fc60385e805682949fb",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/Object/defineProperty/",
+        "test/built-ins/Reflect/construct/",
+        "test/built-ins/Array/prototype/concat/",
+        "test/built-ins/String/prototype/split/"
+      ],
+      "counts": {
+        "PASS": 1938,
+        "FAIL": 102,
+        "UNSUPPORTED": 601,
+        "ERROR": 6
+      },
+      "variants": 2647,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint6-test262-regexp-after-include-metadata-fix.json",
+      "sha256": "412d425c9c3748048641c49ba1db42892772220b22dd5867458a23dd63233496",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:57:11.012330+00:00",
+        "w_revision": "34b4b166b60c99adbc1d63922c32ffd3f020bf78",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "2ca546ea9c4d72a3804f08b5fa5d279c76ad33fd61a2a562717573184dc34add",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "a3d69880f0dabefb98c3a614711c158508b2dcfc38b50f98431d077d326b0d63",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/RegExp/"
+      ],
+      "counts": {
+        "PASS": 606,
+        "FAIL": 220,
+        "UNSUPPORTED": 2916,
+        "ERROR": 14
+      },
+      "variants": 3756,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint6-test262-regexp-before-include-metadata-fix.json",
+      "sha256": "b96b19c305bcefefac5ee29b9d8b33353305697d0487cbb5c62dfa8f528a5d7f",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:48:18.020478+00:00",
+        "w_revision": "daec849eb0a16197efee95aa64e5db38be65fba8",
+        "application_revision": "feb7a47ea13deea6d75b84bd7f6300f71dac4877",
+        "runner_sha256": "2ca546ea9c4d72a3804f08b5fa5d279c76ad33fd61a2a562717573184dc34add",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "5fce26be23b017fc061d4f0f79f5f67795df41a355fe8fc60385e805682949fb",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/RegExp/"
+      ],
+      "counts": {
+        "PASS": 606,
+        "FAIL": 218,
+        "UNSUPPORTED": 2916,
+        "ERROR": 16
+      },
+      "variants": 3756,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint6-wpt-family-before-zero-interval.json",
+      "sha256": "193f78fd4c60a7c87fc5ead3a726a38f82d5664241682985261b9647664afa93",
+      "source_evidence": {
+        "application_revision": "feb7a47ea13deea6d75b84bd7f6300f71dac4877",
+        "w_revision": "daec849eb0a16197efee95aa64e5db38be65fba8",
+        "driver_sha256": "268705fb440ce5b728b2525060c6f58acca5fb50ab7db6a4c2cc1972d054a3d3",
+        "driver_hash_error": null,
+        "recorded_at_utc": "2026-10-19T20:48:14.916581+00:00",
+        "kind": "fresh-execution",
+        "adapter_sha256": "0d620070b64355925495b23241564e678c6add833bb87df6cdfbdd573ef5c1fe",
+        "driver_source_sha256": "a7298289e44857b9d824db7cb79da19c9b9a83953d436228463b19f82806ddc1"
+      },
+      "profile": "native-window-script-parent-families-v1",
+      "families": [
+        "html/webappapis/timers/",
+        "html/webappapis/microtask-queuing/"
+      ],
+      "counts": {
+        "PASS": 8,
+        "FAIL": 0,
+        "UNSUPPORTED": 23,
+        "ERROR": 4
+      },
+      "variants": null,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint6-wpt-family-zero-interval.json",
+      "sha256": "a6a5b95683dfd6198c9869a571e12deae4b6268ca10413bbea21983fe9bf09fc",
+      "source_evidence": {
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "w_revision": "daec849eb0a16197efee95aa64e5db38be65fba8",
+        "driver_sha256": "031eb68b18090f678bf95b4276971f3d66d8050d2c6aa366c05631b2b5375484",
+        "driver_hash_error": null,
+        "recorded_at_utc": "2026-10-19T20:49:43.459312+00:00",
+        "kind": "fresh-execution",
+        "adapter_sha256": "0d620070b64355925495b23241564e678c6add833bb87df6cdfbdd573ef5c1fe",
+        "driver_source_sha256": "a7298289e44857b9d824db7cb79da19c9b9a83953d436228463b19f82806ddc1"
+      },
+      "profile": "native-window-script-parent-families-v1",
+      "families": [
+        "html/webappapis/timers/",
+        "html/webappapis/microtask-queuing/"
+      ],
+      "counts": {
+        "PASS": 9,
+        "FAIL": 0,
+        "UNSUPPORTED": 23,
+        "ERROR": 3
+      },
+      "variants": null,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint6-wpt-selected-original-pass.json",
+      "sha256": "58c4991c167cd95efec77f5c7b5b8a380ae9b7b640167d90fb24d02b7a2f180c",
+      "source_evidence": {
+        "application_revision": "feb7a47ea13deea6d75b84bd7f6300f71dac4877",
+        "w_revision": "daec849eb0a16197efee95aa64e5db38be65fba8",
+        "driver_sha256": "268705fb440ce5b728b2525060c6f58acca5fb50ab7db6a4c2cc1972d054a3d3",
+        "driver_hash_error": null,
+        "recorded_at_utc": "2026-10-19T20:47:32.285798+00:00",
+        "kind": "fresh-execution",
+        "adapter_sha256": "0d620070b64355925495b23241564e678c6add833bb87df6cdfbdd573ef5c1fe",
+        "driver_source_sha256": "a7298289e44857b9d824db7cb79da19c9b9a83953d436228463b19f82806ddc1"
+      },
+      "profile": "native-window-script-testharness-v1",
+      "families": null,
+      "counts": {
+        "PASS": 3,
+        "FAIL": 0,
+        "UNSUPPORTED": 0,
+        "ERROR": 0
+      },
+      "variants": null,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint7-test262-numeric-native.json",
+      "sha256": "fe89e0ea54b009992b7b46321b2822aaff256e6aa572727f0cea19179d787fed",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:57:40.822793+00:00",
+        "w_revision": "34b4b166b60c99adbc1d63922c32ffd3f020bf78",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "5b328f6d5277ff0d3f4d92944d789684f2ecddf81ea876a7a3a5394df4451eb8",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "a3d69880f0dabefb98c3a614711c158508b2dcfc38b50f98431d077d326b0d63",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "native-assertions-async-v2",
+      "families": [
+        "test/built-ins/parseInt/",
+        "test/built-ins/isNaN/",
+        "test/built-ins/isFinite/"
+      ],
+      "counts": {
+        "PASS": 116,
+        "FAIL": 4,
+        "UNSUPPORTED": 46,
+        "ERROR": 4
+      },
+      "variants": 170,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint7-test262-numeric-upstream.json",
+      "sha256": "501945e0af38bedb0a41e1bd6d7f02998dcdb7b33167d488cf1a9ff68f6b3d18",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:57:00.332525+00:00",
+        "w_revision": "34b4b166b60c99adbc1d63922c32ffd3f020bf78",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "5b328f6d5277ff0d3f4d92944d789684f2ecddf81ea876a7a3a5394df4451eb8",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "a3d69880f0dabefb98c3a614711c158508b2dcfc38b50f98431d077d326b0d63",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/parseInt/",
+        "test/built-ins/isNaN/",
+        "test/built-ins/isFinite/"
+      ],
+      "counts": {
+        "PASS": 134,
+        "FAIL": 0,
+        "UNSUPPORTED": 30,
+        "ERROR": 6
+      },
+      "variants": 170,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint7-test262-selected-numeric.json",
+      "sha256": "25fe41efffdeaca94168e339388bb9db379a72293b7280e02e32aa797193def8",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:59:10.727846+00:00",
+        "w_revision": "34b4b166b60c99adbc1d63922c32ffd3f020bf78",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "5b328f6d5277ff0d3f4d92944d789684f2ecddf81ea876a7a3a5394df4451eb8",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "ce4e4376daca6cd7d3ff089d807a96bcbba7dc99121fd4aa83675ead0bb7c952",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "native-assertions-async-v2",
+      "families": null,
+      "counts": {
+        "PASS": 131,
+        "FAIL": 0,
+        "UNSUPPORTED": 20,
+        "ERROR": 0
+      },
+      "variants": 151,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint8-test262-followup-families-after-split.json",
+      "sha256": "bcc620e3d5e6bf06c03205b804855dde1b3b28bcdd3d39658043aef8f9eeaf34",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T21:00:02.440806+00:00",
+        "w_revision": "4b49480ab00d27a44c8fecf5cf5708e99c80f86c",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "eca431e21f4fa0b54674e8ac887cf158ff9c98bcbd5e7135b27d7ec580d16bd9",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "ce4e4376daca6cd7d3ff089d807a96bcbba7dc99121fd4aa83675ead0bb7c952",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/Object/defineProperty/",
+        "test/built-ins/Reflect/construct/",
+        "test/built-ins/Array/prototype/concat/",
+        "test/built-ins/String/prototype/split/",
+        "test/built-ins/RegExp/prototype/Symbol.split/",
+        "test/built-ins/String/prototype/charCodeAt/",
+        "test/built-ins/Number/MAX_VALUE/",
+        "test/built-ins/Number/MIN_VALUE/"
+      ],
+      "counts": {
+        "PASS": 2048,
+        "FAIL": 118,
+        "UNSUPPORTED": 635,
+        "ERROR": 0
+      },
+      "variants": 2801,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint9-test262-errors-upstream.json",
+      "sha256": "ad6f177d0d972ba2df49b58d6fa7869f3bedda758dae0e7ee2df5f128c471007",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T21:10:32.228235+00:00",
+        "w_revision": "c11c2a90ab643d32743de4e30a777eb780010b06",
+        "application_revision": "38d849da30b78c53cd97b183e2c74215cb18717f",
+        "runner_sha256": "4f6657054859723324204dc472cab9497b010a0837838dc375b854f923a0a190",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "f3e9812884a2f7c78f451d2c50c3fe2c92e658045a8b1d3e2855fcd45a65600f",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/NativeErrors/",
+        "test/built-ins/Error/"
+      ],
+      "counts": {
+        "PASS": 228,
+        "FAIL": 24,
+        "UNSUPPORTED": 122,
+        "ERROR": 0
+      },
+      "variants": 374,
       "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
       "closure": false
     }

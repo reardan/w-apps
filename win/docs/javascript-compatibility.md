@@ -18,10 +18,11 @@ See the [array iteration contract](../../w/docs/projects/javascript_array.md#cal
 stringification. String, Number and Boolean constructors create traced primitive
 wrappers; `Object(value)` boxes supported primitives, including bounded BigInt.
 String wrappers expose immutable UTF-16 indices and length. `String.fromCharCode`,
-string-separator `split`, generic array `indexOf`/`join`, Math.pow and Number/
-bounded-BigInt remainder retain conversion order and execution bounds. RegExp
-splitting and Symbol hooks remain
-unsupported. Ordinary Object/Reflect descriptor, prototype, extensibility and
+string and intrinsic-RegExp separator `split`, generic UTF-16 `charCodeAt`, array
+`indexOf`/`join`, Math.pow and Number/bounded-BigInt remainder retain conversion
+order and execution bounds. RegExp splitting clones a sticky matcher, preserves
+original lastIndex, and includes captures; Symbol.split, custom species/exec and
+Unicode u/v modes remain unsupported. Ordinary Object/Reflect descriptor, prototype, extensibility and
 receiver operations are implemented with ownership and exception checks; array
 descriptor mutation and general native exotic reflection remain incomplete.
 `Reflect.construct` validates real constructors and supports ordinary/class/bound
@@ -29,7 +30,12 @@ newTarget behavior; alternate native newTarget construction remains explicitly
 unsupported. Object methods are callable but not constructors.
 `parseFloat` and `Number.parseFloat` share a bounded decimal-prefix parser with
 ECMAScript whitespace, signed zero, Infinity and correctly rounded binary64
-results. These do not imply general implicit coercion.
+results. `parseInt`/`Number.parseInt` share exact bounded radix 2–36 accumulation
+and final binary64 rounding. Global `isNaN` and `isFinite` apply ordinary numeric
+conversion. Number MAX_VALUE/MIN_VALUE expose exact binary64 constants.
+EvalError and URIError join the intrinsic error constructors; ErrorCause uses
+ordered property presence/Get with catchable exceptions. These slices do not
+imply complete built-ins, implicit coercion or Error/NativeErrors conformance.
 
 ## Tasks and storage
 
@@ -316,8 +322,12 @@ Replacing a callback keeps its slot; clearing and re-enabling moves it to a new
 slot. Inline attribute changes invalidate the compiled handler, and a returned
 false value cancels cancelable events. The implementation covers the names in
 `win/src/win/event_handlers.w`, including the onclick/oninput/onsubmit properties
-used by the pinned framework. Window ErrorEvent extra arguments, body-to-window
-handler aliases and inline form/name scope remain unsupported.
+used by the pinned framework. Uncaught queueMicrotask exceptions dispatch trusted,
+cancelable Window error events with retained error identity and the legacy five
+onerror arguments; returning true cancels these events. Later microtasks continue
+within the original shared fuel. Promise rejections remain separate. Full ErrorEvent
+construction, accurate source coordinates, timer/rAF callback error reporting,
+body-to-window handler aliases and inline form/name scope remain unsupported.
 
 Ordinary functions provide shared `call`, `apply` and `bind`, including bounded
 bound construction. Strict/non-simple functions provide unmapped arguments,

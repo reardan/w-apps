@@ -234,5 +234,94 @@
       "07479d0b2161c8790783a382fdd6c14698e9b6e5 Bind sloppy receivers to realm globals and traced primitive wrappers",
       "f053b1d9694aa83040ac5c4837ab7ae408ad2b03 test262: execute original constructor helper with Reflect.construct"
     ]
+  },
+  "third_integration": {
+    "app": "334b50fcb86beeb7e7d2894a3ab47dd5acd81694",
+    "w": "db6ab035a5b8a10d81f21070467f8f3c9f9690a4",
+    "classification": "fresh integrated correctness checkpoint; timings under shared load are not performance results",
+    "checks": [
+      {
+        "name": "w",
+        "command": [
+          "./wbuild",
+          "-j",
+          "4",
+          "tests"
+        ],
+        "cwd": "w",
+        "exit_code": 0,
+        "seconds": 559.6469893139983
+      },
+      {
+        "name": "win",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "test"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 482.953630799002
+      },
+      {
+        "name": "standards",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "standards"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 53.59769228000005
+      },
+      {
+        "name": "wpt-async",
+        "command": [
+          "./win/build",
+          "wpt-async"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 19.836567840000498
+      }
+    ],
+    "validation_state": "PASS; full correctness gates at exact revisions, not standards completion or performance qualification",
+    "validation_artifacts": "win/bin/completion-wave3/checkpoint/",
+    "details": {
+      "w_targets": 1623,
+      "win_native_programs": 67,
+      "selected_test262": {
+        "PASS": 127,
+        "FAIL": 0,
+        "UNSUPPORTED": 24,
+        "ERROR": 0
+      },
+      "static_wpt": {
+        "PASS": 20
+      },
+      "original_wpt_files": 3,
+      "original_wpt_subtests": 8,
+      "security": "M1\u2013M4, native/isolated, broker/confinement/cancellation/crash/storage/rendering acceptance passed"
+    },
+    "app_commits": [
+      "593082e9a8196acc5e4882ca39514cd168af100f Integrate native callback replacement, concat and atomic lookahead support",
+      "e13e7581533e4ba8b4141f38b737028830042829 win: preserve original upstream subtest observations before completion errors",
+      "8ea6eb442b6ef05f47061979374f6ac364d3321d win: capture driver provenance before asynchronous case batches",
+      "7110f7d6bfa842f5798daf686ad8e95ea5a64c95 win: audit complete original timer and microtask parent families",
+      "ffa9be062c00abd0c9cf7212358a466d42653d78 Preserve zero-delay interval ordering with bounded per-poll execution",
+      "638aa94f95830a0009f13db6710bfa7f0b6c2bf1 Keep Window expando writes out of Element mutation hooks",
+      "334b50fcb86beeb7e7d2894a3ab47dd5acd81694 Record second integrated failures and expanded original-harness evidence"
+    ],
+    "w_commits": [
+      "cf4e921092261d77deba232cbb57cf94003b0eed Implement callable string and RegExp replacement with ordered match collection",
+      "41c53e84484ea00dd15bd88f12a2cafff95483d6 Assert TypeError when Array.isArray is used as a constructor",
+      "c942aea164400ff7ef405d7eeb846a292eaddadf Implement bounded generic array concatenation preserving sparse elements",
+      "43054ae05fdceb7bb409d08e13e2b45457dbc792 Define standard JSON method property descriptors and metadata",
+      "599e9befade1b43cfdd8a78f113a7e4c174090e6 Implement bounded atomic RegExp lookahead assertions",
+      "37d0b8dabf5baf20094026d380b84f3458c7d5a1 test262: capture execution provenance before running case batches",
+      "db6ab035a5b8a10d81f21070467f8f3c9f9690a4 Document native lookahead and replacement callback contracts"
+    ]
   }
 }

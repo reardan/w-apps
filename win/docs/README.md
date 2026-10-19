@@ -6,6 +6,8 @@ See the [application README](../README.md) to build, run, and test Win. The brow
 - [Network compatibility](network-compatibility.md): memory cookies/cache, credential scope, and fetch transport limits.
 - [Headless process isolation](script-isolation.md): child execution, validated output, watchdogs, and the interactive isolation boundary.
 - [JavaScript compatibility](javascript-compatibility.md): execution, DOM bindings, events, budgets, and language limitations.
+- [Browser completion and performance plan](modern-browser-plan.md): remaining work, parallel subagent assignments, dependencies, standards gates, and performance targets.
+- [Measured browser progress](modern-browser-progress.md): implemented milestones, exact validation scope, and historical performance evidence.
 - [Standards gap analysis](standards-gap-analysis.md): audited CSS/ECMAScript gaps, executable findings, and a staged parallel implementation plan.
 - [Implementation status](standards-implementation-status.md): merged dependency foundation, application fixes, validation boundaries, and remaining work.
 - [Static WPT rendering](../tests/wpt/README.md): pinned upstream reftests, native capture, reports, and harness boundaries.

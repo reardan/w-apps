@@ -1,292 +1,405 @@
-# Modern browser implementation plan
+# Browser completion and performance plan
 
-Status: initial M1–M4 app milestones validated; broader platform work remains.
-See [measured progress](modern-browser-progress.md) for exact scope and evidence.
-Written 2026-10-15 after W #662 and w-apps #7 merged.
-This document records the complete implementation program. It supersedes the
-execution order in the older standards gap analysis, whose findings describe an
-older baseline. The compatibility documents remain the source of truth for shipped
-behavior. Do not interpret the roadmap as a support claim.
+Updated 2026-10-19. This is the execution plan for completing Win's native W
+browser engine, expanding standards coverage, and meeting measured performance
+targets. It replaces the earlier M1–M4 implementation sequence. Preserve the W
+engine and reusable W libraries; Win owns browser integration.
 
-## Goal and acceptance milestones
+The existing graphics host, mobile UI, Preact workflow and isolated application
+milestones are regression gates. They do not establish complete web compatibility.
+Remaining work runs through the parallel assignments below, with one coordinator
+and three active subagents. This change is planning only; implementation and new
+performance measurements remain to be done.
 
-Make Win capable of running our existing web applications unchanged, then expand
-measured standards compatibility. Preserve the native W engine and reusable W
-libraries; Win owns browser integration. Do not substitute another browser engine.
+## Baseline and completion definition
 
-1. **M1 — original graphics host:** serve the repository locally and open
-   `w/tools/web/index.html` unchanged. Compile the existing W graphics demo, load
-   its existing bridge, and verify startup, sustained animation, resize, and clean
-   navigation/teardown. No compatibility-only rewritten host or patched bridge.
-2. **M2 — mobile UI host:** run the existing W mobile UI web demo unchanged with
-   keyboard/pointer input, text editing, focus, scrolling, viewport resizing, and
-   sustained rendering. Discover and record its exact entry point at the pinned W
-   revision before assigning implementation. Compare representative screenshots
-   and input-driven state transitions with a reference browser.
-3. **M3 — application workflow:** a checked-in representative app must support
-   module loading, routing/back/forward, form submission to a local API, persisted
-   settings across browser restart, and responsive layouts. Include an unmodified
-   production bundle from a pinned framework with its license and build recipe;
-   select the smallest representative bundle during baseline work and record it.
-4. **M4 — isolated application workflow:** M1–M3 also work through isolated page
-   execution, including canvas presentation, responsive parent UI, crash recovery,
-   and teardown. Only then consider making isolation the default.
-5. **M5 — broader interoperability:** expand pinned Test262, WPT, wasm spec, and
-   WebGL conformance coverage by feature family. No percentage of “modern browser
-   support” may be inferred from local regression counts.
+Planning baseline: application `1a953f1429924322610515c9df72c5dd195f4cf7`, W gitlink
+`79b5378f553db17303efdecc1506156891757260`. Both worktrees were clean during the
+audit. Preserve the exact dependency revision when reproducing results.
 
-M1–M4 are sequential integration gates, not promises that all standards will be
-complete. Work independent of an earlier gate can proceed in parallel. Every
-remaining roadmap item below stays tracked if it is not needed for these apps.
+| Area | Recorded evidence | Remaining boundary |
+| --- | --- | --- |
+| Application integration | M1–M4 paths, including unchanged mobile host and pinned Preact workflow | These exercise bounded app requirements |
+| Regression suites | Latest progress records 62 native Win programs plus integrations; merged W revision records 1,606 targets | Historical reports; rerun on each implementation baseline |
+| ECMAScript | 74 selected upstream files, 145 variants: 110 PASS, 35 UNSUPPORTED | Restricted native harness; async/module/full host harness unavailable |
+| WPT | 20 pinned static CSS reftests pass | No executable testharness.js or general WPT product integration |
+| Isolation | Opt-in interactive workers, Landlock/seccomp offline profile, same-origin HTTP broker | Default remains in process; general web policy and desktop/GPU boundary incomplete |
+| Performance | Historical Wasm steady-frame CPU median 78.6 → 58.3 ms | Excludes browser/GL work; predates the merged mobile module; no current end-to-end speed gate |
 
-## Baseline and restart procedure
+Sources: [measured progress](modern-browser-progress.md),
+[Test262 profile](../../w/tests/javascript/test262/README.md),
+[WPT adapter](../tests/wpt/README.md), [sandbox](offline-sandbox.md),
+[broker](network-broker.md), and [historical timings](browser-gap-performance.json).
 
-The application baseline is merged w-apps commit `08a6ed8` (PR #7). Its W gitlink
-contains the tested runtime implementation from PR #662. Read the gitlink rather
-than replacing it with the latest W main: subsequent W changes may change the
-hosts, demos, or toolchain independently.
+“Fully standards compliant” needs a versioned target: HTML is a living standard
+and CSS is a set of modules. Freeze specification snapshots, mandatory features,
+platforms, and upstream suite revisions in phase 0. Start with Linux x64 as the
+existing supported platform and explicitly inventory other platform work. Do not
+remove a required feature from scope because it fails or is expensive. Optional
+or platform-inapplicable exclusions need a specification-based reason; deferred
+mandatory features remain completion blockers.
 
-At the start of implementation:
+Completion requires all of the following:
 
-1. Read this plan, repository instructions (including `w/AGENTS.md`), and
-   `web-app-compatibility.md`, `javascript-compatibility.md`,
-   `css-compatibility.md`, `network-compatibility.md`, and `script-isolation.md`.
-2. Inspect status and preserve unrelated edits. Create an integration branch from
-   the intended application baseline and initialize W at its gitlink. Record both
-   full SHAs and tool versions in an implementation progress note.
-3. Reproduce the existing Promise-host wasm fixture and capture actual failures
-   from the unchanged original host and mobile demo. Turn the first failures into
-   focused regression cases before changing runtime semantics.
-4. Inventory scripts/imports and required browser APIs for both demos and the M3
-   bundle. Record requirements, ownership, dependent work, and expected failures.
-5. Record current test reports. Existing evidence is 1,210 W regression targets,
-   41 PASS/12 UNSUPPORTED Test262 variants, 23 browser W test programs, eight Python
-   integration suites, and 12 passing selected WPT reftests. These are historical
-   counts, not required future totals or full-conformance claims.
+1. Every mandatory feature in the standards inventory is implemented and reviewed
+   against its specification algorithms, including error and lifecycle behavior.
+2. Every applicable test in the pinned target suites runs; mandatory suites have
+   zero FAIL, ERROR, timeout, untriaged skip or UNSUPPORTED results. An upstream
+   test defect needs a linked disposition and replacement evidence, not a hidden
+   exclusion. Publish executed/total counts and applicability decisions.
+3. Native, isolated and sandboxed product configurations pass the application,
+   input, accessibility, storage, network and security gates that apply to them.
+4. Current binaries pass the performance and stability budgets below on the
+   recorded reference machines.
 
-Useful baseline commands, run from the application checkout:
+Passing tests alone does not prove every normative requirement. Close gaps using
+specification review, generated/adversarial tests and differential investigation.
+Any interim release lists unresolved features and makes a narrower compatibility
+claim. Standards updates become an ongoing maintenance queue after this target
+is closed.
+
+## Parallel execution and ownership
+
+Use four total agents: coordinator plus three active subagents. Tracks are roles
+scheduled across waves, not seven simultaneous agents. Each implementation agent
+gets separate application/W worktrees, private build outputs, exact base SHAs,
+exclusive files, interface contracts, tests and a bounded deliverable. Never share
+mutable `bin/` output directories or concurrently edit a runtime monolith.
+
+| Track | Exclusive area when assigned | Deliverable |
+| --- | --- | --- |
+| A Runtime | W `libs/extras/javascript/`, assigned JS parser/grammar and tests | ECMAScript semantics, jobs, modules, GC and execution speed |
+| B Documents | W `libs/extras/html/`; Win DOM/events/forms/modules/web-host files and assigned tests | Parser, Web IDL bindings, lifecycle and browser APIs |
+| C Rendering | W CSS modules; Win style/cascade/selectors/CSSOM/layout/document files | Layout, text, painting, hit testing and rendering speed |
+| D Network | W HTTP/URL/TLS modules; Win fetch/loader/network/storage/broker files | Standards-correct policy, transport, cache and persistence |
+| E Graphics and isolation | W Wasm; Win canvas/frame/worker/sandbox files | Graphics compliance, fast execution, confinement and recovery |
+| F Conformance and measurement | Assigned W Test262 tooling; Win WPT, benchmark and CI tooling | Reproducible reports, complete harnesses and performance gates |
+| G Platform and product | Assigned native input/accessibility/media/devtools/platform modules | Accessible and complete browser workflows |
+
+Coordinator owns `win/main.w`, `win/build`, `win/src/win/{script,browser,app}.w`,
+test registration, shared contracts, compatibility docs and the W gitlink.
+Track C owns `document.w`; B submits an interface request or receives an explicit
+ownership transfer before editing it. Track E owns worker transport; D requests
+protocol changes through that owner. Name individual files before starting tasks
+whose directories overlap, including W grammar and Test262 files.
+
+Every assignment records: requirement/test IDs, prerequisites, owned paths,
+explicit exclusions, proposed interface, reproduction command, acceptance tests,
+performance impact and completion evidence. Return reviewable commits, checks,
+remaining failures and a handoff. A different agent reviews correctness and
+negative tests before integration. Integrate W dependencies first, update the
+gitlink deliberately, then test Win against that exact W commit. Review work can
+run in parallel; timing benchmarks run alone on their measurement machine.
+
+## Phase 0 Establish the executable completion backlog
+
+Run F, A and B audits in parallel while the coordinator reproduces the baseline,
+inventories rendering/network/graphics/product requirements and assigns interfaces.
+This planning audit seeds that work; it does not substitute for executable reports.
+
+- Create a machine-readable feature ledger under `win/docs/`, linked to the
+  compatibility documents. Each row has a spec snapshot/section, mandatory or
+  optional status, implementation paths, dependency IDs, owner, upstream test
+  family/counts, harness blockers, negative tests, performance fixture and status.
+- Inventory the complete pinned suites before selecting shards. Reconcile every
+  existing unsupported statement, old roadmap item and newly discovered feature
+  into the ledger. Keep unexecuted tests in the denominator.
+- Pin reference browser versions, test licenses/hashes, font/locale/timezone,
+  OS/kernel/GPU/driver/CPU, build flags and corpus hashes. Archive reports with
+  both repository SHAs. Fix the recorded worker-exit/socket-EOF race with a
+  deterministic regression rather than accepting reruns as stability evidence.
+- Define contracts for parser suspension and document ownership; JS host rooting,
+  microtasks/cancellation; Web IDL descriptors; style invalidation and geometry;
+  origin/site/credential policy; byte streams; and generation-safe IPC ownership.
+- Capture cold/warm navigation, first presented frame, input-to-present latency,
+  frame pacing, parent poll latency, RSS, allocations, FDs and cancellation for
+  current unchanged M1–M3 fixtures in all supported execution profiles.
+
+Exit: no unowned requirement families; reproducible baseline results and timing
+traces; concrete failing cases and contracts for the first three assignments.
+Estimate task sizes from these failures and measured throughput. The full program
+needs multiple integration waves; no fixed delivery date is credible before this
+inventory and the harness work.
+
+## Phase 1 Build conformance infrastructure and core semantics
+
+Active subagents: **F harness**, **A runtime**, **B parser and DOM**. Coordinator
+integrates shared host hooks and makes the initial performance runner usable.
+
+**F:** Extend Test262 support for upstream includes/assertions, `assert.throws`,
+`$DONE`, `$262`, realms, async/module execution, metadata and negative phases.
+Replace restricted harness assumptions with the real upstream harness as language
+support permits. Preserve the existing profile until the replacement is verified.
+Build Win automation and a wptrunner product adapter: executable testharness.js,
+completion callbacks, resources, multi-origin HTTP/TLS servers, async reftest
+readiness, fonts, variants and server headers. Add testdriver/WebDriver actions
+incrementally. Runtime or DOM requirements become explicit A/B blockers; do not
+rewrite upstream tests or fake missing assertions. Validate the harness with
+deliberate failures, crashes, timeouts and malformed reports.
+
+**A:** Complete ordinary objects, property descriptors/accessors, Object reflection,
+prototype chains, receiver/coercion semantics, deletion, sparse arrays and mapped
+arguments. Add Symbols and iteration, full primitive conversions and constructors,
+arbitrary-precision BigInt, classes, generators/async generators, Proxy/Reflect,
+RegExp and Intl. Complete Promise/jobs and cyclic module linking/evaluation,
+default/namespace exports and re-exports, dynamic import and failure caching.
+Cover eval/Function, realms, weak references,
+typed arrays/shared memory/Atomics and other mandatory target features through
+separate ledger tasks. Preserve GC rooting across suspension and host reentry;
+add safe points, allocation limits and cancellation without changing semantics.
+Order the initial slices by harness blockers and complete feature-family tests.
+
+**B:** Implement complete tokenizer states and HTML tree construction, insertion
+modes, implied tags, foster parenting, adoption agency, templates, scripting-sensitive
+noscript, foreign content, streaming encodings, quirks and context-sensitive
+fragments in W. Add resumable parsing, parser-blocking scripts/document.write, async/defer
+and module lifecycle scheduling in Win. Complete Web IDL conversions, native
+interface prototypes, DOMException, node identity/reflection/live collections,
+innerHTML and MutationObserver delivery. Then complete event propagation/options,
+forms/validation, focus, history/navigation and document lifecycle. Define semantic
+accessibility snapshots, names/states/actions and isolated snapshot ownership
+alongside DOM identity so platform bridges consume the same stable tree; reuse
+W's existing accessibility and text-shaping foundations.
+
+Exit: the harness executes real synchronous/asynchronous JS tests and dynamic
+reftests with strict outcome accounting; first complete runtime/parser/DOM families
+pass; all previous expected passes and M1–M4 behavior remain intact. Unfinished
+language/DOM families continue as named tasks in later waves.
+
+## Phase 2 Complete layout and the network security model
+
+Active subagents: **C rendering**, **D network**, **A or B remaining blockers**.
+Coordinator maintains F gates; queue A/B tasks according to dependencies.
+
+**C:** Complete cascade/origins/layers, selectors, CSS values and CSSOM; inline and
+block formatting, floats/clear, independent formatting contexts and inline-block,
+parent/empty margin collapse, tables, replaced-element/intrinsic sizing, logical
+dimensions, fragmentation, flex
+wrapping/alignment, and real grid track sizing/placement. Add positioned and sticky
+boxes, containing blocks, stacking contexts, overflow/scroll containers, clipping,
+transforms and consistent hit testing. Complete font selection/loading, shaping,
+bidi, line breaking, writing modes and selection geometry. Extend pseudo-elements,
+backgrounds/gradients, animations/transitions, media/container queries, responsive
+images, SVG/MathML and print/paged rendering through separately tested slices.
+The pinned CSS module inventory determines the remaining required properties.
+
+**D:** Establish one trusted origin/site and policy service for navigation, assets,
+Fetch, cache and workers. Complete URL parsing and mutable URL/searchParams links,
+Request/Response/Headers, byte streams/backpressure, Blob/File/FormData, abort,
+redirect/credential modes, CORS/preflight and XHR. Implement cookie dates/domain/
+public-suffix/HttpOnly/SameSite/prefix policy and partitioning before exposing
+document.cookie. Complete cache revalidation/304/Vary/reload modes and persistent,
+partitioned state. Add secure contexts, CSP, mixed content, referrer policy,
+iframe sandboxing, MIME handling, integrity and cross-origin isolation rules.
+Cover permissions and trustworthy origin checks before admitting new capabilities.
+Audit current HTTP/TLS/URL behavior against the pinned standards; close protocol,
+certificate, encoding/compression and connection-reuse gaps. Explicitly cover
+WHATWG host/IDNA parsing, IPv6 transport, TLS 1.3 and its required algorithms,
+native trust-store integration for each target OS, and HTTP/2 integration rather
+than assuming existing W libraries are wired into Win. Add WebSocket,
+EventSource and required HTTP versions as explicit tasks, with deterministic
+loopback/TLS fixtures. Retain existing broker denial behavior while policy expands.
+
+**A/B:** Finish runtime/DOM blockers and add iframe browsing contexts, postMessage,
+structured clone, shadow DOM/custom elements, observers, selection/ranges and
+editing. Rendering-dependent APIs wait for C's geometry contracts. Integrate the
+initial semantic tree and Linux accessibility focus/actions alongside layout,
+using assigned G work slices; full assistive-technology qualification follows in
+phase 4.
+
+Exit: complete selected layout and network families pass upstream and adversarial
+tests; cross-origin credential leaks fail closed; visual geometry and pointer
+targets agree. Responsive applications, forms and restart persistence work across
+the recorded corpus without rewritten sources.
+
+## Phase 3 Complete graphics and make isolation the product default
+
+Active subagents: **E graphics/isolation**, **A runtime performance**, **C rendering
+performance**. Coordinator integrates D policy and F performance gates.
+
+**E:** Expand Wasm validation/execution to the pinned core version and mandatory
+proposal set; complete imports, tables, references, memory growth, traps and
+numerical behavior. Complete Canvas 2D and target WebGL versions/extensions with
+upstream conformance tests, context loss and cleanup. Finish image decoding,
+animation, color handling and required graphics APIs recorded in the ledger.
+Preserve frame generation IDs, bounded buffers, acknowledgments and backpressure.
+
+Extend the existing Linux confinement and broker rather than rebuilding them.
+Specify the remaining network, filesystem, process, memory and graphics authority
+boundaries; isolate display/GPU access where required, enforce aggregate quotas
+and test compromised-content requests. General browsing must not grant content
+raw X11 or parent authority. Exercise stale IPC, malformed frames, worker/GPU
+crashes, hung scripts, rapid navigation, multiple tabs, restart and recovery.
+Switch default execution only after the full app/policy/input/rendering/accessibility matrix
+passes in confinement. Unsupported required sandbox facilities must produce an
+explicit failure, with no silent unconfined retry.
+
+**A/C:** Follow the measured optimization order below. Schedule E's Wasm runtime
+optimizations under E ownership; A must not edit that runtime concurrently.
+Use complete semantic families and app traces to validate each optimization.
+
+Exit: unchanged applications meet the provisional speed budgets; the intended
+shipping default is confined and passes its authority/recovery tests; graphics
+families pass the pinned conformance suites. Remaining performance failures stay
+release blockers even when correctness passes.
+
+## Phase 4 Finish platform capabilities and browser workflows
+
+Active subagents: **B/D web services**, **G accessibility/product**, **E/G media and
+platform**. Transfer files explicitly and serialize overlapping G assignments.
+
+Complete dedicated/shared workers, messaging/transfer, IndexedDB transactions,
+storage quotas/eviction, service workers, Cache API and offline/update lifecycle.
+Add Web Crypto and required secure-context/permission-gated APIs. Complete
+audio/video playback, media loading/codecs, Web Audio, capture and real-time media
+where required by the target. Inventory remaining APIs such as WebGPU, WebRTC,
+filesystem and device capabilities explicitly; give each a milestone or justified
+optional status instead of losing them in “future work.”
+
+Build the semantic accessibility tree, accessible names/roles/states/relations,
+native Linux accessibility bridge, screen-reader navigation and actions. Complete
+keyboard controls, IME/composition, clipboard, selection, drag/drop, zoom and
+high-contrast/reduced-motion behavior. Test actual native input and assistive
+technology, beyond the current portable event seam. Add other OS backends only
+with their own native rendering/input/accessibility/security evidence.
+
+Finish browser chrome and user workflows: tab/window lifecycle, navigation and
+error pages, downloads/file chooser, print, find, history/bookmarks/session restore,
+site permissions and data clearing, settings, developer console/inspection/network
+diagnostics, packaging and update/recovery behavior. Inventory current support
+before assigning each feature; these product requirements are separate from
+normative web-platform requirements.
+
+Exit: every mandatory ledger family has implementation, tests and an owner-approved
+closure; end-to-end workflows, accessibility, permissions and persistence pass.
+Optional capabilities remain visible with their disposition and rationale.
+
+## Performance targets and optimization order
+
+These are proposed engineering acceptance budgets, not current measurements or
+standards requirements. Phase 0 fixes the reference hardware, release build,
+fixtures, viewport and network profiles. Review any budget revision explicitly;
+do not relax budgets silently to make a result pass.
+
+| Metric | Proposed gate on the reference machine |
+| --- | --- |
+| Unchanged mobile animation | At 60 Hz, p95 presented frame interval ≤one measured refresh period plus fixed measurement tolerance; <1% missed refresh deadlines |
+| Input response | p95 input-to-present ≤50 ms; p99 ≤100 ms across typing, scrolling and tab switching |
+| Parent event processing | p99 poll/work slice ≤8 ms; no observed UI stall >50 ms in scripted stress runs |
+| Local fixture startup | p95 navigation-to-first-useful-present ≤1 s cold and ≤500 ms warm, including mobile |
+| Stop/navigation cancellation | p95 visible response ≤100 ms; all old workers/resources reaped ≤1 s |
+| Long-session resources | After warm-up and 100 navigation/tab cycles, no live-object/FD/child growth; settled RSS ≤5% above warm baseline with retained caches bounded |
+| Change regression | No reproducible >5% median or >10% p95 latency/RSS regression on fixed workloads without reviewed justification |
+
+Measure at least 30 independent samples per cold/warm navigation scenario,
+at least 1,000 interactions per scenario for p99 qualification, and at least 1,000
+presented frames for pacing. Define first useful presentation as visible required
+content with working input, not a blank or partial frame. Calibrate presentation
+timestamp tolerance in phase 0, record it before testing, and count missed deadlines
+against measured vsync periods (about 16.7 ms at 60 Hz).
+Repeat runs and report raw samples,
+median/p95/p99 and uncertainty. Compare paired or alternating builds on an idle,
+fixed machine; record throttling/power configuration and separate real GPU from
+software rendering. Measure end-to-end timestamps through actual presentation,
+not only callback duration. Cross-browser comparisons use identical artifacts,
+machine, network and browser versions; no engine-specific source patches.
+
+Prioritize by current profiles:
+
+1. **Scheduling and cancellation:** keep parsing, networking, decoding and long
+   JS/Wasm work off the UI path; provide safe points and bounded queues.
+2. **Wasm/JS execution:** inspect dispatch, decoded instruction representation,
+allocations, property lookup, calls and GC. Replace broad suspended-frame roots
+with precise live roots and verify reclamation during long awaits. Measure predecoding, specialization
+   and inline caches; evaluate baseline JIT/AOT only if interpreter improvements
+   cannot meet budgets, with executable-memory policy and semantic tests included.
+   Do not special-case fixture source or remove fuel/trap/security checks.
+3. **Style/layout:** `document.w` currently rebuilds runs during full layout;
+   style computation rescans rules and ancestor custom properties. Profile selector
+   compilation/indexing, parsed-style caches, inherited-value sharing, explicit
+   style/layout/paint invalidation and incremental subtree layout.
+4. **Painting and transport:** profile retained display lists, damage tracking,
+   viewport culling, glyph/image caches, composited scrolling, frame copies and IPC
+   backpressure. Preserve coordinate-space and hit-test equivalence.
+5. **Network/startup:** measure connection reuse, cache validation, concurrent loads,
+   decoding and resource priority without weakening credential or origin checks.
+
+The code paths suggest opportunities; only paired measurements establish a speedup.
+Keep the original app artifacts frozen for comparisons. Compiler/app output
+improvements can be a separate experiment with a separately identified corpus.
+
+## Phase 5 Release qualification and continued conformance
+
+Active subagents: **F full-suite audit**, **D/E security and stability review**,
+**G independent application/accessibility review**. Coordinator resolves gaps,
+verifies exact artifacts and updates support claims.
+
+- Run the complete pinned applicable Test262, WPT, Wasm and graphics suites in
+  shards. Account for every test and subtest, including unsupported harness needs.
+  Review specification requirements not represented by tests. Never infer global
+  conformance from an unchanged curated pass count.
+- Run parser/runtime/decoder/protocol fuzzing, malformed-input and resource-pressure
+  tests, memory ownership checks, crash recovery and long-session stress. Investigate
+  flakes rather than masking them with retries. Include real GPU/driver and native
+  input/accessibility configurations required for the release.
+- Gate CI on prior expected passes and relevant complete feature suites; schedule
+  full suites and performance runs on suitable hosts. Store source/tool/spec/suite
+  provenance, diagnostics, traces and visual artifacts. A skip on unavailable
+  hardware is missing release evidence.
+- Close every mandatory ledger item and every performance/security blocker. Publish
+  exact support scope and results. Add a recurring spec/test update process and
+  regression triage ownership; a versioned completion milestone does not end upkeep.
+
+For implementation changes, run W's prescribed structured checks and focused
+manifest-selected tests, followed by its full suite on the final integrated W
+revision. Compiler changes also require the checks in `w/AGENTS.md`. For Win run
+the full suite, standards gate and all new family/native acceptance gates. Existing
+baseline commands from the application root are:
 
 ```sh
 git status --short
 git rev-parse HEAD
 git ls-tree HEAD w
 git -C w rev-parse HEAD
-./win/build test
-xvfb-run -a python3 win/tests/wpt_reftests.py
-python3 win/tests/wasm_graphics_integration.py win/bin/win
-(cd w && env -u NO_COLOR ./wbuild tests)
+(cd w && env -u NO_COLOR ./wbuild -j 4 tests)
+xvfb-run -a ./win/build test
+xvfb-run -a ./win/build standards
 ```
 
-## Parallel-subagent operating model
+Use the recorded compatible toolchain/environment, including Node for reference
+workloads. These commands currently cover the bounded suites, not this future
+completion gate. New harness/benchmark commands must be documented when added.
+Keep implementation checkpoints in [progress](modern-browser-progress.md), with
+next runnable tasks and exact evidence. This plan does not authorize publication
+or change the existing shipped compatibility claims.
 
-Use one coordinator plus up to four implementing subagents. If fewer slots are
-available, queue the same tasks without overlapping file ownership. Each agent
-gets a separate worktree and generated output directories, a precise base SHA,
-exclusive paths, interface contracts, exit tests, and explicit exclusions. Never
-share mutable `bin/` directories or ask agents to edit the same runtime monolith.
+## First implementation assignments
 
-| Track | Exclusive implementation area | Responsibilities |
-| --- | --- | --- |
-| A: language/runtime | W `libs/extras/javascript/`, JS tests/docs | Language semantics, builtins, async execution, module linking; compiler/grammar edits only when justified and assigned |
-| B: browser APIs | Win module/fetch/web-host bindings and new DOM/network modules; their tests | DOM, events, lifecycle, network, navigation, persistence |
-| C: CSS/layout | Win style/document/layout modules, CSS tests; assigned W CSS modules if needed | Values, intrinsic sizing, flex/grid, positioning, painting/hit testing |
-| D: graphics/isolation | W wasm library/tests; Win wasm/canvas/interactive-worker modules and tests | Wasm compatibility, WebGL/Canvas, frame transport, process lifecycle |
+1. **Coordinator:** record fresh SHAs/results, create the standards ledger and
+   assign shared contracts/paths; preserve M1–M4 regressions and freeze corpora.
+2. **Subagent F:** enumerate full upstream suite requirements, add report accounting
+   and a minimal real async WPT execution path, identifying A/B blockers precisely.
+3. **Subagent A:** implement the smallest complete object/reflection/harness-support
+   slice needed by F, with full affected Test262 families and GC/exception tests.
+4. **Subagent B:** establish HTML fragment/tree-construction and DOM identity
+   contracts, implement the first complete parser/DOM slice with upstream cases.
 
-The coordinator exclusively owns shared integration files initially:
-`win/src/win/script.w`, `browser.w`, `app.w`, `main.w`, build/test registration,
-compatibility status, and the W gitlink. Track C owns `document.w`; DOM changes
-requiring it must go through a coordinated patch or a later explicit ownership
-transfer. Track B and D must agree transport interfaces before editing loaders or
-worker protocols. Assign any additional touched file explicitly before work.
+The coordinator captures current performance while compilation/test loads are
+idle. Integrate the first slices, run the gates, then assign C/D/E work using the
+dependency order above. Do not restart already completed app milestones.
 
-Agents should return commits, interface notes, executed checks, and known gaps.
-Integrate W changes first into a common W integration branch, then test Win against
-that exact SHA. Independent W worktrees must receive required runtime commits
-before compiling dependent host code. Do not silently broaden scopes or let one
-agent fix another agent's failures in its owned files.
+## Standards and test references
 
-## Wave 0 — contracts and executable targets
+Freeze exact revisions during phase 0. The [HTML Living Standard](https://html.spec.whatwg.org/multipage/)
+and [CSS Snapshot](https://www.w3.org/TR/css/) define the starting specification
+inventory. Include their normative dependencies, plus DOM, Web IDL, URL, Encoding,
+Fetch, Streams, Storage, ECMAScript/Intl, HTTP/TLS, accessibility and graphics
+standards relevant to the target.
 
-Coordinator owns the baseline inventory and M1–M3 acceptance fixtures. Agents
-inspect their tracks in parallel and contribute minimal failing tests and interface
-proposals. Read current primary specifications where behavior is uncertain.
-
-Agree and document these contracts before dependent implementation:
-
-- JS suspended-frame rooting, completion/error propagation, execution budget and
-  cancellation; Promise jobs and host task/microtask checkpoint boundaries.
-- Module record lifecycle: fetch, parse, link, evaluate, async dependencies,
-  namespace/live bindings, cycles, failure caching and navigation cancellation.
-- DOM identity/prototypes, property descriptors, event constructors and task queues.
-- Fetch request/response ownership, header representation, byte streams, abort,
-  redirects, credentials and origin checks; shared network/storage ownership.
-- Layout invalidation, style dependencies, scroll/clip/transform coordinate spaces,
-  and consistency between geometry, painting and hit testing.
-- Frame IPC version, generation IDs, pixel format/stride, bounded sizes, ownership,
-  acknowledgement/backpressure, resize and page teardown.
-
-Exit: each milestone has a reproducible command, machine-readable assertions,
-known failures, and an assigned owner. Avoid a long architectural rewrite before
-one failing application path becomes executable.
-
-## Wave 1 — unchanged original host (M1)
-
-**A:** Implement the exact class/prototype/constructor semantics exercised by the
-host, complete required BigInt arithmetic without precision-losing Number
-conversion, async functions/await, and top-level await. Build reusable semantics,
-not special cases keyed to demo source. Add correct Promise thenable assimilation
-and required combinators/finalization. Root suspended frames and jobs across GC;
-cover throw/rejection/finally and navigation cancellation. Extend module records
-for live mutable exports, cycles, dynamic import and asynchronous evaluation in
-reviewable increments; prioritize the dependency subset demonstrated by M1.
-
-**B:** Connect async module evaluation to browser lifecycle and failure reporting;
-add the host interfaces revealed by inventory, complete URL/URLSearchParams paths
-needed by the host, and establish synthetic Event/dispatchEvent and abort signal
-foundations. Keep module linking in W and network/task scheduling in Win.
-
-**C:** Implement CSS custom properties with inheritance, fallback and cycle handling,
-then `calc()`/required viewport units and column flex basis/grow/shrink. Add
-reference geometry/rendering tests for nested resized containers. This track can
-advance M2/M3 while M1 is blocked on language work.
-
-**D:** Expand the wasm/WebGL subset only from specification-backed requirements and
-actual demo failures; enforce streaming MIME rules and distinguish buffered from
-incremental compilation. Audit memory growth/detachment, table/global/import
-behavior, numerical traps and WebGL validation. Prototype bounded frame transport
-without changing the default execution mode.
-
-Exit: M1 passes using unchanged host/bridge, with continuous frame advancement,
-resize correctness, and repeated navigation without leaked realms or contexts.
-Capture first-frame latency, frame pacing, retained memory, and parent responsiveness
-as baselines; do not assert performance parity with established engines.
-
-## Wave 2 — DOM, input and layout (M2)
-
-**A:** Fill language/builtin gaps demonstrated by mobile UI and the selected M3
-bundle, including iterators, collections, accessors and coercion as needed. Track
-full ECMAScript features separately from executable app subsets. Improve GC safe
-points so long-running allocation-heavy code does not retain all garbage until a
-callback returns. Preserve budgets and terminal host-limit behavior.
-
-**B:** Implement fragment parsing/`innerHTML` through W's HTML implementation,
-DOM interface prototypes and reflection, live collections, MutationObserver
-microtask delivery, fuller events and listener ordering. Complete focus, keyboard,
-pointer, text input/composition and dirty form value/checked state. Add history
-navigation/popstate and URL updates with explicit same-document semantics.
-Implement parser-blocking, async/defer and dynamically inserted script scheduling
-with distinct DOMContentLoaded/load dependencies. Parser suspension requires a
-resumable HTML parser upstream; assign that W work explicitly rather than trying
-to emulate parser blocking with the existing post-parse queue. Cover changing base
-URLs, resource cancellation and document-generation boundaries.
-
-**C:** Implement proper grid track sizing/placement, intrinsic min/max-content
-contributions, missing flex directions/wrapping/baselines, positioned boxes,
-stacking order, clipping and scroll containers. Expand computed styles and
-interaction selectors. Divide this work into feature PRs with screenshot and hit
-location assertions, not one layout rewrite. Include text shaping/bidi/font
-fallback and inline formatting issues revealed by the app.
-
-**D:** Complete the graphics/input surface used by M2; add context loss/restoration
-and resource cleanup tests. Transport canvas frames from isolated workers with
-backpressure and stale-frame rejection; handle resize and input generation IDs.
-Keep IPC work experimental until default and isolated modes produce equivalent
-application behavior.
-
-Exit: M2 passes the recorded interaction scenario and resize screenshots. No
-runtime-specific edits to the demo. Broader layout items can continue into Wave 3
-if they are not required for M2, but remain explicit outstanding tasks.
-
-## Wave 3 — networked applications and persistence (M3)
-
-**A:** Complete remaining selected framework semantics and expand Test262 by affected
-feature families. Track generators, RegExp, Intl, Proxy/Reflect and broader standard
-library coverage explicitly; choose implementation order from executable failures.
-
-**B:** Implement Request/Response/Headers, HTTP methods and binary request bodies,
-JSON/blob helpers, abort, redirect modes, credential policy and CORS/preflight.
-Add XHR compatibility after the shared transport is correct. Cover two-origin
-loopback scenarios including denied requests and redirects. Add WebSocket and
-streaming bodies in separate increments when application requirements justify them.
-
-Persist origin-scoped local storage and maintain tab-scoped session storage using
-atomic versioned records and explicit quotas. Centralize state across workers.
-Complete cookie HttpOnly/SameSite/expiry/domain policy before exposing
-`document.cookie`; domain cookies require public-suffix handling. Add HTTP cache
-revalidation, 304/Vary correctness, reload modes and persistence with credential
-partitioning. Never use the current permissive subset as an implicit cross-origin
-credential policy.
-
-**C:** Finish required responsive layout/CSSOM work and add pseudo-elements,
-backgrounds/gradients, transitions/transforms and broader media queries as separate
-conformance slices. Keep geometry, clipping, painting and pointer targets aligned.
-
-**D:** Expand wasm toward the core spec and required proposals, supported typed
-arrays and WebGL conformance; add Canvas 2D as its own tested surface. Replace
-hardcoded demo-sized limits with documented configurable budgets without removing
-validation, fuel or aggregate memory bounds. Measure interpreter bottlenecks before
-choosing optimization work; a JIT is not a prerequisite for this wave.
-
-Exit: M3 runs its unmodified bundle, exercises API success/failure/abort paths,
-routing, form interactions and restart persistence; origin-isolation and quota
-negative tests pass. Record unsupported APIs instead of silently faking success.
-
-## Wave 4 — isolated execution and wider platform (M4/M5)
-
-Coordinator and D integrate isolation only after frame transport and worker state
-ownership pass. B supplies consistent storage/network/navigation services; A
-supplies interruptible execution and proper cancellation/root release; C verifies
-snapshot or display-list fidelity for input, focus, scrolling and canvas.
-
-Test worker crashes, hung scripts, malformed IPC, oversized frames, stale messages,
-rapid navigation, multiple tabs and parent responsiveness. Add an actual Linux OS
-sandbox with a documented syscall/filesystem/network authority boundary and negative
-escape-surface tests; a child process alone is not a sandbox. Keep graphics-driver
-access and any separate GPU process boundary explicit. Default isolation changes
-require M1–M3 parity, not only a watchdog smoke test.
-
-Then expand independently scoped tracks for workers/structured clone, IndexedDB,
-service workers and offline cache, accessibility tree/native bridge, media/audio,
-selection/clipboard, developer console/inspection and additional platform backends.
-These are real remaining standards areas, not commitments to finish them in the
-first implementation session. Each receives its own interfaces and acceptance
-fixtures before assignment.
-
-## Validation and delivery rules
-
-- Read the applicable primary standards and pin imported test revisions/licenses:
-  [ECMA-262](https://tc39.es/ecma262/), [HTML](https://html.spec.whatwg.org/),
-  [DOM](https://dom.spec.whatwg.org/), [Fetch](https://fetch.spec.whatwg.org/),
-  [CSS](https://www.w3.org/Style/CSS/current-work),
-  [WebAssembly](https://webassembly.github.io/spec/), and
-  [WebGL](https://registry.khronos.org/webgl/).
-- Add focused semantic, negative and ownership tests. Run native rendering and
-  interaction tests for visual changes; do not replace screenshot evidence with
-  DOM text dumps. Reference browsers are differential tools, not the specification.
-- Expand pinned [Test262](https://github.com/tc39/test262) and
-  [WPT](https://web-platform-tests.org/) by feature. Distinguish unsupported cases,
-  harness errors, unexpected failures and passes. Native adaptations must remain
-  labelled separately from unmodified upstream tests.
-- Follow W's structured compiler checks and manifest-driven test selection. Stage
-  new W sources before tracked-source parser checks. Run its required full suite
-  on the final integrated W revision; compiler changes require the additional
-  compiler verification prescribed by repository instructions.
-- Run the complete Win suite and affected native GPU/WPT/app acceptance tests
-  against that exact dependency revision. Revalidate after substantive integration
-  changes. Document unavailable environments and missing evidence honestly.
-- Deliver small reviewable W and application commits/PRs per feature slice. Land
-  W dependencies first, update the application gitlink deliberately, and verify the
-  final merged dependency. The next implementation request determines publication
-  and merge authorization; this planning request authorizes only the plan commit.
-- Update compatibility documents and an implementation progress note at each
-  integrated checkpoint. Record exact SHAs, checks, open failures, next runnable
-  commands and ownership handoffs so another context can resume without guessing.
-
-## First assignment after context reset
-
-Start Wave 0 and launch four parallel inspection/test tasks using tracks A–D above.
-The coordinator reproduces the original host failure and defines the shared
-interfaces. Implement Wave 1 once those contracts are concrete, integrating the
-smallest changes needed to reach M1 while the independent layout and IPC tracks
-advance. Continue through later milestones under the next user's implementation
-scope; never report this entire roadmap complete merely because the triangle runs.
+[WPT](https://web-platform-tests.org/) provides cross-browser tests;
+[testharness.js](https://web-platform-tests.org/writing-tests/testharness.html)
+and [wptrunner](https://web-platform-tests.org/tools/wptrunner/docs/internals.html)
+provide the execution/reporting integration model.
+[Test262](https://github.com/tc39/test262) covers ECMAScript and Intl conformance;
+its maintainers explicitly note that coverage is not complete. Use normative
+specifications to resolve behavior, with reference engines as differential evidence.

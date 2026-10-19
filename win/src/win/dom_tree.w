@@ -336,10 +336,191 @@ js_value* win_dom_tree_fragment(void* runtime, void* context, js_value* receiver
 	if (node == 0): return rt.undefined_value
 	return win_script_wrap(script, node)
 
+# Live HTMLCollection owners are held by the node binding until realm teardown.
+struct win_dom_collection:
+	win_dom_binding* binding
+	char* tag
+	js_value* object
+	win_dom_collection* next
+
+void win_dom_collections_free(win_dom_binding* binding):
+	win_dom_collection* collection = cast(win_dom_collection*, binding.collections)
+	while (collection != 0):
+		win_dom_collection* next = collection.next
+		free(collection.tag)
+		free(collection)
+		collection = next
+
+# Iterative preorder traversal charges descents, ascents and sibling edges.
+# It never walks outside the collection's root, including detached subtrees.
+html_node* win_dom_collection_next(win_dom_collection* collection, html_node* node):
+	win_script* script = cast(win_script*, collection.binding.context)
+	if (win_dom_tree_charge(script.runtime, 1) == 0): return 0
+	if (node.first_child != 0): return node.first_child
+	html_node* root = collection.binding.node
+	while (node != root):
+		if (node.next_sibling != 0): return node.next_sibling
+		if (win_dom_tree_charge(script.runtime, 1) == 0): return 0
+		node = node.parent
+	return 0
+
+int win_dom_collection_match(win_dom_collection* collection, html_node* node):
+	if (node.kind != HTML_START): return 0
+	win_script* script = cast(win_script*, collection.binding.context)
+	if (win_dom_tree_charge(script.runtime, strlen(collection.tag) + strlen(node.name) + 1) == 0): return 0
+	return strcmp(collection.tag, c"*") == 0 || strcmp(collection.tag, node.name) == 0
+
+# index=-1 counts all matches; name!=0 selects the first id/name match.
+html_node* win_dom_collection_scan(win_dom_collection* collection, int index, char* name, int* count):
+	win_script* script = cast(win_script*, collection.binding.context)
+	*count = 0
+	html_node* node = win_dom_collection_next(collection, collection.binding.node)
+	while (node != 0 && script.runtime.completion.status == 0):
+		if (win_dom_collection_match(collection, node)):
+			if (name != 0):
+				html_attribute* attr = node.attributes
+				while (attr != 0):
+					if (win_dom_tree_charge(script.runtime, strlen(attr.name) + strlen(attr.value) + strlen(name) + 1) == 0): return 0
+					if (name[0] != 0 && (strcmp(attr.name, c"id") == 0 || strcmp(attr.name, c"name") == 0) && strcmp(attr.value, name) == 0): return node
+					attr = attr.next
+			else if (*count == index): return node
+			*count = *count + 1
+		node = win_dom_collection_next(collection, node)
+	return 0
+
+int win_dom_collection_builtin(js_runtime* rt, js_value* receiver, js_text* key):
+	js_value* object = receiver
+	while (object != 0):
+		if (win_dom_tree_charge(rt, (key.units.length + 1) * (object.properties.length + 1)) == 0): return 0
+		if (js_runtime_property(object, key) != 0): return 1
+		object = object.prototype
+	return 0
+
+html_node* win_dom_collection_named(win_dom_collection* collection, js_text* key):
+	int size = 0
+	char* name = js_text_to_utf8(key, &size)
+	if (name == 0): return 0
+	html_node* result = 0
+	if (strlen(name) == size):
+		int count = 0
+		result = win_dom_collection_scan(collection, -1, name, &count)
+	free(name)
+	return result
+
+js_value* win_dom_collection_get(void* runtime, void* context, js_value* receiver, js_text* key):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_collection* collection = cast(win_dom_collection*, context)
+	if (receiver != collection.object): return 0
+	int count = 0
+	if (js_runtime_key_is(key, c"length")):
+		win_dom_collection_scan(collection, -1, 0, &count)
+		if (rt.completion.status != 0): return rt.undefined_value
+		return js_runtime_number(rt, cast(float64, count))
+	int index = js_runtime_array_index(key)
+	html_node* node = 0
+	if (index >= 0): node = win_dom_collection_scan(collection, index, 0, &count)
+	else:
+		if (win_dom_collection_builtin(cast(js_runtime*, runtime), receiver, key)): return 0
+		node = win_dom_collection_named(collection, key)
+	if (rt.completion.status != 0): return rt.undefined_value
+	if (node == 0): return 0
+	return win_script_wrap(cast(win_script*, collection.binding.context), node)
+
+int win_dom_collection_has(void* runtime, void* context, js_value* receiver, js_text* key):
+	win_dom_collection* collection = cast(win_dom_collection*, context)
+	if (receiver != collection.object): return 0
+	if (js_runtime_key_is(key, c"length")): return 1
+	int index = js_runtime_array_index(key)
+	int count = 0
+	if (index >= 0): return win_dom_collection_scan(collection, index, 0, &count) != 0
+	if (win_dom_collection_builtin(cast(js_runtime*, runtime), receiver, key)): return 1
+	return win_dom_collection_named(collection, key) != 0
+
+int win_dom_collection_set(void* runtime, void* context, js_value* receiver, js_text* key, js_value* value):
+	win_dom_collection* collection = cast(win_dom_collection*, context)
+	if (receiver != collection.object): return 0
+	if (js_runtime_key_is(key, c"length") || js_runtime_array_index(key) >= 0): return 1
+	if (win_dom_collection_builtin(cast(js_runtime*, runtime), receiver, key)): return 0
+	return win_dom_collection_named(collection, key) != 0
+
+js_value* win_dom_collection_item(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_collection* collection = cast(win_dom_collection*, context)
+	if (receiver != collection.object || args.length == 0):
+		js_runtime_fail(rt, 2, c"HTMLCollection.item requires its receiver and index")
+		return rt.undefined_value
+	if (args[0].kind != 3):
+		js_runtime_fail(rt, 6, c"HTMLCollection.item index coercion is unsupported")
+		return rt.undefined_value
+	int count = 0
+	int index = js_binary_uint(args[0].number, 32)
+	html_node* node = win_dom_collection_scan(collection, index, 0, &count)
+	if (rt.completion.status != 0): return rt.undefined_value
+	return win_script_wrap(cast(win_script*, collection.binding.context), node)
+
+js_value* win_dom_collection_named_item(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, runtime)
+	win_dom_collection* collection = cast(win_dom_collection*, context)
+	if (receiver != collection.object || args.length == 0):
+		js_runtime_fail(rt, 2, c"HTMLCollection.namedItem requires its receiver and name")
+		return rt.undefined_value
+	char* name = win_dom_tree_text(rt, args[0])
+	if (name == 0): return rt.undefined_value
+	int count = 0
+	html_node* node = win_dom_collection_scan(collection, -1, name, &count)
+	free(name)
+	if (rt.completion.status != 0): return rt.undefined_value
+	return win_script_wrap(cast(win_script*, collection.binding.context), node)
+
+js_value* win_dom_get_elements_by_tag(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	win_dom_binding* binding = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, binding.context)
+	js_runtime* rt = script.runtime
+	if (receiver != binding.object || args.length == 0 || (binding.node.kind != HTML_START && binding.node != script.page.html.root)):
+		js_runtime_fail(rt, 2, c"getElementsByTagName requires Document or Element receiver and name")
+		return rt.undefined_value
+	char* tag = win_dom_tree_text(rt, args[0])
+	if (tag == 0): return rt.undefined_value
+	int size = strlen(tag)
+	if (size > 65536 || script.dom_bytes > 4194304 - size || win_dom_tree_charge(rt, size + 1) == 0):
+		free(tag)
+		js_runtime_fail(rt, 5, c"HTMLCollection name limit")
+		return rt.undefined_value
+	for i in range(size): tag[i] = html_lower(tag[i] & 255)
+	win_dom_collection* current = cast(win_dom_collection*, binding.collections)
+	int count = 0
+	while (current != 0):
+		if (win_dom_tree_charge(rt, size + strlen(current.tag) + 1) == 0):
+			free(tag)
+			return rt.undefined_value
+		if (strcmp(current.tag, tag) == 0):
+			free(tag)
+			return current.object
+		count = count + 1
+		current = current.next
+	if (count >= 256):
+		free(tag)
+		js_runtime_fail(rt, 5, c"HTMLCollection owner limit")
+		return rt.undefined_value
+	win_dom_collection* collection = new win_dom_collection()
+	collection.binding = binding
+	collection.tag = tag
+	collection.next = cast(win_dom_collection*, binding.collections)
+	binding.collections = collection
+	script.dom_bytes = script.dom_bytes + size
+	collection.object = js_runtime_alloc(rt, 5)
+	js_runtime_root(rt, collection.object)
+	js_runtime_set(rt, collection.object, c"item", js_runtime_host_callable(rt, collection, win_dom_collection_item))
+	js_runtime_set(rt, collection.object, c"namedItem", js_runtime_host_callable(rt, collection, win_dom_collection_named_item))
+	js_runtime_set_host_hooks(rt, collection.object, collection, win_dom_collection_get, win_dom_collection_set)
+	js_runtime_set_host_has(rt, collection.object, win_dom_collection_has)
+	return collection.object
+
 void win_dom_tree_install(win_dom_binding* b):
 	win_script* script = cast(win_script*, b.context)
 	js_runtime* rt = script.runtime
 	if (b.node == script.window_node): return
+	if (b.node.kind == HTML_START || b.node == script.page.html.root): js_runtime_set(rt, b.object, c"getElementsByTagName", js_runtime_host_callable(rt, b, win_dom_get_elements_by_tag))
 	js_runtime_set(rt, b.object, c"appendChild", js_runtime_host_callable(rt, b, win_dom_tree_append))
 	js_runtime_set(rt, b.object, c"insertBefore", js_runtime_host_callable(rt, b, win_dom_tree_insert))
 	js_runtime_set(rt, b.object, c"removeChild", js_runtime_host_callable(rt, b, win_dom_tree_remove))

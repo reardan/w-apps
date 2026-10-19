@@ -11,6 +11,7 @@ struct win_cookie:
 	char* host
 	char* path
 	char* pair
+	int nameless
 	int secure
 	int http_only
 	int persistent
@@ -66,9 +67,17 @@ void win_cookie_set_at(char* address, char* header, int now):
 	char* pair = http_trimmed_value(header, 0, end)
 	int eq = 0
 	while (pair[eq] != 0 && pair[eq] != '='): eq = eq + 1
-	int valid = eq > 0 && pair[eq] == '='
-	for i in range(eq):
-		if (http_is_token_char(pair[i]) == 0): valid = 0
+	# Preserve an explicit name bit: an empty-name value may itself contain
+	# '=' and must never collide with a named cookie or change on snapshot.
+	int nameless = eq == 0 || pair[eq] == 0
+	if (eq == 0 && pair[0] == '='):
+		char* value = cookie_trimmed(pair, 1, strlen(pair))
+		free(pair)
+		pair = value
+	int valid = pair[0] != 0
+	if (nameless == 0):
+		for i in range(eq):
+			if (http_is_token_char(pair[i]) == 0): valid = 0
 	for i in range(strlen(pair)):
 		if (pair[i] == 44 || pair[i] == 9): valid = 0
 	int plen = strlen(u.path)
@@ -137,7 +146,11 @@ void win_cookie_set_at(char* address, char* header, int now):
 	int slot = -1
 	for i in range(WIN_COOKIE_COUNT):
 		win_cookie* c = win_cookies[i]
-		if (c != 0 && strcmp(c.host, u.host) == 0 && strcmp(c.path, path) == 0 && win_cookie_name_equal(c.pair, pair)):
+		int same_name = 0
+		if (c != 0):
+			if (nameless && c.nameless): same_name = 1
+			else if (nameless == 0 && c.nameless == 0): same_name = win_cookie_name_equal(c.pair, pair)
+		if (c != 0 && strcmp(c.host, u.host) == 0 && strcmp(c.path, path) == 0 && same_name):
 			# HTTP cannot overwrite a Secure cookie.
 			if (c.secure && strcmp(u.scheme, c"https") != 0): valid = 0
 			slot = i
@@ -154,6 +167,7 @@ void win_cookie_set_at(char* address, char* header, int now):
 			c.host = strclone(u.host)
 			c.path = strclone(path)
 			c.pair = strclone(pair)
+			c.nameless = nameless
 			c.secure = secure
 			c.http_only = http_only
 			c.persistent = persistent
@@ -202,6 +216,7 @@ char* win_cookie_snapshot_at(int now):
 		else: string_append(out, c"http://")
 		string_append(out, c.host)
 		string_append(out, c"/\n")
+		if (c.nameless): string_append(out, c"=")
 		string_append(out, c.pair)
 		string_append(out, c"; Path=")
 		string_append(out, c.path)

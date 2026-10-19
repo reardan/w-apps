@@ -24,10 +24,11 @@ The denominator is all 33 upstream registrations: 21 HTTP and 12 DOM cases.
 DOM cases remain `UNSUPPORTED` because `document.cookie` is not exposed.
 Timeouts and driver crashes/missing executables remain individual report
 entries, preserving the denominator. Exit status is nonzero for FAIL/ERROR/
-TIMEOUT. A fresh run for the initial date/age slice reports 20 PASS, 1 FAIL,
-12 UNSUPPORTED. The failure is max-age case 9: the native parser requires a
-nonempty token name and `=`, while the upstream case expects nameless `test9`.
-This gap is mandatory open, not an expected-pass exemption.
+TIMEOUT. Historical initial date/age commit `bd9711d` reported 20 PASS, 1 FAIL,
+12 UNSUPPORTED; max-age case 9 required an empty-name cookie. The subsequent
+empty-name identity slice reports 21 PASS and 12 UNSUPPORTED without fixture or
+expectation changes. This closes the selected HTTP data cases only, not the full
+upstream cookie family or browser execution.
 
 The native deterministic test additionally checks past/future dates, malformed
 Max-Age, both attribute orders, HttpOnly retention, exact absolute-expiry
@@ -57,3 +58,11 @@ retains its existing total-output byte cap. This is a bounded foundation policy,
 not complete browser cookie capacity conformance. The native integration suite
 covers the upstream comma ambiguity, multiple separate fields, discarded expired
 cookies, HttpOnly retention, 33-field overflow, and cumulative redirect overflow.
+
+Empty-name cookies have a distinct identity bit in the bounded jar. Cookie
+request headers omit the empty name and separator; snapshots explicitly restore
+an initial `=` so a value containing `=` cannot become a named cookie. Tests
+cover replacement and deletion of the empty-name key, independent named cookies,
+empty-pair rejection, named empty values, Secure/HttpOnly retention, conservative
+prefix/domain checks, and native worker roundtrip. Complete cookie pair grammar
+and the previously listed policy/binding gaps remain open.

@@ -46,6 +46,9 @@ class Handler(BaseHTTPRequestHandler):
             headers = [("Set-Cookie", "test=2; Path=/dates; Expires=Fri 01 Jan 2038 00:00:00 GMT, baz=qux"),
                        ("Set-Cookie", "other=3; Path=/dates; HttpOnly"),
                        ("Set-Cookie", "expired=gone; Path=/dates; Expires=Thu Apr 10 1980 16:33:12 GMT")]
+        elif self.path == "/nameless-fields":
+            headers = [("Set-Cookie", "named=value; Path=/nameless"),
+                       ("Set-Cookie", "=named=other; Path=/nameless; HttpOnly")]
         elif self.path == "/cookie-cap":
             headers = [("Set-Cookie", f"cap{i}=yes; Path=/cap") for i in range(33)]
         elif self.path == "/cookie-cap-redirect":

@@ -69,6 +69,44 @@ void cookie_dates_native():
 	asserts(c"expired absent key never evicts", win_cookies[0] == original)
 	win_network_state_clear()
 
+void cookie_nameless_native():
+	int now = datetime_to_unix(datetime_new(2026, 1, 1, 0, 0, 0, 0))
+	win_network_state_clear()
+	win_cookie_set_at(c"https://example.test/", c"", now)
+	win_cookie_set_at(c"https://example.test/", c"= ; Secure", now)
+	win_cookie_set_at(c"https://example.test/", c"; Max-Age=20", now)
+	cookie_dates_expect(now, c"")
+	win_cookie_set_at(c"https://example.test/", c"value-only; Max-Age=20", now)
+	cookie_dates_expect(now, c"value-only")
+	assert_equal(1, win_cookies[0].nameless)
+	win_cookie_set_at(c"https://example.test/", c"=replacement; HttpOnly; Secure; Max-Age=20", now)
+	cookie_dates_expect(now, c"replacement")
+	win_cookie_set_at(c"http://example.test/", c"attack", now)
+	cookie_dates_expect(now, c"replacement")
+	win_cookie_set_at(c"https://example.test/", c"named=value", now)
+	win_cookie_set_at(c"https://example.test/", c"=named=other; HttpOnly; Secure; Max-Age=20", now)
+	cookie_dates_expect(now, c"named=other; named=value")
+	char* snapshot = win_cookie_snapshot_at(now)
+	asserts(c"snapshot disambiguates nameless equals", index_of(snapshot, c"=named=other;") >= 0)
+	win_network_state_clear()
+	win_cookie_restore_at(snapshot, now + 1)
+	free(snapshot)
+	cookie_dates_expect(now + 1, c"named=other; named=value")
+	assert_equal(1, win_cookies[0].nameless)
+	assert_equal(1, win_cookies[0].http_only)
+	assert_equal(1, win_cookies[0].secure)
+	win_cookie_set_at(c"https://example.test/", c"empty=", now)
+	cookie_dates_expect(now, c"named=other; named=value; empty=")
+	win_cookie_set_at(c"https://example.test/", c"other-empty-name; Max-Age=0", now)
+	cookie_dates_expect(now, c"named=value; empty=")
+	# Existing prefix and domain protections also apply to nameless values.
+	win_cookie_set_at(c"https://example.test/", c"=__Host-bad; Secure", now)
+	win_cookie_set_at(c"https://example.test/", c"=__Secure-bad", now)
+	win_cookie_set_at(c"https://example.test/", c"=bad; Domain=test", now)
+	win_cookie_set_at(c"https://example.test/", c"bad,second=value", now)
+	cookie_dates_expect(now, c"named=value; empty=")
+	win_network_state_clear()
+
 int main(int argc, char** argv):
 	# Adapter mode supplies unchanged upstream header strings and a frozen clock.
 	if (argc > 1 && strcmp(argv[1], c"--upstream") == 0):
@@ -80,5 +118,6 @@ int main(int argc, char** argv):
 		win_network_state_clear()
 		return 0
 	cookie_dates_native()
+	cookie_nameless_native()
 	println(c"Win cookie date/age precedence, HttpOnly, snapshot and expiry limits: OK")
 	return 0

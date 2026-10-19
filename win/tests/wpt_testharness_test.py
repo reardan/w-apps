@@ -108,6 +108,15 @@ class AsyncDriverContract(unittest.TestCase):
                 self.assertEqual(result['status'], 'ERROR')
                 self.assertIn(reason, result['reason'])
 
+    def test_observed_subtest_survives_harness_failure_without_becoming_pass(self):
+        observed = {'name': 'completed before crash', 'status': 0, 'message': None}
+        source = '__wptObserve(' + json.dumps(json.dumps(observed)) + ');throw new Error("later harness failure");'
+        result = self.execute(source)
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertEqual(result['actual']['observed_subtests'], [observed])
+        result = self.execute('__wptObserve("{\\"status\\":0}");' + self.complete())
+        self.assertEqual(result['status'], 'ERROR')
+
     def test_missing_driver_preserves_case_denominator(self):
         with tempfile.TemporaryDirectory() as directory:
             report = runner.run(runner.CORPUS / 'testharness-manifest.json', Path(directory) / 'absent')

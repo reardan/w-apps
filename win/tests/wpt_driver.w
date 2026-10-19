@@ -7,6 +7,26 @@ import win.script
 
 char* wpt_payload = 0
 int wpt_completions = 0
+json_value* wpt_observed = 0
+int wpt_observed_bytes = 0
+int wpt_observed_count = 0
+
+js_value* wpt_observe(void* context, list[js_value*] args):
+	js_runtime* rt = cast(js_runtime*, context)
+	if (args.length != 1 || args[0].kind != 4 || wpt_observed_count >= 10000):
+		js_runtime_fail(rt, 6, c"invalid WPT observed result")
+		return rt.undefined_value
+	int length = 0
+	char* payload = js_text_to_utf8(args[0].text, &length)
+	if (length > 1048576 - wpt_observed_bytes || strlen(payload) != length):
+		free(payload)
+		js_runtime_fail(rt, 6, c"invalid WPT observed result bytes or size")
+		return rt.undefined_value
+	wpt_observed_bytes = wpt_observed_bytes + length
+	wpt_observed_count = wpt_observed_count + 1
+	json_array_push(wpt_observed, json_string(payload))
+	free(payload)
+	return rt.undefined_value
 
 js_value* wpt_complete(void* context, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, context)
@@ -62,6 +82,8 @@ int main(int argc, int argv):
 	# The upstream harness is larger than the product per-source limit. This
 	# automation-only limit admits the original bytes; product limits stay fixed.
 	script.runtime.max_source_bytes = 1048576
+	wpt_observed = json_array()
+	js_runtime_bind(script.runtime, c"__wptObserve", wpt_observe)
 	js_runtime_bind(script.runtime, c"__wptComplete", wpt_complete)
 	int start = time_monotonic_ms()
 	int failed_source = -1
@@ -88,6 +110,7 @@ int main(int argc, int argv):
 	json_value* report = json_object()
 	json_object_set(report, c"protocol", json_int(1))
 	json_object_set(report, c"diagnostics", diagnostics)
+	json_object_set(report, c"observed_payloads", wpt_observed)
 	json_object_set(report, c"completions", json_int(wpt_completions))
 	json_object_set(report, c"script_failures", json_int(script.failures))
 	json_object_set(report, c"failed_source", json_int(failed_source))

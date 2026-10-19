@@ -85,11 +85,16 @@ python3 win/tests/wpt_testharness.py --json win/bin/wpt-testharness.json
 The contract suite proves real timers, Promise checkpoints and suspended async
 functions, failure propagation, missing/duplicate completion, fresh realms,
 crashes, invalid output and malformed statuses. These are local driver tests,
-not upstream WPT passes. The strict upstream command currently exits 1: all
-three original async files currently reach the harness's `expose` function but
-stop at `name.split(".")` (line 4967), because String.prototype.split is missing.
-Earlier switch lowering, globals, numeric keys, remainder, fromCharCode and
-indexOf blockers have been implemented. Reports retain all three ERROR results;
+not upstream WPT passes. The upstream `add_result_callback` additionally records
+completed subtests even when a later harness error prevents completion. Observed
+subtest passes never turn an incomplete file into PASS. The strict upstream
+command currently exits 1: all
+three original async files now initialize the original harness and bridge and
+execute their test scripts. The microtask case currently stops on sloppy receiver
+conversion; timer completion reaches the harness's negative-lookahead surrogate
+sanitizer (line 4013), which remains unsupported. Earlier switch lowering,
+globals, numeric keys, remainder, fromCharCode, indexOf and split blockers have
+been implemented. Reports retain all three ERROR results;
 there is no expected-failure success mode. Runtime and DOM dependencies remain
 tracked with A/B/coordinator. The larger source limit is automation-only, for the
 original 190+ KiB harness; ordinary browser execution limits remain unchanged.

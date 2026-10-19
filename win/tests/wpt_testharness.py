@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 CORPUS = Path(__file__).resolve().parent / 'wpt'
 STATUSES = ('PASS', 'FAIL', 'UNSUPPORTED', 'ERROR')
 BRIDGE = '''setup({output:false, message_events:[]});
+add_result_callback(function(t) {
+  __wptObserve(JSON.stringify({name:t.name,status:t.status,message:t.message}));
+});
 add_completion_callback(function(tests, status) {
   __wptComplete(JSON.stringify({status:status.status, message:status.message,
     tests:tests.map(function(t) {return {name:t.name,status:t.status,message:t.message};})}));
@@ -59,6 +62,17 @@ def classify(report):
         require(type(report.get(key)) is int, 'missing integer ' + key)
     require(report['completions'] >= 0 and report['script_failures'] >= 0 and report['elapsed_ms'] >= 0, 'negative count')
     require(report['failed_source'] >= -1 and isinstance(report.get('message'), str), 'invalid execution evidence')
+    observations = report.get('observed_payloads', [])
+    require(isinstance(observations, list), 'invalid observed subtests')
+    observed = []
+    for raw in observations:
+        require(isinstance(raw, str), 'invalid observed payload')
+        item = strict_json(raw)
+        require(isinstance(item, dict) and isinstance(item.get('name'), str) and item['name'] and
+                type(item.get('status')) is int and 0 <= item['status'] <= 4 and
+                (item.get('message') is None or isinstance(item.get('message'), str)), 'invalid observed subtest')
+        observed.append(item)
+    report['observed_subtests'] = observed
     if report['script_failures'] or report['failed_source'] >= 0:
         return 'ERROR', 'script execution failed'
     if report['completions'] == 0:

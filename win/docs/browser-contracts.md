@@ -15,11 +15,14 @@ were copied, never hard-linked. No worker writes the coordinator checkout.
 | --- | --- | --- |
 | Coordinator | `/home/w/git/W/w-apps` | `win/main.w`, `win/build`, `win/src/win/{script,browser,app}.w`, documentation, gitlink, registration, `win/tests/browser_measurements*.py`, `win/tests/standards_ledger*.py` |
 | A | `/home/w/git/W/browser-workers/a` | `w/libs/extras/javascript/`, new object/global runtime tests under `w/tests/javascript/` |
-| B → D | `/home/w/git/W/browser-workers/b` | Completed parser/DOM slice; now `w/libs/standard/web/{cookies,http_client}.w` and their tests, `win/src/win/{network_state,loader}.w`, `win/tests/network{_test.w,_integration.py}`, `win/tests/cookie_dates_test.w`, `win/tests/cookie-fixtures/` |
+| B → D → runtime assertion support | `/home/w/git/W/browser-workers/b` | Parser/DOM and cookie/network slices complete for integration; now `w/libs/extras/javascript/{runtime_regexp,regexp_syntax}.w`, new lookahead tests and the existing lookahead rejection expectation. A retains all other JS paths; cookie adapter provenance remains B-owned. |
 | F | `/home/w/git/W/browser-workers/f` | `w/tools/test262_conformance.py`, `w/tools/test262_runtime_runner.w`, `w/tests/javascript/test262/{README.md,manifest.json,inventory.json}`, `w/tests/javascript/test262_runner_test.py`, `win/tests/wpt*` |
 
 The coordinator temporarily owns E's `win/src/win/interactive_worker.w` and
 `win/tests/interactive_worker_test.w` solely for the recorded exit/EOF race.
+The coordinator also owns `history_state.w` and `history_test.w` for intrinsic
+prototype integration: history retains its bounded data-tree policy and rejects
+boxed values, arguments objects, mapped properties and serialization hooks.
 B released HTML and DOM implementation ownership after app `8fb08cb`; the coordinator
 now maintains those integrated files. The D transfer includes only cookie parsing,
 state and separate HTTP Set-Cookie field transport, preserving existing security

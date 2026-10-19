@@ -20,10 +20,15 @@ loader and offline sandbox behavior are unchanged.
 
 ## Cookies
 
-- At most 32 cookies, with a 2 KiB limit per received combined Set-Cookie header.
-  Replacing a cookie uses its host, path and name; a full jar evicts entries in
-  a bounded rotating order. Session cookies and Max-Age from 0 through 31,536,000
-  seconds are supported. Zero/negative Max-Age deletes a matching cookie.
+- At most 32 cookies, with a 2 KiB limit per original Set-Cookie field.
+  Replacement uses host, path and cookie name; empty-name cookies retain a separate
+  identity bit so values containing `=` survive snapshot roundtrips. A full jar
+  evicts entries in bounded rotating order. Empty pairs are rejected; named empty
+  values and value-only cookies are supported. Session cookies and RFC 6265
+  date-token Expires are supported. Valid Max-Age overrides Expires regardless of
+  attribute order; malformed age/date attributes are ignored. Zero/negative age
+  deletes a matching cookie. Positive age saturates at 999,999,999 seconds and
+  absolute expiry is capped at year 9999.
 - Hosts are canonicalized by W's URL parser. Cookies are host-only, including
   when a Domain attribute exactly matches the response host (one leading dot is
   accepted). Parent-domain and foreign-domain attributes are rejected. Cookies
@@ -36,19 +41,28 @@ loader and offline sandbox behavior are unchanged.
   can affect its next hop. HTTPS-to-HTTP redirects are rejected. Complete cookie
   records from a valid worker error envelope are retained after a later network
   error; killed workers and malformed/truncated envelopes do not update state.
-- Repeated Set-Cookie headers are split from the transport's combined header
-  only at a comma followed by a cookie name and `=`. Commas inside individual
-  cookies are rejected. Expires cookies, including normal HTTP-date forms,
-  are unsupported and rejected; Max-Age/session cookies are the supported path.
+- The HTTP client retains ordered original Set-Cookie fields separately from its
+  compatible merged header API. The loader processes individual fields without
+  splitting commas, so an Expires suffix such as `GMT, baz=qux` cannot create a
+  second cookie. Commas remain rejected in the cookie pair and explicit Path.
+  Only the first 32 original fields across the entire redirect chain are
+  considered, counting malformed/oversized fields; later fields are discarded.
+  Cookie fields and URLs are bounded to 2 KiB and 4 KiB respectively.
+- Worker snapshots preserve HttpOnly and absolute expiry; restoration never
+  renews Max-Age. The parent independently limits decoded body size and metadata:
+  196,896 bytes for 32 maximum-sized COOKIE records plus 1,024 bytes for other
+  metadata. Malformed/incomplete metadata or an oversized body prevents jar
+  updates; complete bounded records from a valid ERROR envelope remain eligible.
 - There is no public-suffix list, SameSite enforcement, top-level-site partition,
   or third-party-cookie policy. Matching host/path cookies can be sent on
   cross-origin subresource loads. SameSite attributes are currently ignored.
-  HttpOnly is not tracked as a separate flag: **no cookie is exposed to page
-  JavaScript**, and `document.cookie` is not implemented. A future script-cookie
-  API must add HttpOnly preservation before exposing this jar. `__Secure-`
+  HttpOnly is retained through storage and worker snapshots. **No cookie is exposed
+  to page JavaScript**; `document.cookie` remains unavailable until the remaining
+  cookie policy requirements are implemented. `__Secure-`
   requires Secure; `__Host-` cookies are conservatively rejected.
-- Persistence, standard cookie creation-time/path ordering, full cookie-date
-  parsing, prefix compatibility and full browser cookie conformance remain gaps.
+- Disk persistence, creation-time/path ordering, complete cookie-pair grammar,
+  domain/PSL policy, SameSite, partitioning, prefix compatibility and full browser
+  cookie conformance remain mandatory open.
 
 ## HTTP cache
 
@@ -116,3 +130,13 @@ check multi-header cookies, parent/worker persistence, redirect cookies, foreign
 host credential stripping, blocked foreign Fetch redirects, 404 bodies/status,
 cache hits, no-store and redirect cache exclusion. Both are picked up by
 `./win/build test`; the Python integration compiles its own small worker probe.
+
+The completion increment adds `cookie_dates_test.w` for date/age precedence,
+HttpOnly, absolute snapshots, empty-name identity, expiry and security denials.
+`network_integration.py` also tests original field boundaries, cumulative redirect
+limits, a 1 MiB body with a long URL and 32 large fields, and hostile envelopes.
+`cookie-fixtures/run.py` verifies unchanged pinned WPT expires.html/max-age.html
+and runs a native data-case adapter at a fixed clock: 21 HTTP PASS / 12 DOM
+UNSUPPORTED across all 33 registrations. This is not browser WPT execution.
+The selected HTTP gate runs in `win/build test` and `standards`; the strict
+`win/build cookie-upstream` gate remains nonzero while DOM cases are unsupported.

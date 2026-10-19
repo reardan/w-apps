@@ -6,7 +6,7 @@ do not close the broader standards families.
 
 Win executes inline classic scripts and fetched external classic scripts in document order in a separate W JavaScript interpreter instance for each page/tab. Failed downloads and script exceptions produce a status diagnostic and do not prevent later scripts from running. The resource queue may fetch scripts concurrently, but execution waits for earlier script elements. Scripts use the fully parsed document; parser-blocking execution, `async` and `defer` scheduling are not modeled. `DOMContentLoaded` fires once on Document after the initial script queue finishes, with `readyState` set to `interactive`; it does not wait for unrelated image downloads. `load` fires once on Window after all initial resources finish, with `readyState` set to `complete`.
 
-This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary and async functions/closures, synchronous and async arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver. Global `this` now identifies Window; general sloppy receiver substitution remains incomplete. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including generators, async methods, and arbitrary-precision BigInt arithmetic. RegExp literals/constructors, exec/test and String.replace implement a bounded UTF-16 subset with explicit unsupported features; see [the RegExp contract](../../w/docs/projects/javascript_regexp.md). Bounded classes support constructors, prototype/static methods, inheritance, super-constructor calls and instanceof; accessors/private fields/super-property access remain outside the class subset. Bounded 64-bit BigInt arithmetic preserves exact bits and rejects overflow. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Bounded abstract equality (`==`/`!=`) performs ordinary primitive conversion; Addition and bitwise operators implement bounded ordinary primitive/numeric conversion; other arithmetic coercion and many standard built-ins remain outside the subset. Iterative logical, comma, conditional, binary and statement-tail evaluation avoids artificial AST recursion while retaining execution and call-depth limits. For-in enumerates descriptor/prototype keys with mutation rules; `in` uses descriptor lookup and explicit native presence hooks. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, live named variable/function/class exports and top-level await. Pending module evaluation lets Fetch/timers/Promise jobs advance and delays the initial DOMContentLoaded/load lifecycle; rejection is cached and reported without replaying module bodies. The bounded scheduling and storage APIs below are available, along with same-origin `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` / `Response.json()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, location assignment, and access to W/OS capabilities from page code remain unavailable.
+This is an implementation of W's bounded JavaScript language subset, not an ECMAScript-complete browser engine. Supported language features include `let`/`const`, function/global `var` hoisting, ordinary and async functions/closures, synchronous and async arrows, method-call receivers (`this`), objects and arrays, property access/assignment, conditionals, loops, labelled blocks/loops with targeted `break`/`continue`, arithmetic, strict comparisons, `typeof`, and exceptions. Arrows retain the enclosing receiver. Global `this` now identifies Window. Sloppy ordinary functions substitute their realm global for null/undefined receivers and box primitive receivers; strict functions and lexical arrows retain distinct receiver semantics. See [W's runtime contract](../../w/docs/projects/javascript.md). Unsupported syntax/operations produce a diagnostic, including generators, async methods, and arbitrary-precision BigInt arithmetic. RegExp literals/constructors, exec/test and String.replace implement a bounded UTF-16 subset with explicit unsupported features; see [the RegExp contract](../../w/docs/projects/javascript_regexp.md). Bounded classes support constructors, prototype/static methods, inheritance, super-constructor calls and instanceof; accessors/private fields/super-property access remain outside the class subset. Bounded 64-bit BigInt arithmetic preserves exact bits and rejects overflow. Bounded binding patterns/defaults/rest, spread, optional chaining, and selected native constructors are now supported. Bounded abstract equality (`==`/`!=`) performs ordinary primitive conversion; Addition and bitwise operators implement bounded ordinary primitive/numeric conversion; other arithmetic coercion and many standard built-ins remain outside the subset. Iterative logical, comma, conditional, binary and statement-tail evaluation avoids artificial AST recursion while retaining execution and call-depth limits. For-in enumerates descriptor/prototype keys with mutation rules; `in` uses descriptor lookup and explicit native presence hooks. JSON script data is ignored. Module scripts use a bounded asynchronous source loader connected to W's [acyclic module foundation](../../w/docs/projects/javascript_modules.md), with same-origin named imports, live named variable/function/class exports and top-level await. Pending module evaluation lets Fetch/timers/Promise jobs advance and delays the initial DOMContentLoaded/load lifecycle; rejection is cached and reported without replaying module bodies. The bounded scheduling and storage APIs below are available, along with same-origin `fetch` and Promise-based `Response.text()` / `Response.arrayBuffer()` / `Response.json()` subsets. See [web application execution](web-app-compatibility.md) for wasm, canvas, and binary interfaces. XHR, location assignment, and access to W/OS capabilities from page code remain unavailable.
 
 Array callback methods now include generic `every`, `forEach`, `map`, `filter`,
 `find`, `findIndex`, `findLast`, `findLastIndex`, `reduce` and `reduceRight`.
@@ -17,10 +17,16 @@ See the [array iteration contract](../../w/docs/projects/javascript_array.md#cal
 `String(value)` supports bounded ordinary object conversion and Error
 stringification. String, Number and Boolean constructors create traced primitive
 wrappers; `Object(value)` boxes supported primitives, including bounded BigInt.
-String wrappers expose immutable UTF-16 indices and length. Symbol hooks remain
+String wrappers expose immutable UTF-16 indices and length. `String.fromCharCode`,
+string-separator `split`, generic array `indexOf`/`join`, Math.pow and Number/
+bounded-BigInt remainder retain conversion order and execution bounds. RegExp
+splitting and Symbol hooks remain
 unsupported. Ordinary Object/Reflect descriptor, prototype, extensibility and
 receiver operations are implemented with ownership and exception checks; array
 descriptor mutation and general native exotic reflection remain incomplete.
+`Reflect.construct` validates real constructors and supports ordinary/class/bound
+newTarget behavior; alternate native newTarget construction remains explicitly
+unsupported. Object methods are callable but not constructors.
 `parseFloat` and `Number.parseFloat` share a bounded decimal-prefix parser with
 ECMAScript whitespace, signed zero, Infinity and correctly rounded binary64
 results. These do not imply general implicit coercion.
@@ -47,11 +53,15 @@ budget. Ordinary headless dumps do not run frames; isolated interactive ticks ca
 
 `setTimeout`, `setInterval`, `clearTimeout`, and `clearInterval` are available on
 the global scope and Window. Callbacks must be functions; source-string timers
-are rejected. Numeric delays are clamped to 0–2,147,483,647 ms (intervals have a
-1 ms minimum); delay coercion is not implemented. Timers accept up to three extra
-callback arguments and invoke ordinary callbacks with Window as `this`. There
+are rejected. Delays and cancellation IDs use observable numeric conversion and
+signed 32-bit Web IDL conversion; negative delays become zero (intervals retain
+a 1 ms minimum). Timers preserve the supplied extra callback arguments within
+runtime argument limits and invoke ordinary callbacks with Window as `this`. There
 are at most 256 active timers. Timer IDs are unique within a realm, and either
-clear function can cancel either timer kind.
+clear function can cancel either timer kind. Registration samples the current
+monotonic clock; deterministic native tests explicitly inject their clock. Quota
+failures publish no partial timer or consumed ID. Full timer nesting/minimum-delay
+semantics and string handlers remain mandatory gaps.
 
 Browser polling runs at most 64 due callbacks with a shared 1,000,000-step budget.
 Equal deadlines preserve registration order. Timers created by a timer callback
@@ -312,7 +322,8 @@ handler aliases and inline form/name scope remain unsupported.
 Ordinary functions provide shared `call`, `apply` and `bind`, including bounded
 bound construction. Strict/non-simple functions provide unmapped arguments,
 and generic array-like `slice` uses property presence before reading elements.
-Sloppy mapped arguments remain unsupported. Shared String prototype casing uses
+Bounded sloppy arguments now preserve parameter aliases, duplicate-formal rules
+and descriptor/deletion disconnection; Symbol iteration remains unsupported. Shared String prototype casing uses
 Unicode 12.1 mappings with default final-sigma handling and resource bounds; see
 [W’s casing contract](../../w/docs/projects/javascript_string_case.md).
 

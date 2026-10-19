@@ -1,5 +1,9 @@
 # Browser network state and Fetch transport
 
+Outstanding mandatory work is tracked in the [standards ledger](standards-ledger.json)
+and [shared implementation contracts](browser-contracts.md). Selected passing tests
+do not close the broader standards families.
+
 The loader implements a bounded, memory-only cookie jar and explicit-freshness
 HTTP cache for document and subresource loads. State belongs to the application
 process, is shared across its tabs, and is lost when that process exits. Workers

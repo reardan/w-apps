@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "note": "Content hashes freeze retrieved specifications; archives are local evidence. Normative dependency/module expansion remains a tracked blocker. No complete conformance claim.",
+  "specifications": {
+    "html": {
+      "url": "https://html.spec.whatwg.org/",
+      "sha256": "fe1d477a075fd6d354799e9a2521bdab1c694aecb3f72e2e647f17db221fd8ee",
+      "bytes": 15774529,
+      "retrieved_utc": "2026-10-19T19:55:37.817442+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/html.snapshot"
+    },
+    "dom": {
+      "url": "https://dom.spec.whatwg.org/",
+      "sha256": "9b797e186fca784bce79a6d627e4e7827c3d9dd1aadf529265c61768b43a2153",
+      "bytes": 2714595,
+      "retrieved_utc": "2026-10-19T19:55:37.494413+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/dom.snapshot"
+    },
+    "webidl": {
+      "url": "https://webidl.spec.whatwg.org/",
+      "sha256": "029980a0fb934e37aad393268afecd95c59202819730da22d840d757ffff72be",
+      "bytes": 2553632,
+      "retrieved_utc": "2026-10-19T19:55:37.652631+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/webidl.snapshot"
+    },
+    "url": {
+      "url": "https://url.spec.whatwg.org/",
+      "sha256": "08cb42a9a8575dab006676378c846fdd8a72d06897c27929aa51eaf099656be4",
+      "bytes": 703601,
+      "retrieved_utc": "2026-10-19T19:55:37.372071+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/url.snapshot"
+    },
+    "encoding": {
+      "url": "https://encoding.spec.whatwg.org/",
+      "sha256": "1e8c5ff2375736a0412550e520a05245f11606350f2a61a255cf2aa9daf78ad8",
+      "bytes": 591175,
+      "retrieved_utc": "2026-10-19T19:55:37.361187+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/encoding.snapshot"
+    },
+    "fetch": {
+      "url": "https://fetch.spec.whatwg.org/",
+      "sha256": "63b0a018753c330adf1e40417524eb70ea02d4d3e123bcb39b6770f23bad911b",
+      "bytes": 1854393,
+      "retrieved_utc": "2026-10-19T19:55:37.520235+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/fetch.snapshot"
+    },
+    "streams": {
+      "url": "https://streams.spec.whatwg.org/",
+      "sha256": "c1c07ee3bf98300008d38fe70830d284de6029a5d687b391e646ce87c5ef52c5",
+      "bytes": 1905055,
+      "retrieved_utc": "2026-10-19T19:55:38.419690+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/streams.snapshot"
+    },
+    "storage": {
+      "url": "https://storage.spec.whatwg.org/",
+      "sha256": "b14c51f73043496227a34452bf35d50fcadb5d8f166f3fa3955fffbd71c512c5",
+      "bytes": 203660,
+      "retrieved_utc": "2026-10-19T19:55:38.131837+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/storage.snapshot"
+    },
+    "ecma262": {
+      "url": "https://262.ecma-international.org/17.0/",
+      "sha256": "5df49e088c2b5c7a3dfd4a330414b92897fb4535cb62fc5936cad101a6c2304a",
+      "bytes": 8348904,
+      "retrieved_utc": "2026-10-19T19:55:40.115837+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/ecma262.snapshot"
+    },
+    "intl": {
+      "url": "https://402.ecma-international.org/13.0/",
+      "sha256": "9607614caef710e78a2dba9e157198c0da1deb69251d33f1d06274bd3408d703",
+      "bytes": 1286848,
+      "retrieved_utc": "2026-10-19T19:55:39.708787+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/intl.snapshot"
+    },
+    "css": {
+      "url": "https://www.w3.org/TR/css-2024/",
+      "sha256": "2a877b4b743fd2e42c8dadc71268ed5f92b11895a4980bd657e8a532841b8876",
+      "bytes": 439830,
+      "retrieved_utc": "2026-10-19T19:55:37.824380+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/css.snapshot"
+    },
+    "http": {
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+      "sha256": "21c1cdce6ab0e5509b04d84a28000836c7a087cf786efe6f04877ebfff47232a",
+      "bytes": 502941,
+      "retrieved_utc": "2026-10-19T19:55:38.064386+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/http.snapshot"
+    },
+    "http-cache": {
+      "url": "https://www.rfc-editor.org/rfc/rfc9111.txt",
+      "sha256": "aeb52adb3279d5f23dae34f68af11bd5cef0a0aff7ffcd014c9ca93c5302cf3e",
+      "bytes": 84477,
+      "retrieved_utc": "2026-10-19T19:55:38.090433+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/http-cache.snapshot"
+    },
+    "http2": {
+      "url": "https://www.rfc-editor.org/rfc/rfc9113.txt",
+      "sha256": "a00ef91b64e111a282e77ec66980f5242e77c0bb5e33e0927e3b6757080506de",
+      "bytes": 191811,
+      "retrieved_utc": "2026-10-19T19:55:38.269155+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/http2.snapshot"
+    },
+    "tls": {
+      "url": "https://www.rfc-editor.org/rfc/rfc8446.txt",
+      "sha256": "47871bc8820a2c3b6ea89f061055577058862cf543686b82d10131239702b3bd",
+      "bytes": 337736,
+      "retrieved_utc": "2026-10-19T19:55:38.285900+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/tls.snapshot"
+    },
+    "wai-aria": {
+      "url": "https://www.w3.org/TR/wai-aria-1.2/",
+      "sha256": "c0fea16fc747779569ab754d2d25bca3e2b7e8a673b8ef5362aeb9ebc73a4849",
+      "bytes": 1410696,
+      "retrieved_utc": "2026-10-19T19:55:38.276487+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/wai-aria.snapshot"
+    },
+    "wasm": {
+      "url": "https://www.w3.org/TR/wasm-core-2/",
+      "sha256": "1fcb3eac20516090e83d6c7de8cb1ef7fea342801cac7d5ca91aaceb4648576c",
+      "bytes": 18480184,
+      "retrieved_utc": "2026-10-19T19:55:38.920696+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/wasm.snapshot"
+    },
+    "webgl": {
+      "url": "https://registry.khronos.org/webgl/specs/latest/1.0/",
+      "status": "blocked",
+      "blocker": "HTTP Error 403: Forbidden"
+    },
+    "csp": {
+      "url": "https://www.w3.org/TR/CSP3/",
+      "sha256": "df90a9028632b39c70d9ed40dadfadbc2f3f690621ecf6212ef4f1376005738e",
+      "bytes": 1011213,
+      "retrieved_utc": "2026-10-19T19:55:38.412046+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/csp.snapshot"
+    },
+    "cookies": {
+      "url": "https://www.rfc-editor.org/rfc/rfc6265.txt",
+      "sha256": "dc4177094813e85a44a7897b892b76bc09160b3a03aea44f0f511f3a98f91933",
+      "bytes": 79724,
+      "retrieved_utc": "2026-10-19T19:55:38.670292+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/cookies.snapshot"
+    },
+    "svg": {
+      "url": "https://www.w3.org/TR/SVG2/",
+      "sha256": "14b38cf71a2e49bbb9e5671580e42ffe36ba1602c2737b7ad5b1c95825d0d225",
+      "bytes": 72652,
+      "retrieved_utc": "2026-10-19T19:55:38.546396+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/svg.snapshot"
+    },
+    "mathml": {
+      "url": "https://www.w3.org/TR/MathML3/",
+      "sha256": "e6693bdffd95e695f5d642de563de9bcfb9aab8f7653ba02f54fac8c14f31e00",
+      "bytes": 51136,
+      "retrieved_utc": "2026-10-19T19:55:38.658551+00:00",
+      "status": "content-pinned",
+      "archive": "win/bin/completion-baseline/specs/mathml.snapshot"
+    }
+  }
+}

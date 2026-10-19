@@ -1,5 +1,9 @@
 # CSS and layout compatibility
 
+Outstanding mandatory work is tracked in the [standards ledger](standards-ledger.json)
+and [shared implementation contracts](browser-contracts.md). Selected passing tests
+do not close the broader standards families.
+
 Win now applies embedded and linked author stylesheets and inline declarations.
 Stylesheet order follows document order even when external requests finish in a
 different order. Each declaration competes by `!important`, selector specificity,

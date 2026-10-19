@@ -1,5 +1,9 @@
 # Web application execution
 
+Outstanding mandatory work is tracked in the [standards ledger](standards-ledger.json)
+and [shared implementation contracts](browser-contracts.md). Selected passing tests
+do not close the broader standards families.
+
 Win now connects a bounded WebAssembly interpreter, binary JavaScript values,
 canvas WebGL rendering, module loading, and animation-frame scheduling. These
 are subsets, not complete ECMAScript, WebAssembly, or WebGL conformance.

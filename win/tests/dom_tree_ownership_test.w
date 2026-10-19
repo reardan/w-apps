@@ -19,15 +19,15 @@ void tree_sentinel(js_runtime* rt, int roots):
 
 int main():
 	js_runtime* rt = js_runtime_new()
-	win_script script
+	win_script* script = new win_script()
 	script.runtime = rt
 	char* source = c"<?T data?><body></body>"
 	win_page* page = win_page_parse(source, strlen(source))
 	script.page = page
-	win_dom_binding binding
+	win_dom_binding* binding = new win_dom_binding()
 	binding.child_nodes = 0
 	binding.object = 0
-	binding.context = &script
+	binding.context = script
 	binding.node = page.html.root.first_child
 	assert_equal(HTML_PROCESSING_INSTRUCTION, binding.node.kind)
 	js_runtime_root(rt, rt.undefined_value)
@@ -35,7 +35,7 @@ int main():
 	js_text* data = js_runtime_key(c"data")
 	for i in range(100):
 		js_runtime_begin(rt, 100000)
-		js_value* value = win_dom_tree_get(&binding, data)
+		js_value* value = win_dom_tree_get(binding, data)
 		assert_equal(4, value.kind)
 		assert_equal(4, value.text.units.length)
 		js_runtime_collect(rt)
@@ -45,7 +45,7 @@ int main():
 	for i in range(5):
 		js_runtime_begin(rt, 100000)
 		rt.max_values = rt.heap.length
-		assert1(win_dom_tree_get(&binding, data) == rt.undefined_value)
+		assert1(win_dom_tree_get(binding, data) == rt.undefined_value)
 		assert_equal(5, rt.completion.status)
 		tree_sentinel(rt, roots)
 		rt.max_values = values
@@ -61,7 +61,7 @@ int main():
 		js_runtime_begin(rt, 100000)
 		js_runtime_collect(rt)
 		rt.max_values = rt.heap.length + allowance
-		js_value* result = win_dom_tree_get(&binding, children)
+		js_value* result = win_dom_tree_get(binding, children)
 		if (rt.completion.status != 0):
 			refused = refused + 1
 			assert_equal(5, rt.completion.status)
@@ -71,7 +71,7 @@ int main():
 			assert1(result == binding.child_nodes && result != rt.undefined_value)
 			rt.max_values = values
 			asserts(c"complete item method", js_runtime_callable(js_runtime_get(rt, result, c"item")))
-			assert1(win_dom_tree_get(&binding, children) == result)
+			assert1(win_dom_tree_get(binding, children) == result)
 			js_runtime_unroot(rt, result)
 			binding.child_nodes = 0
 		rt.max_values = values
@@ -79,7 +79,7 @@ int main():
 	for cap in range(4):
 		js_runtime_begin(rt, 100000)
 		rt.max_properties = cap
-		win_dom_tree_get(&binding, children)
+		win_dom_tree_get(binding, children)
 		if (rt.completion.status != 0):
 			refused = refused + 1
 			assert_equal(0, cast(int, binding.child_nodes))
@@ -91,7 +91,7 @@ int main():
 	asserts(c"allocation refusals covered", refused >= 3)
 	assert_equal(0, calls)
 	js_runtime_begin(rt, 100000)
-	js_value* result = win_dom_tree_get(&binding, children)
+	js_value* result = win_dom_tree_get(binding, children)
 	assert1(result == binding.child_nodes && result != rt.undefined_value)
 	assert_equal(roots + 1, rt.roots.length)
 	js_runtime_unroot(rt, result)
@@ -99,6 +99,8 @@ int main():
 	js_runtime_unroot(rt, rt.undefined_value)
 	js_runtime_free(rt)
 	win_page_free(page)
+	free(binding)
+	free(script)
 	assert_equal(0, debug_alloc_report_leaks())
 	println(c"Native DOM getter buffers and transactional childNodes ownership: OK")
 	return 0

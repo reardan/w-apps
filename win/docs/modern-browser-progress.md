@@ -3,8 +3,8 @@
 Implementation started 2026-10-15 from application
 `75d4b4e4c7e081810e2dfc9e0d34b4051596e2ed` after pulling `origin/main`.
 The original W gitlink is `d8aa1039087c5c940908531a9f4a58bbebfaf00a`.
-Work is on `codex/win-modern-browser-implementation`, with dependency commits on
-W's `codex/modern-browser-integration`. These are local implementation branches;
+The initial work used `codex/win-modern-browser-implementation`, with dependency
+commits on W's `codex/modern-browser-integration`. These are local branches;
 publication/merge has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
 
@@ -49,6 +49,35 @@ The pinned Test262 selection grows from 58 to 74 unmodified upstream files:
 The added neighbors retain explicit unsupported classifications for array
 literal elisions, sloppy mapped arguments and `delete`; no existing expected
 PASS was relaxed. Native WPT continues to use the original 20 pinned reftests.
+
+The final combined implementation is application
+`72827e12e945f54b74d5782f3523dc37603a2922` with W
+`b4b18edc5d0dfeee34f0e102099f89f20985c3f7`. Subsequent changes only record this
+validation. All three commands below completed successfully with Node 20.19.3:
+
+| Gate | Result |
+| --- | --- |
+| `(cd w && env -u NO_COLOR ./wbuild -j 4 tests)` | 1,240 targets passed |
+| `xvfb-run -a ./win/build test` | Passed, including broker M2/M3 and existing offline kernel/GL checks |
+| `xvfb-run -a ./win/build standards` | Test262 110 PASS / 35 explicit UNSUPPORTED; WPT 20 PASS; zero FAIL/ERROR |
+
+The full browser run includes 8 exact GIF worker comparisons, 4 GIF/PNG native
+render comparisons, 6 reverse-flex/pointer-events render comparisons, and native
+plus isolated focus-ring pixels. The real ABI-8 sandbox run passes unchanged
+M2 input/resize and M3 success/failure/abort/history/theme/reload workflows,
+including durable parent storage outside the empty content root and origin
+separation. The broker's malformed-protocol, foreign/local URL, cancellation and
+stalled-reader helper-reaping regressions also pass. The W suite includes normal
+array cases plus all 11 guarded allocator groups and exact wasm fuel/trap checks.
+
+Logs and machine-readable command results are under `win/bin/browser-gaps/`:
+`final-w.log`, `final-win.log`, `final-standards.log`, and `validation.json`.
+Broker screenshots and its acceptance report are under
+`win/bin/broker-validation/`; WPT captures/report remain in `win/bin/wpt-results/`.
+These generated artifacts are intentionally untracked. Build scripts now include
+broker app acceptance and the new render comparisons; ABI-dependent broker
+acceptance reports a skip on older kernels rather than relaxing the production
+sandbox requirements. All tests ran without that skip on this host.
 
 Full ECMAScript/CSS conformance, SVG/WebP/progressive JPEG/GIF animation,
 audio/video, platform accessibility and IME, and general Internet/CORS/cookie/

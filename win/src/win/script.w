@@ -573,6 +573,8 @@ int win_dom_set(void* runtime, void* context, js_value* receiver, js_text* key, 
 	if (tree_result != 0): return tree_result
 	int handler = win_event_handler_index(key)
 	if (win_dom_handler_supported(b, handler)): return win_dom_handler_set(rt, b, key, value, handler)
+	# Window expandos must never dispatch through Element mutation hooks.
+	if (b.node == script.window_node): return 0
 	if (b.node == script.page.html.root && js_runtime_key_is(key, c"activeElement")): return 1
 	if (b.node.kind == HTML_START && js_runtime_key_is(key, c"tabIndex")):
 		if (value.kind != 3):

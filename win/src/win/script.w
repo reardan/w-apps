@@ -42,6 +42,8 @@ struct win_script_listener:
 	int passive
 
 struct win_script_timer:
+	char* source
+	int source_length
 	int id
 	int due
 	int interval
@@ -76,6 +78,7 @@ struct win_script:
 	int stopped_loading
 	list[win_script_timer*] timers
 	int timer_id
+	int timer_source_bytes
 	int now_ms
 	int clock_injected
 	win_storage_call_fn* storage_call
@@ -1228,6 +1231,8 @@ void win_script_bind_storage(win_script* script, win_storage_context* shared_sto
 
 # Every timer owns a unique rooted object, so listener/job roots never alias.
 void win_script_timer_free(win_script* script, win_script_timer* timer):
+	script.timer_source_bytes = script.timer_source_bytes - timer.source_length
+	free(timer.source)
 	js_runtime_unroot(script.runtime, timer.holder)
 	__w_list_free(cast(__w_list*, timer.args))
 	free(timer)
@@ -1267,32 +1272,51 @@ js_value* win_script_timer_host(void* context, list[js_value*] args):
 			if (timer.id == cancel_id): timer.id = 0
 		win_script_collect_timers(script)
 		return rt.undefined_value
-	if (args[1].kind != 7 && args[1].kind != 9):
-		js_runtime_fail(rt, 2, c"Timer callback must be a function")
-		return rt.undefined_value
+	# Web IDL's callback-or-DOMString conversion precedes timeout conversion.
+	# ToString may itself register timers; publish this task only afterward.
+	char* source = 0
+	int source_length = 0
+	if (js_runtime_callable(args[1]) == 0):
+		js_text* text = js_runtime_string_text(rt, args[1])
+		if (text == 0): return rt.undefined_value
+		if (text.units.length > 65536 || js_equality_charge(rt, text.units.length) == 0):
+			js_text_free(text)
+			js_runtime_fail(rt, 5, c"Timer source input limit")
+			return rt.undefined_value
+		source = js_text_to_utf8(text, &source_length)
+		js_text_free(text)
+		if (source == 0):
+			js_runtime_fail(rt, 6, c"Timer source requires scalar UTF-8")
+			return rt.undefined_value
 	int delay = 0
 	if (args.length > 2): delay = js_runtime_int32(js_array_like_number(rt, args[2]))
-	if (rt.completion.status != 0): return rt.undefined_value
+	if (rt.completion.status != 0):
+		free(source)
+		return rt.undefined_value
 	if (delay < 0): delay = 0
 	# Conversion may reenter and register/cancel timers; check capacity afterward.
 	win_script_collect_timers(script)
-	if (script.timers.length >= 256 || script.timer_id >= 2147483647):
+	if (script.timers.length >= 256 || script.timer_id >= 2147483647 || source_length > 65536 || source_length > rt.max_source_bytes || script.timer_source_bytes > 4194304 - source_length):
+		free(source)
 		js_runtime_fail(rt, 5, c"Timer registration limit")
 		return rt.undefined_value
 	if (script.clock_injected == 0): script.now_ms = time_monotonic_ms()
 	win_script_timer* timer = new win_script_timer()
+	timer.source = source
+	timer.source_length = source_length
 	timer.id = script.timer_id + 1
 	timer.due = script.now_ms + delay
 	if (operation == 1):
 		timer.interval = delay
 		timer.repeating = 1
 	timer.callback = args[1]
+	if (source != 0): timer.callback = rt.undefined_value
 	timer.args = new list[js_value*]
 	timer.holder = js_runtime_alloc(rt, 5)
 	int complete = rt.completion.status == 0
-	if (complete): complete = win_script_timer_property(rt, timer.holder, c"callback", timer.callback)
+	if (complete && source == 0): complete = win_script_timer_property(rt, timer.holder, c"callback", timer.callback)
 	for i in range(args.length - 3):
-		if (complete == 0): break
+		if (complete == 0 || source != 0): break
 		timer.args.push(args[i + 3])
 		char* key = itoa(i)
 		complete = win_script_timer_property(rt, timer.holder, key, args[i + 3])
@@ -1302,10 +1326,13 @@ js_value* win_script_timer_host(void* context, list[js_value*] args):
 	if (rt.completion.status != 0): complete = 0
 	if (complete): complete = js_runtime_root(rt, timer.holder)
 	if (complete == 0):
+		free(source)
+		if (rt.completion.status == 0): js_runtime_fail(rt, 5, c"Timer construction limit")
 		__w_list_free(cast(__w_list*, timer.args))
 		free(timer)
 		return rt.undefined_value
 	# Publish only fully constructed, rooted timers. Quota failures consume no id.
+	script.timer_source_bytes = script.timer_source_bytes + source_length
 	script.timer_id = timer.id
 	script.timers.push(timer)
 	return result
@@ -1453,7 +1480,12 @@ int win_script_poll_at(win_script* script, int now_ms):
 			next.due = script.now_ms + next.interval
 			script.timers.push(next)
 		script.executing_timer = next
-		js_completion* result = js_runtime_invoke_receiver(script.runtime, next.callback, win_script_wrap(script, script.window_node), next.args, budget)
+		js_completion* result = 0
+		if (next.source != 0):
+			# Execute a real global script; retain runtime AST ownership and limits.
+			# Parser/lowering rejection remains explicit status 6 until distinguished.
+			result = js_runtime_eval(script.runtime, next.source, next.source_length, budget)
+		else: result = js_runtime_invoke_receiver(script.runtime, next.callback, win_script_wrap(script, script.window_node), next.args, budget)
 		if (result.status == 2):
 			win_script_report_exception(script)
 			if (result.status != 0): win_script_result(script, result)

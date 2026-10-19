@@ -64,3 +64,54 @@ python3 win/tests/wpt_runner_test.py
 ```
 
 `wpt_capture_test.py` runs under the standards command to check native ready-page captures and rejection of script failures, truncated output, and missing pages.
+
+## Asynchronous script-host foundation
+
+`wpt_driver.w` runs the real Win script host and polls its native timers and
+microtask queues until a completion callback or a bounded deadline. The adapter
+`wpt_testharness.py` loads the original hash-pinned upstream `testharness.js`,
+registers `add_completion_callback`, and then evaluates unchanged `.any.js`
+window scripts. It does not replace assertions or rewrite tests. The native
+page lifecycle supplies load; upstream harness completion controls the result.
+Build/run from the application repository root:
+
+```sh
+w/bin/wv2 x64 --strict --import-root win/src --import-root w \
+  win/tests/wpt_driver.w -o win/bin/wpt_driver
+python3 win/tests/wpt_testharness_test.py
+python3 win/tests/wpt_testharness.py --json win/bin/wpt-testharness.json
+```
+
+The contract suite proves real timers, Promise checkpoints and suspended async
+functions, failure propagation, missing/duplicate completion, fresh realms,
+crashes, invalid output and malformed statuses. These are local driver tests,
+not upstream WPT passes. The strict upstream command currently exits 1: all
+three original async files are blocked before execution by the original
+harness's switch statement at line 1439. Reports retain these ERROR results;
+there is no expected-failure success mode. The subsequent global-object,
+Object/reflection, Window/Document and error-constructor requirements are tracked
+with A/B/coordinator. The larger source limit is automation-only, for the
+original 190+ KiB harness; ordinary browser execution limits remain unchanged.
+
+This is an asynchronous native script-host execution path, not a complete
+wptrunner product adapter. HTML/resources, server headers/substitutions,
+multi-origin HTTP/TLS, variants, worker environments, testdriver/WebDriver,
+dynamic reftest readiness and full upstream manifest expansion remain mandatory
+integration work. The three selected `.any.js` files also require worker
+variants which this window seam does not execute. Those variants remain pending,
+not passed or declared inapplicable.
+
+`wpt-inventory.json` freezes the complete upstream archive and sorted per-file
+hash index: 165,375 regular files, including 29,029 markup files referencing
+`testharness.js` and 4,286 generated-test source files. These are file counts,
+not applicable tests/variants; those denominators remain explicitly unknown.
+Reproduce the complete archive/index and summary with:
+
+```sh
+python3 win/tests/wpt_inventory.py --output win/bin/upstream-inventory wpt
+python3 win/tests/wpt_inventory.py --output win/bin/upstream-inventory test262
+```
+
+Only this explicit inventory refresh uses the network. Archive and index hashes
+are pinned in the committed summaries. The GitHub recursive-tree API truncates
+both suites and is not a valid complete-suite denominator.

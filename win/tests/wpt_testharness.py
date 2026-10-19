@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Execute pinned original testharness.js using Win's native async script host."""
+import argparse
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[2]
+CORPUS = Path(__file__).resolve().parent / 'wpt'
+STATUSES = ('PASS', 'FAIL', 'UNSUPPORTED', 'ERROR')
+BRIDGE = '''setup({output:false, message_events:[]});
+add_completion_callback(function(tests, status) {
+  __wptComplete(JSON.stringify({status:status.status, message:status.message,
+    tests:tests.map(function(t) {return {name:t.name,status:t.status,message:t.message};})}));
+});
+'''
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def classify(report):
+    require(isinstance(report, dict) and type(report.get('protocol')) is int and report['protocol'] == 1, 'invalid protocol')
+    for key in ('completions', 'script_failures', 'failed_source', 'elapsed_ms'):
+        require(type(report.get(key)) is int, 'missing integer ' + key)
+    require(report['completions'] >= 0 and report['script_failures'] >= 0 and report['elapsed_ms'] >= 0, 'negative count')
+    require(report['failed_source'] >= -1 and isinstance(report.get('message'), str), 'invalid execution evidence')
+    if report['script_failures'] or report['failed_source'] >= 0:
+        return 'ERROR', 'script execution failed'
+    if report['completions'] == 0:
+        return 'ERROR', 'timeout before completion callback'
+    require(report['completions'] == 1, 'completion callback must run exactly once')
+    payload = json.loads(report['payload'])
+    require(isinstance(payload, dict), 'invalid completion payload')
+    require(type(payload.get('status')) is int and 0 <= payload['status'] <= 3, 'invalid harness status')
+    require(isinstance(payload.get('tests'), list) and payload['tests'], 'completion requires subtest evidence')
+    statuses = []
+    names = set()
+    for test in payload['tests']:
+        require(isinstance(test, dict) and isinstance(test.get('name'), str) and test['name'], 'invalid subtest name')
+        require(test['name'] not in names, 'duplicate subtest name')
+        names.add(test['name'])
+        require(type(test.get('status')) is int and 0 <= test['status'] <= 4, 'invalid subtest status')
+        require(test.get('message') is None or isinstance(test['message'], str), 'invalid subtest message')
+        statuses.append(test['status'])
+    report['completion'] = payload
+    if payload['status'] or any(status in (2, 3) for status in statuses):
+        return 'ERROR', 'harness error, timeout or unexecuted subtest'
+    if 1 in statuses:
+        return 'FAIL', 'upstream assertion failed'
+    if 4 in statuses:
+        return 'UNSUPPORTED', 'upstream optional feature unsupported; applicability requires review'
+    return 'PASS', 'all upstream subtests passed'
+
+
+def execute(driver, sources, timeout=10):
+    try:
+        proc = subprocess.run([str(driver), str(max(1, int(timeout * 1000))), *map(str, sources)],
+                              text=True, capture_output=True, timeout=timeout + 5)
+    except subprocess.TimeoutExpired:
+        return {'status': 'ERROR', 'reason': 'process timeout'}
+    except OSError as error:
+        return {'status': 'ERROR', 'reason': 'process launch failed: ' + str(error)}
+    if proc.returncode:
+        return {'status': 'ERROR', 'reason': 'process crash' if proc.returncode < 0 else 'driver error',
+                'exit_code': proc.returncode, 'stderr': proc.stderr[-4000:]}
+    try:
+        actual = json.loads(proc.stdout)
+        status, reason = classify(actual)
+        return {'status': status, 'reason': reason, 'actual': actual}
+    except (ValueError, KeyError, TypeError) as error:
+        return {'status': 'ERROR', 'reason': 'malformed report: ' + str(error), 'stdout': proc.stdout[-4000:]}
+
+
+def load_manifest(path):
+    manifest = json.loads(path.read_text())
+    require(manifest.get('version') == 1 and isinstance(manifest.get('files'), dict), 'invalid manifest')
+    require(isinstance(manifest.get('cases'), list) and manifest['cases'], 'empty cases')
+    for name, digest in manifest['files'].items():
+        file = (path.parent / name).resolve()
+        require(file.is_relative_to(path.parent.resolve()), 'path escapes corpus')
+        require(hashlib.sha256(file.read_bytes()).hexdigest() == digest, 'pin mismatch: ' + name)
+    require('resources/testharness.js' in manifest['files'] and 'LICENSE.md' in manifest['files'], 'missing harness/license pin')
+    ids = set()
+    for case in manifest['cases']:
+        require(set(case) == {'id', 'source', 'environment', 'blockers'}, 'invalid case fields')
+        require(case['id'] not in ids, 'duplicate case')
+        ids.add(case['id'])
+        require(case['source'] in manifest['files'], 'unpinned case')
+        require(case['environment'] == 'window-script', 'unsupported execution environment')
+        require(isinstance(case['blockers'], list), 'invalid blocker inventory')
+    return manifest
+
+
+def run(manifest_path, driver, timeout=10):
+    manifest = load_manifest(manifest_path)
+    results = []
+    with tempfile.TemporaryDirectory(prefix='win-wpt-') as directory:
+        bridge = Path(directory) / 'bridge.js'
+        bridge.write_text(BRIDGE)
+        for case in manifest['cases']:
+            result = execute(driver, [manifest_path.parent / 'resources/testharness.js', bridge,
+                                      manifest_path.parent / case['source']], timeout)
+            results.append({'id': case['id'], 'blockers': case['blockers'], **result})
+    counts = Counter(item['status'] for item in results)
+    return {'protocol': 1, 'profile': 'native-window-script-testharness-v1', 'upstream': manifest['upstream'],
+            'selected_files': len(results), 'executed_files': sum('actual' in r and r['actual']['failed_source'] == -1 for r in results),
+            'counts': {key: counts[key] for key in STATUSES}, 'results': results,
+            'limitations': 'Window script seam only: not wptrunner/WebDriver, HTML/resource loading, multi-origin/TLS, variants or testdriver. Failures and mandatory unsupported features remain blockers.'}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--manifest', type=Path, default=CORPUS / 'testharness-manifest.json')
+    parser.add_argument('--driver', type=Path, default=ROOT / 'win/bin/wpt_driver')
+    parser.add_argument('--json', type=Path)
+    parser.add_argument('--timeout', type=float, default=10)
+    args = parser.parse_args()
+    try:
+        require(0 < args.timeout <= 60, 'invalid timeout')
+        report = run(args.manifest.resolve(), args.driver.resolve(), args.timeout)
+        status = int(any(report['counts'][key] for key in ('FAIL', 'UNSUPPORTED', 'ERROR')))
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        report, status = {'protocol': 1, 'harness_error': str(error)}, 2
+    if args.json:
+        args.json.write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps(report, sort_keys=True))
+    return status
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

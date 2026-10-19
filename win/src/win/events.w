@@ -7,6 +7,7 @@ int WIN_EVENT_DISPATCHING = 1
 int WIN_EVENT_STOP = 2
 int WIN_EVENT_IMMEDIATE = 4
 int WIN_EVENT_PASSIVE = 8
+int WIN_EVENT_ERROR = 16
 
 js_value* win_event_get(void* runtime, void* context, js_value* receiver, js_text* key):
 	return 0
@@ -62,21 +63,41 @@ js_value* win_event_stop_host(void* runtime, void* context, js_value* receiver, 
 		if (context != 0): win_event_flag_set(receiver, WIN_EVENT_IMMEDIATE, 1)
 	return rt.undefined_value
 
+int win_event_own_method(js_runtime* rt, js_value* event, char* name, void* context, js_host_receiver_function* callback):
+	js_value* function = js_runtime_host_callable(rt, context, callback)
+	if (rt.completion.status != 0): return 0
+	js_text* key = js_runtime_key(name)
+	int ok = js_runtime_define_data(rt, event, key, function, 1, 1, 1)
+	js_text_free(key)
+	return ok && rt.completion.status == 0
+
 js_value* win_event_new(js_runtime* rt, js_value* type, int bubbles, int cancelable, int composed, float64 timestamp):
+	if (rt.completion.status != 0): return rt.undefined_value
 	js_value* event = js_runtime_alloc(rt, 5)
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"type", type)
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"bubbles", js_runtime_boolean(rt, bubbles))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"cancelable", js_runtime_boolean(rt, cancelable))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"composed", js_runtime_boolean(rt, composed))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"defaultPrevented", js_runtime_boolean(rt, 0))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 0))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"target", js_runtime_alloc(rt, 1))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"currentTarget", js_runtime_alloc(rt, 1))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"eventPhase", js_runtime_number(rt, 0.0))
+	if (rt.completion.status != 0): return rt.undefined_value
 	win_event_write(rt, event, c"timeStamp", js_runtime_number(rt, timestamp))
-	js_runtime_set(rt, event, c"preventDefault", js_runtime_host_callable(rt, 0, win_event_prevent_host))
-	js_runtime_set(rt, event, c"stopPropagation", js_runtime_host_callable(rt, 0, win_event_stop_host))
-	js_runtime_set(rt, event, c"stopImmediatePropagation", js_runtime_host_callable(rt, cast(void*, 1), win_event_stop_host))
+	if (rt.completion.status != 0): return rt.undefined_value
+	if (win_event_own_method(rt, event, c"preventDefault", 0, win_event_prevent_host) == 0): return rt.undefined_value
+	if (win_event_own_method(rt, event, c"stopPropagation", 0, win_event_stop_host) == 0): return rt.undefined_value
+	if (win_event_own_method(rt, event, c"stopImmediatePropagation", cast(void*, 1), win_event_stop_host) == 0): return rt.undefined_value
 	js_runtime_set_host_hooks(rt, event, 0, win_event_get, 0)
 	js_runtime_set_host_has(rt, event, win_event_has)
 	return event

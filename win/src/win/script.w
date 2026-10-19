@@ -95,6 +95,7 @@ struct win_script:
 	int dirty
 	int styles_dirty
 	int failures
+	int reported_exceptions
 	char* error
 	js_value* event
 	int dom_bytes
@@ -1090,6 +1091,57 @@ void win_script_result(win_script* script, js_completion* completion):
 	free(script.error)
 	script.error = strclone(completion.message)
 
+int win_script_dispatch_event(win_script* script, html_node* node, js_value* event);
+
+# Report a parentless microtask exception inside the same remaining fuel budget.
+# The diagnostic counter stays cumulative even when the page handles the event.
+int win_script_report_exception(win_script* script):
+	js_runtime* rt = script.runtime
+	if (rt.completion.status != 2): return 0
+	js_value* error = rt.completion.value
+	char* message = strclone(rt.completion.message)
+	win_script_result(script, rt.completion)
+	int already_rooted = 0
+	for i in range(rt.roots.length):
+		if (rt.roots[i] == error): already_rooted = 1
+	js_runtime_root(rt, error)
+	rt.completion.status = 0
+	rt.completion.value = rt.undefined_value
+	rt.completion.message = c""
+	rt.running = rt.running + 1
+	js_value* event = win_event_new(rt, win_web_string(rt, c"error"), 0, 1, 0, cast(float64, time_monotonic_ms() - script.time_origin))
+	int event_rooted = 0
+	if (rt.completion.status == 0):
+		event_rooted = js_runtime_root(rt, event)
+		win_event_write(rt, event, c"isTrusted", js_runtime_boolean(rt, 1))
+		win_event_flag_set(event, WIN_EVENT_ERROR, 1)
+		win_event_write(rt, event, c"error", error)
+		win_event_write(rt, event, c"message", win_web_string(rt, message))
+		# Source locations are not yet retained by the runtime execution seam.
+		win_event_write(rt, event, c"filename", win_web_string(rt, c""))
+		win_event_write(rt, event, c"lineno", js_runtime_number(rt, 0.0))
+		win_event_write(rt, event, c"colno", js_runtime_number(rt, 0.0))
+		if (rt.completion.status == 0): win_script_dispatch_event(script, script.window_node, event)
+	int reported = rt.completion.status == 0
+	if (reported): script.reported_exceptions = script.reported_exceptions + 1
+	if (event_rooted): js_runtime_unroot(rt, event)
+	if (already_rooted == 0): js_runtime_unroot(rt, error)
+	rt.running = rt.running - 1
+	free(message)
+	return reported
+
+js_completion* win_script_drain_microtasks(win_script* script, int budget):
+	js_runtime* rt = script.runtime
+	while (1):
+		js_completion* result = js_runtime_drain_microtasks(rt, budget)
+		if (result == 0 || result.status != 2): return result
+		if (win_script_report_exception(script) == 0): return rt.completion
+		budget = rt.remaining
+		if (budget <= 0):
+			js_runtime_fail(rt, 5, c"Microtask exception reporting execution limit")
+			return rt.completion
+	return rt.completion
+
 void win_script_checkpoint(win_script* script);
 
 int win_script_eval(win_script* script, char* source, int length):
@@ -1321,7 +1373,7 @@ int win_script_frame_at(win_script* script, int now_ms):
 		if (result.status == 5): budget = 0
 		win_script_timer_free(script, frame)
 		if (budget > 0):
-			result = js_runtime_drain_microtasks(script.runtime, budget)
+			result = win_script_drain_microtasks(script, budget)
 			budget = script.runtime.remaining
 			win_script_result(script, result)
 			if (result.status == 5): budget = 0
@@ -1338,7 +1390,7 @@ void win_script_checkpoint(win_script* script):
 	js_runtime_collect(script.runtime)
 	win_script* previous = win_active_script
 	win_active_script = script
-	js_completion* result = js_runtime_drain_microtasks(script.runtime, script.execution_budget)
+	js_completion* result = win_script_drain_microtasks(script, script.execution_budget)
 	win_script_result(script, result)
 	win_script_sync(script)
 	win_script_collect_listeners(script)
@@ -1405,7 +1457,7 @@ int win_script_poll_at(win_script* script, int now_ms):
 		script.executing_timer = 0
 		if (next.repeating == 0): win_script_timer_free(script, next)
 		if (budget > 0):
-			result = js_runtime_drain_microtasks(script.runtime, budget)
+			result = win_script_drain_microtasks(script, budget)
 			budget = script.runtime.remaining
 			win_script_result(script, result)
 			if (result.status == 5): budget = 0
@@ -1700,7 +1752,16 @@ void win_script_invoke_listeners(win_script* script, html_node* node, char* name
 			callback = js_runtime_get(rt, receiver, property.data)
 			string_free(property)
 		if (rt.completion.status == 0 && (callback.kind == 7 || callback.kind == 9)):
-			js_value* result = js_runtime_call_receiver(rt, callback, receiver, args)
+			list[js_value*] callback_args = args
+			if (listener.handler && node == script.window_node && win_event_flag(event, WIN_EVENT_ERROR)):
+				callback_args = new list[js_value*]
+				callback_args.push(js_runtime_get(rt, event, c"message"))
+				callback_args.push(js_runtime_get(rt, event, c"filename"))
+				callback_args.push(js_runtime_get(rt, event, c"lineno"))
+				callback_args.push(js_runtime_get(rt, event, c"colno"))
+				callback_args.push(js_runtime_get(rt, event, c"error"))
+			js_value* result = js_runtime_call_receiver(rt, callback, receiver, callback_args)
+			if (callback_args != args): __w_list_free(cast(__w_list*, callback_args))
 			if (listener.handler && rt.completion.status == 0 && result.kind == 2):
 				int cancel = result.number == 0.0
 				if (node == script.window_node && strcmp(name, c"error") == 0): cancel = result.number != 0.0

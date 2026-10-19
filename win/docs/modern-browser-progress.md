@@ -91,6 +91,58 @@ and serialization hooks. Timer registration clock/conversion/arguments/quota
 regressions pass against a staged coordinator module; full integrated rerun follows
 these changes. Every broader mandatory family stays open in the ledger.
 
+## Completion second integrated checkpoint (2026-10-19)
+
+Application `fbde635ccfe9f3d2f8a211c0796411f2e4914e10`, W
+`f053b1d9694aa83040ac5c4837ab7ae408ad2b03` integrate the second runtime wave,
+reviewed original Test262 harness admission, timer conversion/rooting, bounded
+history validation, and the Phase 2 cookie-date/original-field transport slices.
+Exact local SHAs, commands and failures are in [checkpoint records](browser-checkpoints.json).
+
+The fresh standards gate passes: **127 PASS / 24 UNSUPPORTED / 0 FAIL / 0 ERROR**
+selected Test262 variants and **20 PASS** static WPT reftests. Full W failed at a
+stale `new Array.isArray` expectation (885 of 1,620 targets unattempted); full Win
+failed at URLSearchParams host injection named `hidden`. Window's setter incorrectly
+handled that name as an Element attribute. The original asynchronous WPT gate still
+reported completion errors. Logs remain under `win/bin/completion-wave2/checkpoint/`;
+this is not a passing full integrated checkpoint, and command durations are not
+performance measurements.
+
+Subsequent local fixes are W `41c53e84` (assert actual TypeError), app `638aa94`
+(Window property dispatch), plus native callback replacement, generic sparse concat,
+JSON method descriptors and atomic RegExp lookahead in app `593082e`'s W dependency.
+App `ffa9be0` preserves zero-delay interval ordering with one firing per host poll.
+Focused strict tests pass; the next full integrated checkpoint must validate them
+with native/isolated M1–M4 and security gates. Host exotic reflection/deletion remains
+explicitly unsupported; the Window regression inspects the own property natively.
+
+Fresh original-harness execution of complete Object.create/getOwnPropertyDescriptor
+and Reflect.get/set families reaches **1,064 PASS / 234 FAIL / 20 UNSUPPORTED /
+0 ERROR** across **659 files / 1,318 variants**. Earlier reports remain preserved,
+including initially unadmitted variants. Object.is reaches 36 PASS / 6 Symbol
+UNSUPPORTED across all 42 variants. F's independent original WPT selected run now
+completes all three files and eight subtests; integrated verification and the complete
+35-item timer/microtask parent-family audit follow. Genuine failure, missing HTML/
+worker environments, Symbols, dynamic evaluation and DOM lifecycle requirements
+remain completion blockers.
+
+Pinned cookie data adaptation reports 21 native HTTP cases passing and 12 DOM cases
+unsupported out of all 33 extracted cases; this is an unchanged upstream data adapter,
+not execution of the WPT HTML documents. The strict all-case command remains nonzero.
+HTML's initial unchanged fragment file passes all nine cases; 1,787 other pinned
+cases remain unexecuted pending B's next full-family tree-construction slice.
+
+Current Xvfb rendering uses Mesa llvmpipe; the machine's RTX 4080 SUPER inventory
+does not establish real-GPU execution. Chromium 145.0.7632.6 is freshly identified,
+but comparative browser measurements are not yet captured. Frozen font/corpus hashes
+remain available. Idle performance preflight remains a prerequisite; no proposed
+latency, throughput, frame pacing or memory budget is qualified by loaded build times.
+
+Next runnable tasks: full integrated W/Win/standards/async gates; full timer/microtask
+family reporting; affected original Object.defineProperty/Reflect.construct/concat/
+split/RegExp audits; native global numeric intrinsics; scoped HTML block/paragraph
+construction and document ordering. Every broader mandatory family remains open.
+
 ## Mutable query parameters (2026-10-19)
 
 This application-only increment starts from `cf0be72ea835971ead89a753f170670aa3b05786`

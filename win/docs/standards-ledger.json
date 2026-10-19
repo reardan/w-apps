@@ -5960,6 +5960,63 @@
       "variants": null,
       "classification": "fresh worker execution at recorded revisions; superseded by later implementation, not current integrated qualification",
       "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/test262-four-families-upstream-checkpoint4.json",
+      "sha256": "8579d0726cac1cdacba5ed8cf271ffe12f3f7a77946f7162f7fabea588636458",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:39:12.593301+00:00",
+        "w_revision": "1f51eb2cdac5a197da192676a72dd799a5c0e7dd",
+        "application_revision": "bd6f27cffbd119a6760fa96b4b3e96d93b32a873",
+        "runner_sha256": "57c31002ce8189e44d2ee8346e6a57145f3075312c24cd68d8263aa93564ba30",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "5fce26be23b017fc061d4f0f79f5f67795df41a355fe8fc60385e805682949fb",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/Object/create/",
+        "test/built-ins/Object/getOwnPropertyDescriptor/",
+        "test/built-ins/Reflect/get/",
+        "test/built-ins/Reflect/set/"
+      ],
+      "counts": {
+        "PASS": 1064,
+        "FAIL": 234,
+        "UNSUPPORTED": 20,
+        "ERROR": 0
+      },
+      "variants": 1318,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint4-test262-object-is-construct.json",
+      "sha256": "dfb51326652b0df28792443bfd6dbf775c0553bb5732a15b1adeee6e251d5613",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:37:09.851734+00:00",
+        "w_revision": "ad354be4c5a43bea3d14051bbf5fa36b6900bdb4",
+        "application_revision": "fd667dd1811bb39cf79f58242307fd75f3c7ae8c",
+        "runner_sha256": "6ae7bd4df75b919c579ff50397b8d0f5a01e924cb852feb26de5d8f266daa6eb",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "f09cc369cdf08231beead688f4f73f5ac223fbc2987bd63350877cc6de7a04f9",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/Object/is/"
+      ],
+      "counts": {
+        "PASS": 36,
+        "FAIL": 0,
+        "UNSUPPORTED": 6,
+        "ERROR": 0
+      },
+      "variants": 42,
+      "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
     }
   ],
   "fresh_baseline": {

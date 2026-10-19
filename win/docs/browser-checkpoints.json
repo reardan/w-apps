@@ -132,5 +132,107 @@
       "wpt-async:0PASS/3ERROR original harness bootstrap blockers,12negative supervisor contracts pass"
     ]
   },
-  "remaining": "All136mandatory ledger families remain open; current runtime/parser/DOM/network slices do not close the entire plan."
+  "remaining": "All136mandatory ledger families remain open; current runtime/parser/DOM/network slices do not close the entire plan.",
+  "second_integration": {
+    "app": "fbde635ccfe9f3d2f8a211c0796411f2e4914e10",
+    "w": "f053b1d9694aa83040ac5c4837ab7ae408ad2b03",
+    "classification": "fresh integrated correctness checkpoint; timings under shared load are not performance results",
+    "checks": [
+      {
+        "name": "w",
+        "command": [
+          "./wbuild",
+          "-j",
+          "4",
+          "tests"
+        ],
+        "cwd": "w",
+        "exit_code": 1,
+        "seconds": 178.80395698547363
+      },
+      {
+        "name": "win",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "test"
+        ],
+        "cwd": ".",
+        "exit_code": 1,
+        "seconds": 224.2475242614746
+      },
+      {
+        "name": "standards",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "standards"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 53.35162162780762
+      },
+      {
+        "name": "wpt-async",
+        "command": [
+          "./win/build",
+          "wpt-async"
+        ],
+        "cwd": ".",
+        "exit_code": 1,
+        "seconds": 19.375528812408447
+      }
+    ],
+    "validation_state": "FAILED; standards passed, full W and Win failed; original asynchronous WPT completion failed",
+    "validation_artifacts": "win/bin/completion-wave2/checkpoint/",
+    "remaining_failures": [
+      "W runtime_array_test stale expected UNSUPPORTED for nonconstructable Array.isArray, fixed in 41c53e84",
+      "Win search_params_test hidden global injection consumed by Window Element setter, fixed in 638aa94",
+      "Original async harness completion required native lookahead, callable replacement and concat, integrated in 593082e"
+    ],
+    "app_commits": [
+      "0af91b7d6df801333f78af5d1036ff45ed485c51 Record integrated checkpoint failures and preserve complete evidence boundaries",
+      "b1697d50feaa5d299a1c7706e0a12f4feb2a93b8 Integrate runtime harness semantics and cookie HTTP foundations before Win consumers",
+      "dd097705c7e6a5f1d9b705597dce1167e5d06bd5 win: publish live collections only after successful construction",
+      "5ab5328689ed2b5044f0637bd79eb83cd0be2ff5 win: freeze upstream manifest inventory and harden async report evidence",
+      "354847383b60a9f7bd4e788da59cddc38daf00b7 win: verify pinned inventory archives before indexing",
+      "159bf56a6b46a537516fe8032ebfc8a3c79024b5 win: retain cookie expiry and HttpOnly state with upstream date cases",
+      "fabb665d0fe4d26bac656c96ab19a74146d88ef0 win: transport original cookie fields with a cumulative redirect bound",
+      "129cfbf52e0ccf384d613f554f6b4e8f9914cac3 win: preserve empty-name cookie identity across worker snapshots",
+      "de296ed03880d01a049b97f9dac6f4e14cf45863 win: bound cookie metadata independently from loader payloads",
+      "90d8d816038e860dea4ad205b60fd31048193255 win: distinguish selected HTTP cookie gates from full upstream cases",
+      "dc1fb6dcb8997a2041481a79a4f3e57bff88ae78 Preserve per-case conformance errors for malformed or missing runners",
+      "c37044fb44b7e0fcf6e7226c88ef76364a9ddd31 win: preserve async errors and isolate immutable inventory expansion",
+      "da45ecc1f14a73282edad6c8bf166bdc39dd69bf Honor timer registration clocks, delay conversion and transactional argument roots",
+      "cd5b859ce8c9a9703bb6f2cf016cfe67bbc1f4ef Gate complete selected HTTP cookie cases while retaining DOM unsupported outcomes",
+      "49307b6db290d0c4fc7a952a56a96986ff20994f Integrate real Reflect construction and object method constructor brands",
+      "37854d1ed7713f5a51ae369cb452c396e1466a0b Preserve bounded history cloning across intrinsic prototypes and mapped arguments",
+      "6f34891c7fb840354d80987216af8822a747c419 Run Test262 against a real native global object and admitted reflection features",
+      "edd1660f7ae1fdaf2ee4cfc7dd7a819b2e43f856 Integrate sloppy receiver semantics and genuine constructor harness support",
+      "c4d455a708f4628b3929e67dc70403164dd8dbc3 win: record standalone cookie adapter provenance without losing error cases",
+      "458b0e8682f13f4483a2e865db4e71bd162291d9 Register cookie report denominator and provenance regressions",
+      "fbde635ccfe9f3d2f8a211c0796411f2e4914e10 Document integrated runtime and cookie behavior with remaining mandatory boundaries"
+    ],
+    "w_commits": [
+      "18d9e49c05cb1b5f5208b5369fc8845ab291862c javascript: lower and normalize numeric object literal keys",
+      "fe407f5f232d90a780b1d995266de66217b31698 javascript: implement Math.pow and generic array string joining",
+      "65b6dea5cd57f6e90612c30b4409b61e81a060c7 Implement Number and BigInt remainder semantics",
+      "fb6b1587a5f57cb1d51c314a355f42d41bcd7bd6 Implement mapped arguments parameter alias semantics",
+      "acfc2be3678f146bc42d9079581878ce6aed46ee Implement String.fromCharCode and generic Array.indexOf",
+      "0b6ab086558a9e02119d4400367b2dff857f59bc Assert supported sloppy arguments in browser runtime regression tests",
+      "ae6be8dbba1abb3c82f11720c5fecd9d8c139ca6 Implement UTF-16 string separator split with bounded coercion",
+      "24eb08a71dfeaa62a3de0f7fd6f094e8ad9b5820 Preserve property-key coercion before prototype method receiver errors",
+      "7603f908fda007b07ed41dfb1446baa1c18fdf5c test262: execute original harness and resolve pinned includes",
+      "3939b712d0ebb85ebebec74f71c0a1367352ada6 test262: freeze complete metadata expansion and mapped argument promotions",
+      "cedf8ec21e76cb415f9f270205c71ce844a29af6 cookies: parse RFC 6265 date tokens independently of HTTP dates",
+      "ea30ecb3c958ddc50009c10f52fb13e969678607 http: retain original Set-Cookie fields alongside merged headers",
+      "5a23be0c8ea93a9be68bfe2e33f645adca4ed7f1 test262: retain variant errors for malformed bytes and absent runners",
+      "f19af78f9123be0ac3ae49412482cd581576a4c5 Implement Reflect.construct with real constructor validation and newTarget",
+      "2ffb4868bc075291baf675fcbba8e083890dd093 test262: install native script globals and execute reflection feature cases",
+      "07479d0b2161c8790783a382fdd6c14698e9b6e5 Bind sloppy receivers to realm globals and traced primitive wrappers",
+      "f053b1d9694aa83040ac5c4837ab7ae408ad2b03 test262: execute original constructor helper with Reflect.construct"
+    ]
+  }
 }

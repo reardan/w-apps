@@ -323,5 +323,65 @@
       "37d0b8dabf5baf20094026d380b84f3458c7d5a1 test262: capture execution provenance before running case batches",
       "db6ab035a5b8a10d81f21070467f8f3c9f9690a4 Document native lookahead and replacement callback contracts"
     ]
+  },
+  "fourth_integration": {
+    "app": "cda34ad8504f775204eb6a6e2ed5b85495c22758",
+    "w": "28815136239f9a08833f995a9146bc8434d15d7f",
+    "validation_state": "PASS; bounded native standards subsets, not full browser conformance",
+    "validation_artifacts": "win/bin/completion-wave4/checkpoint/",
+    "validation": {
+      "app": "cda34ad8504f775204eb6a6e2ed5b85495c22758",
+      "w": "28815136239f9a08833f995a9146bc8434d15d7f",
+      "classification": "fresh integrated correctness checkpoint; shared-load durations are not performance results",
+      "checks": [
+        {
+          "name": "w",
+          "command": [
+            "./wbuild",
+            "-j",
+            "4",
+            "tests"
+          ],
+          "cwd": "w",
+          "exit_code": 0,
+          "seconds": 811.2200915020003
+        },
+        {
+          "name": "win",
+          "command": [
+            "xvfb-run",
+            "-a",
+            "./win/build",
+            "test"
+          ],
+          "cwd": ".",
+          "exit_code": 0,
+          "seconds": 516.0640096630013
+        },
+        {
+          "name": "standards",
+          "command": [
+            "xvfb-run",
+            "-a",
+            "./win/build",
+            "standards"
+          ],
+          "cwd": ".",
+          "exit_code": 0,
+          "seconds": 60.15832395399775
+        },
+        {
+          "name": "wpt-async",
+          "command": [
+            "./win/build",
+            "wpt-async"
+          ],
+          "cwd": ".",
+          "exit_code": 0,
+          "seconds": 28.072646386000997
+        }
+      ],
+      "node": "v20.19.3"
+    }
   }
 }

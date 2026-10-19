@@ -668,3 +668,7 @@ failed-readback zeroing and dedicated-Xvfb local GL/resource acceptance. The
 parent paints 16,384 blue canvas pixels and 547,744 green CSS pixels; the two
 intentional forbidden stylesheets fail, and the negative network listener sees
 no connection. See its contract for retained authority and unsupported kernels.
+
+### Fourth integrated checkpoint (fresh)
+
+Frozen app `cda34ad8504f775204eb6a6e2ed5b85495c22758` / W `28815136239f9a08833f995a9146bc8434d15d7f`: full W 1,633 targets PASS (811.220 s), full Win including unchanged M1–M4/security PASS (516.064 s), standards PASS (60.158 s), original asynchronous WPT selected gate PASS (28.073 s). Exact commands and raw provenance: `browser-checkpoints.json`, local `win/bin/completion-wave4/checkpoint/validation.json`. Shared-load correctness durations are not performance measurements. Newer worker slices remain separate evidence until the next integrated checkpoint.

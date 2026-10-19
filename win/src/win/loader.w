@@ -145,6 +145,7 @@ http_stream* win_form_http_open(http_req* req):
 	char* address = strclone(req.url)
 	http_stream* stream = 0
 	int redirects = 0
+	int cookie_fields = 0
 	req.max_redirects = 0
 	while (1):
 		req.url = address
@@ -178,9 +179,14 @@ http_stream* win_form_http_open(http_req* req):
 			free(h)
 		list_free[http_header*](req.headers)
 		req.headers = original_headers
-		char* set_cookie = http_response_header(stream.resp, c"set-cookie")
-		if (set_cookie != 0 && strlen(set_cookie) <= WIN_COOKIE_LIMIT):
-			win_cookie_set_many(address, set_cookie)
+		# Match the parent IPC cap across the complete redirect chain. Each
+		# original field consumes one slot, including malformed/oversized fields.
+		for i in range(http_response_set_cookie_count(stream.resp)):
+			if (cookie_fields >= WIN_COOKIE_COUNT): break
+			cookie_fields = cookie_fields + 1
+			char* set_cookie = http_response_set_cookie(stream.resp, i)
+			if (strlen(set_cookie) > WIN_COOKIE_LIMIT): continue
+			win_cookie_set(address, set_cookie)
 			if (env_get(c"WIN_COOKIE_SNAPSHOT") != 0):
 				win_write(c"COOKIE\n", 7)
 				win_write(address, strlen(address))
@@ -784,8 +790,9 @@ int win_load_poll(win_load* load):
 	load.finished = 1
 	char* data = load.output.data
 	int metadata_bytes = 0
-	char*[6] cookie_urls
-	char*[6] cookie_headers
+	# Array sizes mirror WIN_COOKIE_COUNT; imported constants are not array bounds.
+	char*[32] cookie_urls
+	char*[32] cookie_headers
 	int cookie_count = 0
 	# Metadata precedes the existing OK/ERROR envelope, including redirect
 	# cookies. Only complete, bounded lines are accepted after child exit.
@@ -809,7 +816,7 @@ int win_load_poll(win_load* load):
 				free(value)
 				break
 			char* header = substring(data, start, end)
-			if (cookie_count < 6):
+			if (cookie_count < WIN_COOKIE_COUNT):
 				cookie_urls[cookie_count] = strclone(value)
 				cookie_headers[cookie_count] = header
 				cookie_count = cookie_count + 1
@@ -835,7 +842,7 @@ int win_load_poll(win_load* load):
 			load.length = load.output.length - metadata_bytes - end - 1
 	int valid_protocol = (status == 0 && load.error == 0) || (status == 1 && starts_with(data, c"ERROR\n"))
 	for i in range(cookie_count):
-		if (valid_protocol): win_cookie_set_many(cookie_urls[i], cookie_headers[i])
+		if (valid_protocol): win_cookie_set(cookie_urls[i], cookie_headers[i])
 		free(cookie_urls[i])
 		free(cookie_headers[i])
 	if (load.error == 0 && load.cache_allowed && load.cache_expires > 0):

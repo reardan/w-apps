@@ -38,3 +38,22 @@ Date parsing follows RFC 6265 section 5.1.1 and is reusable in W's cookie librar
 SameSite, public-suffix/domain relaxation, partitioned state, complete cookie
 pair grammar, browser cookie bindings, and full cookie-family execution remain
 mandatory open. Existing conservative security checks remain enabled.
+
+## Original HTTP fields and worker transport
+
+The HTTP response keeps ordered original `Set-Cookie` fields separately from
+its compatible comma-merged generic header map. Borrowed field strings remain
+valid until response/stream teardown; the response frees its own copies.
+Informational response fields are ignored. Win uses only original fields when
+receiving response cookies, so `Expires=... GMT, baz=qux` cannot synthesize a
+second cookie. The legacy merged-input helper remains for existing direct
+callers but is not used by the loader.
+
+Win accepts at most 32 original Set-Cookie fields across an entire redirect
+chain, including malformed or oversized fields in that count. Fields after
+that cap are discarded by the child; the parent also caps complete metadata
+records at 32. Each accepted field remains limited to 2048 bytes and the loader
+retains its existing total-output byte cap. This is a bounded foundation policy,
+not complete browser cookie capacity conformance. The native integration suite
+covers the upstream comma ambiguity, multiple separate fields, discarded expired
+cookies, HttpOnly retention, 33-field overflow, and cumulative redirect overflow.

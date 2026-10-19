@@ -42,6 +42,19 @@ class Handler(BaseHTTPRequestHandler):
             headers = [("Set-Cookie", "sid=one; Path=/scope; Max-Age=60"),
                        ("Set-Cookie", "second=two; Path=/scope"),
                        ("Set-Cookie", "nope=bad; Domain=localhost; Path=/")]
+        elif self.path == "/date-fields":
+            headers = [("Set-Cookie", "test=2; Path=/dates; Expires=Fri 01 Jan 2038 00:00:00 GMT, baz=qux"),
+                       ("Set-Cookie", "other=3; Path=/dates; HttpOnly"),
+                       ("Set-Cookie", "expired=gone; Path=/dates; Expires=Thu Apr 10 1980 16:33:12 GMT")]
+        elif self.path == "/cookie-cap":
+            headers = [("Set-Cookie", f"cap{i}=yes; Path=/cap") for i in range(33)]
+        elif self.path == "/cookie-cap-redirect":
+            status = 302
+            headers = [("Set-Cookie", f"hop{i}=yes; Path=/cap") for i in range(31)]
+            headers.append(("Location", "/cookie-cap-final"))
+        elif self.path == "/cookie-cap-final":
+            headers = [("Set-Cookie", "last=yes; Path=/cap"),
+                       ("Set-Cookie", "over=bad; Path=/cap")]
         elif self.path.endswith("/echo"):
             payload = self.headers.get("Cookie", "").encode()
         elif self.path == "/redirect":

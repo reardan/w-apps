@@ -14,5 +14,15 @@ int main():
 	tree_eval(script, c"const p=document.getElementById('p'),d=document.getElementById('d'),a=document.getElementById('a'),b=document.getElementById('b');if(p.parentNode!==document.body||p.nextSibling!==d||p.textContent!=='one'||d.textContent!=='two&three'||d.childNodes.length!==1||d.firstChild.nodeType!==3||d.nextSibling.nodeValue!=='tail')throw 'implied paragraph and text coalescing';if(a.parentNode!==b.parentNode||a.nextSibling!==b||a.textContent!=='a'||b.textContent!=='b')throw 'implied list item';")
 	win_script_free(script)
 	win_page_free(page)
+	# Win is a scripting-enabled document host; noscript markup stays inert text.
+	source = c"<head><noscript id='head-no'><meta name='x'></noscript></head><body><noscript id='body-no'><b id='absent'>fallback</b></noscript><p id='visible'>shown</p>"
+	page = win_page_parse(source, strlen(source))
+	script = win_script_new(page)
+	tree_eval(script, c"const headNo=document.getElementById('head-no'),bodyNo=document.getElementById('body-no');if(headNo.parentNode!==document.head||bodyNo.parentNode!==document.body||headNo.firstChild.nodeType!==3||bodyNo.firstChild.nodeType!==3||document.getElementById('absent')!==null||bodyNo.textContent!==\"<b id='absent'>fallback</b>\")throw 'scripting enabled noscript';")
+	win_page_layout(page, 800)
+	for i in range(page.runs.length):
+		asserts(c"scripting-enabled fallback does not render", win_tag(page.runs[i].node, c"noscript") == 0)
+	win_script_free(script)
+	win_page_free(page)
 	println(c"HTML doctype, implied closures and text identity through native DOM: OK")
 	return 0

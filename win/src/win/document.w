@@ -290,7 +290,7 @@ win_page* win_page_parse(char* source, int length):
 	limits.nodes = 20000
 	limits.tokens = 30000
 	limits.depth = 128
-	html_document* html = html_parse_with_limits(source, length, &limits)
+	html_document* html = html_parse_with_scripting_limits(source, length, 1, &limits)
 	if (html.failed):
 		html_document_free(html)
 		return 0
@@ -508,7 +508,7 @@ void win_fixed_enqueue(win_page* page, html_node* node, win_style style, char* h
 
 int win_layout_skipped(html_node* node):
 	if (node.kind != HTML_START && node.kind != HTML_DOCUMENT): return 1
-	if (win_tag(node, c"head") || win_tag(node, c"script") || win_tag(node, c"style") || win_tag(node, c"template")): return 1
+	if (win_tag(node, c"head") || win_tag(node, c"script") || win_tag(node, c"style") || win_tag(node, c"template") || win_tag(node, c"noscript")): return 1
 	if (win_tag(node, c"input") && css_ascii_equal(win_attr(node, c"type"), c"hidden")): return 1
 	return html_attribute_find(node.attributes, c"hidden") != 0
 

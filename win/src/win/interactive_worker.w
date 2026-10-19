@@ -14,6 +14,8 @@ import win.storage_rpc
 
 const int WIN_INTERACTIVE_LIMIT = 8388608
 const int WIN_INTERACTIVE_HEADER = 24
+# EOF precedes waitpid visibility during kernel process teardown.
+const int WIN_INTERACTIVE_EXIT_GRACE_MS = 50
 
 struct win_interactive_worker:
 	win_broker* broker
@@ -48,6 +50,9 @@ struct win_interactive_worker:
 	int sequence
 	int started
 	int timeout_ms
+	int transport_closing
+	int transport_closed_at
+	char* transport_error
 	int limit
 	int status
 	char* error
@@ -93,6 +98,16 @@ void win_interactive_fail(win_interactive_worker* worker, int status, char* erro
 	if (worker.child != 0):
 		process_free(worker.child)
 		worker.child = 0
+
+# Keep a closed transport unpublished while the nonblocking child reap catches
+# up. A live peer that closes its socket still fails after a bounded grace.
+# This never sleeps or resets the original request deadline.
+int win_interactive_transport_closed(win_interactive_worker* worker, char* error):
+	if (worker.transport_closing == 0):
+		worker.transport_closing = 1
+		worker.transport_closed_at = process_monotonic_ms()
+		worker.transport_error = error
+	return 0
 
 # Socketpair avoids SIGPIPE without changing the parent's signal dispositions.
 # Both directions are nonblocking; MSG_NOSIGNAL also covers peer death races.
@@ -435,8 +450,7 @@ int win_interactive_poll_frames(win_interactive_worker* worker):
 		int count = read(worker.child.stdout_fd, &chunk[0], wanted)
 		if (count == -11 || count == -4): return 0
 		if (count <= 0):
-			win_interactive_fail(worker, 4, c"Truncated interactive frame")
-			return -1
+			return win_interactive_transport_closed(worker, c"Truncated interactive frame")
 		int consumed = win_frame_decoder_feed(decoder, &chunk[0], count)
 		if (consumed != count || decoder.status < 0):
 			win_interactive_fail(worker, 4, c"Invalid interactive frame")
@@ -551,6 +565,11 @@ int win_interactive_poll(win_interactive_worker* worker):
 	if (process_monotonic_ms() - worker.started >= worker.timeout_ms):
 		win_interactive_fail(worker, 2, c"Interactive worker timed out")
 		return -1
+	if (worker.transport_closing):
+		if (process_monotonic_ms() - worker.transport_closed_at >= WIN_INTERACTIVE_EXIT_GRACE_MS):
+			win_interactive_fail(worker, 4, worker.transport_error)
+			return -1
+		return 0
 	int fd = worker.child.stdout_fd
 	for i in range(8):
 		int count = worker.outgoing.length - worker.sent
@@ -559,8 +578,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 		int written = socket_send(fd, worker.outgoing.data + worker.sent, count, 16384 | 64)
 		if (written == -11 || written == -4): break
 		if (written <= 0):
-			win_interactive_fail(worker, 4, c"Interactive worker send failed")
-			return -1
+			return win_interactive_transport_closed(worker, c"Interactive worker send failed")
 		worker.sent = worker.sent + written
 	if (worker.stage == 2 && worker.sent == worker.outgoing.length):
 		win_frame_surfaces_clear(worker.surfaces)
@@ -582,8 +600,7 @@ int win_interactive_poll(win_interactive_worker* worker):
 		int count = read(fd, &chunk[0], wanted)
 		if (count == -11 || count == -4): break
 		if (count <= 0):
-			win_interactive_fail(worker, 4, c"Interactive worker disconnected")
-			return -1
+			return win_interactive_transport_closed(worker, c"Interactive worker disconnected")
 		if (count > worker.limit - worker.incoming.length):
 			win_interactive_fail(worker, 5, c"Interactive response exceeds limit")
 			return -1

@@ -24,6 +24,10 @@ int interactive_test_child(char* mode):
 	if (strcmp(mode, c"hang") == 0):
 		process_sleep_ms(5000)
 		return 0
+	if (strcmp(mode, c"eof-wait") == 0):
+		close(0)
+		process_sleep_ms(5000)
+		return 1
 	if (strcmp(mode, c"crash") == 0): return 1
 	int sequence = 0
 	int kind = 100
@@ -70,12 +74,35 @@ void interactive_test_case(char* mode, int status):
 	assert_equal(-10, wait4(pid, 0, 1, 0))
 	win_interactive_free(worker)
 
+# Force EOF while the process is still alive, then make exit observable before
+# the next poll. This exercises the race ordering without relying on reruns or
+# scheduler timing. No response may be published in the closing interval.
+void interactive_test_eof_before_exit():
+	win_interactive_worker* worker = win_interactive_start(args_program(), c"eof-wait", c"", 1000, 1024)
+	int pid = worker.child.pid
+	int polls = 0
+	while (worker.transport_closing == 0):
+		assert_equal(0, win_interactive_poll(worker))
+		polls = polls + 1
+		asserts(c"EOF watchdog", polls < 1000)
+		if (worker.transport_closing == 0): process_sleep_ms(1)
+	asserts(c"EOF does not publish a response", worker.html == 0 && worker.busy)
+	assert_equal(process_status_running, process_try_wait(worker.child))
+	process_kill(worker.child, 9)
+	process_wait(worker.child)
+	assert_equal(-1, win_interactive_poll(worker))
+	assert_equal(3, worker.status)
+	asserts(c"exit releases closed transport", worker.child == 0 && worker.html == 0)
+	assert_equal(-10, wait4(pid, 0, 1, 0))
+	win_interactive_free(worker)
+
 int main(int argc, int argv):
 	args_init(argc, argv)
 	args_declare_bool(c"interactive-worker")
 	if (args_has_flag(c"interactive-worker")): return interactive_test_child(args_value(c"page"))
 	interactive_test_case(c"hang", 2)
 	interactive_test_case(c"crash", 3)
+	interactive_test_eof_before_exit()
 	interactive_test_case(c"sequence", 4)
 	interactive_test_case(c"kind", 4)
 	interactive_test_case(c"reserved", 4)

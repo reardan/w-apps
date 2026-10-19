@@ -23,8 +23,12 @@ string and intrinsic-RegExp separator `split`, generic UTF-16 `charCodeAt`, arra
 order and execution bounds. RegExp splitting clones a sticky matcher, preserves
 original lastIndex, and includes captures; Symbol.split, custom species/exec and
 Unicode u/v modes remain unsupported. Ordinary Object/Reflect descriptor, prototype, extensibility and
-receiver operations are implemented with ownership and exception checks; array
-descriptor mutation and general native exotic reflection remain incomplete.
+receiver operations are implemented with ownership and exception checks. Array
+index and length descriptors retain length writability, ordered coercion, sparse
+shrink rollback and resource limits; general native exotic reflection remains
+incomplete. Computed property keys use ordered string-hint conversion for supported
+primitives and objects; Symbol keys remain unsupported. Function.prototype inherits
+Object.prototype, while callable source rendering remains explicitly unsupported.
 `Reflect.construct` validates real constructors and supports ordinary/class/bound
 newTarget behavior; alternate native newTarget construction remains explicitly
 unsupported. Object methods are callable but not constructors.
@@ -325,8 +329,9 @@ false value cancels cancelable events. The implementation covers the names in
 used by the pinned framework. Uncaught queueMicrotask exceptions dispatch trusted,
 cancelable Window error events with retained error identity and the legacy five
 onerror arguments; returning true cancels these events. Later microtasks continue
-within the original shared fuel. Promise rejections remain separate. Full ErrorEvent
-construction, accurate source coordinates, timer/rAF callback error reporting,
+within the original shared fuel. Promise rejections remain separate. Timer and animation callback throws now use the same bounded reporting path,
+including continuation and cancellation from error handlers. Full ErrorEvent
+construction, accurate source coordinates, cross-realm exception reporting,
 body-to-window handler aliases and inline form/name scope remain unsupported.
 
 Ordinary functions provide shared `call`, `apply` and `bind`, including bounded

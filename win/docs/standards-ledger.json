@@ -59,10 +59,13 @@
       "closure_evidence": [],
       "implemented_slices": [
         "Ordinary Object/Reflect descriptor and prototype operations with nonconfigurable invariants and receiver/exception ordering",
-        "Traced primitive wrappers; string UTF-16 own-index and length descriptors"
+        "Traced primitive wrappers; string UTF-16 own-index and length descriptors",
+        "Computed string property keys preserve conversion, RHS/get/write and nullish-base evaluation order",
+        "Function.prototype inherits Object.prototype; exact callable source rendering remains explicit unsupported",
+        "Seven intrinsic Error prototype objects retain ordinary Object branding; real errors retain canonical Error branding"
       ],
       "remaining_blockers": [
-        "Array descriptor mutation and general native exotic reflection remain incomplete",
+        "General native exotic reflection, callable source rendering, Symbol/Proxy protocols and wider Object families remain incomplete; bounded Array descriptor mutation is integrated",
         "Full-family audit retains FAIL and UNSUPPORTED outcomes; later revisions require re-execution"
       ]
     },
@@ -126,11 +129,19 @@
         "F.test262-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/tests/javascript/runtime_array_descriptor_test.w",
+        "w/tests/javascript/runtime_array_iteration_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Indexed DefineOwnProperty and virtual length descriptors, two observable length conversions, readonly length, sparse shrinking/deletion rollback and bounded quota preflight",
+        "Array creation uses own data properties without invoking inherited setters; inherited setters do not falsely grow arrays"
+      ],
+      "remaining_blockers": [
+        "Full Array audit still in flight; general iterators/Symbol/species and several methods/rebuild algorithms remain incomplete"
+      ]
     },
     {
       "id": "A.symbols-iteration",
@@ -918,14 +929,15 @@
         "win/tests/microtask_error_test.w",
         "win/tests/timer_contract_test.w",
         "win/tests/events_test.w",
-        "win/tests/event_handlers_test.w"
+        "win/tests/event_handlers_test.w",
+        "win/tests/task_error_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
       "closure_evidence": [],
       "remaining_blockers": [
         "HTML timer nesting/minimum-delay, string handlers and full Web IDL/event surface remain incomplete; clock/conversion/arguments/rollback and zero-delay ordering are integrated",
-        "Window microtask exception reporting is integrated; full ErrorEvent constructor/source locations, timer/rAF callback exceptions and cross-realm behavior remain open"
+        "Window microtask/timer/rAF exception reporting integrated; full ErrorEvent constructor/source locations and cross-realm behavior remain open"
       ]
     },
     {
@@ -6350,6 +6362,115 @@
       },
       "variants": 374,
       "classification": "fresh worker execution at recorded revisions; not a complete integrated-suite or normative-coverage claim",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint10-wpt-family-original.json",
+      "sha256": "b14d5ce2fc33cdd29745332f6cae5b5894f05e6e2dab66e701d6d430cc208421",
+      "source_evidence": {
+        "application_revision": "c58de31cd263758a2bc4ced569ff683f9ae9b92a",
+        "w_revision": "a0dd200b5a40f6f7d796852d06da63010d5f7527",
+        "driver_sha256": "5384b943db738ddbd39c9783a9dd6c8ec743df41f5e793bb0a59607a2a107e1a",
+        "driver_hash_error": null,
+        "recorded_at_utc": "2026-10-19T21:18:36.862276+00:00",
+        "kind": "fresh-execution",
+        "adapter_sha256": "6d6507ed4a21eb20cd53a7a4ea79fa1f6326a78dc1d4e527574e60f3964857e2",
+        "driver_source_sha256": "d01e56bb6d76ecdeafeb4668f8be0511bbd4cd8232b42680c86672134a87e42c"
+      },
+      "profile": "native-window-script-parent-families-v1",
+      "families": [
+        "html/webappapis/timers/",
+        "html/webappapis/microtask-queuing/"
+      ],
+      "counts": {
+        "PASS": 10,
+        "FAIL": 1,
+        "UNSUPPORTED": 23,
+        "ERROR": 1
+      },
+      "result_records": 35,
+      "classification": "fresh worker execution; complete declared family outcomes retained; not integrated qualification or full standards conformance",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint10-wpt-selected-original.json",
+      "sha256": "eff14894a314612b2dbb652496a439e875756abe3304ad58eb513cd27ab92142",
+      "source_evidence": {
+        "application_revision": "c58de31cd263758a2bc4ced569ff683f9ae9b92a",
+        "w_revision": "a0dd200b5a40f6f7d796852d06da63010d5f7527",
+        "driver_sha256": "5384b943db738ddbd39c9783a9dd6c8ec743df41f5e793bb0a59607a2a107e1a",
+        "driver_hash_error": null,
+        "recorded_at_utc": "2026-10-19T21:18:31.023522+00:00",
+        "kind": "fresh-execution",
+        "adapter_sha256": "6d6507ed4a21eb20cd53a7a4ea79fa1f6326a78dc1d4e527574e60f3964857e2",
+        "driver_source_sha256": "d01e56bb6d76ecdeafeb4668f8be0511bbd4cd8232b42680c86672134a87e42c"
+      },
+      "profile": "native-window-script-testharness-v1",
+      "families": null,
+      "counts": {
+        "PASS": 3,
+        "FAIL": 0,
+        "UNSUPPORTED": 0,
+        "ERROR": 0
+      },
+      "result_records": 3,
+      "classification": "fresh worker execution; complete declared family outcomes retained; not integrated qualification or full standards conformance",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint11-test262-error-brands-and-intrinsics.json",
+      "sha256": "da61f8fb83179a71a470c9dfd8006c778be7b432eb75bbf34f15a5da946e17a5",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T21:19:36.234421+00:00",
+        "w_revision": "cb7be97a06fe66ce86311f1a4b93f1e9350e2666",
+        "application_revision": "c58de31cd263758a2bc4ced569ff683f9ae9b92a",
+        "runner_sha256": "a533ca8bed62a9505986e0551dd67c0e1d6fbbe4f7357733be8c3f9c855b7965",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "f3e9812884a2f7c78f451d2c50c3fe2c92e658045a8b1d3e2855fcd45a65600f",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "upstream-harness-experimental-v1",
+      "families": [
+        "test/built-ins/NativeErrors/",
+        "test/built-ins/Error/",
+        "test/built-ins/String/prototype/charCodeAt/",
+        "test/built-ins/Number/MAX_VALUE/",
+        "test/built-ins/Number/MIN_VALUE/"
+      ],
+      "counts": {
+        "PASS": 312,
+        "FAIL": 4,
+        "UNSUPPORTED": 124,
+        "ERROR": 0
+      },
+      "result_records": 440,
+      "classification": "fresh worker execution; complete declared family outcomes retained; not integrated qualification or full standards conformance",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/checkpoint11-test262-selected.json",
+      "sha256": "c99e41ddcfa62a5a8569ad54013be2436a27a9e078e404641b8a48fcdda971a6",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T21:20:02.389046+00:00",
+        "w_revision": "cb7be97a06fe66ce86311f1a4b93f1e9350e2666",
+        "application_revision": "c58de31cd263758a2bc4ced569ff683f9ae9b92a",
+        "runner_sha256": "a533ca8bed62a9505986e0551dd67c0e1d6fbbe4f7357733be8c3f9c855b7965",
+        "runner_hash_error": null,
+        "kind": "fresh-execution",
+        "adapter_sha256": "f3e9812884a2f7c78f451d2c50c3fe2c92e658045a8b1d3e2855fcd45a65600f",
+        "runner_source_sha256": "44eb53934ad9fbbdfeb8f282b63fff830b493eac9de5126225e87a37dabe0997"
+      },
+      "profile": "native-assertions-async-v2",
+      "families": null,
+      "counts": {
+        "PASS": 131,
+        "FAIL": 0,
+        "UNSUPPORTED": 20,
+        "ERROR": 0
+      },
+      "result_records": 151,
+      "classification": "fresh worker execution; complete declared family outcomes retained; not integrated qualification or full standards conformance",
       "closure": false
     }
   ],

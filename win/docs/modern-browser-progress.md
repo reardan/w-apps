@@ -207,6 +207,47 @@ run complete W/Win/standards/async gates at frozen revisions. Continue HTML tree
 families and full affected Test262 audits; retry performance only on idle hardware.
 All 136 mandatory ledger families remain open until their completion criteria pass.
 
+## Completion fourth wave awaiting integrated validation (2026-10-19)
+
+W `0001869c` implements bounded Array indexed/length descriptors and sparse shrink
+rollback; `a64c56c3` implements observable computed-property conversion/order;
+`652a34cc` connects Function.prototype to Object.prototype without inventing
+function source; `bc2c6737` distinguishes intrinsic Error prototype branding from
+real Error instances. RegExp split documentation is updated in `28815136`.
+Independent review and focused normal/guard tests passed before integration.
+App `4a2d5d0` pins these W changes. Complete Array/reflection audit results remain
+pending, rather than assuming broad conformance from the new native tests.
+
+App `b1bd9c8` preserves existing host roots when focus/pointer/generic Event
+construction fails; app `10e4bf6` validates raw/reported exception counts and the
+completion-time failure snapshot in the asynchronous WPT protocol. All 22 driver
+contracts and four family-report contracts freshly pass on integrated sources.
+App `96f3fd6` extends bounded error reporting to timer/rAF callback throws, with
+native identity, cancellation, remaining-job and terminal-fuel regressions.
+Full ErrorEvent construction, source coordinates and cross-realm behavior remain open.
+
+With property-key conversion fixed, the unchanged WPT failure formatter now
+reports actual failed assertions. Fresh whole timer/microtask family outcomes are
+10 PASS / 1 FAIL / 23 UNSUPPORTED / 1 ERROR across all 35 items. Missing
+MutationObserver is a genuine original-harness FAIL; string timers remain ERROR.
+Earlier reports that stopped during error formatting remain historical snapshots.
+
+App `242e993` adds optional `--timing-report` to the native M2 acceptance probe.
+It records monotonic submission-side poll/render/check/swap-call samples,
+navigation-to-checked-canvas geometry and teardown. It preserves native input,
+Unicode, resize, sustained-frame, budget and security assertions. Swap return is
+not presentation, uncapped work is not frame pacing, and no measurements have run
+through the refused idle gate. Proposed budgets remain unqualified.
+
+A direct Python Test262 contract invocation initially used the stale checkpoint-3
+runner and failed five contracts. Rebuilding through the required
+`(cd w && env -u NO_COLOR ./wbuild -j 4 javascript_test262)` passed all 23 contracts,
+131 selected variants and 20 explicit UNSUPPORTED on W `4fe4a834`. This records
+build provenance, not a semantic regression or a passing stale binary.
+Diff-selected W checks recorded 80 targets, with the known generated
+`bin/import_path_shaped_fixture.w` dependency-root fallback explicitly logged.
+The next frozen full checkpoint must revalidate all integrated source changes.
+
 ## Mutable query parameters (2026-10-19)
 
 This application-only increment starts from `cf0be72ea835971ead89a753f170670aa3b05786`

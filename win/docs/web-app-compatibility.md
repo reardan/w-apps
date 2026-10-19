@@ -58,7 +58,9 @@ mobile host's exact entry point and measured bottlenecks are in the progress not
   Ordinary polling/headless dumps do not run animation callbacks; the opt-in
   interactive child advances them on explicit UI ticks. Navigation, tab closure,
   and Stop release queued callbacks.
-- Host geometry: location/search and string-initialized URLSearchParams.get,
+- Host geometry: location/search and bounded mutable URLSearchParams (query
+  strings, copies, pair arrays and plain records; lookup, mutation, serialization,
+  stable sorting and live forEach),
   native viewport dimensions and resize events, limited live computed padding
   and font size, bounding rectangles, and offset/client dimensions. These are
   the implemented properties, not complete browser DOM interfaces.

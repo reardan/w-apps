@@ -47,6 +47,14 @@ remaining platform work.
 - **Loading:** final-URL/base-relative resources, three concurrent subresource workers per page (plus up to three Fetch workers), MIME/UTF-8 checks, gzip/deflate, bounded decoding, deadlines, and cancellation. Cross-origin HTTP(S) stylesheets/scripts/images are allowed; HTTPS pages reject HTTP subresources and resource redirects cannot downgrade HTTPS. Web pages cannot load native files.
 
 Cookies and explicitly fresh HTTP responses now have bounded in-memory state; see [network compatibility](docs/network-compatibility.md). DOM insertion and resource URL changes trigger bounded resource discovery, with stale loads canceled. Persistent HTTP caching, downloads, session restoration and complete web APIs remain future work. Use `--storage FILE` with an existing parent directory for durable localStorage; sessionStorage stays in memory. Opt-in interactive isolation supports native input, canvas frames and [parent-owned durable storage](docs/isolated-storage.md), with documented snapshot limitations. Loader processes isolate blocking I/O and image decoding; interactive scripts execute with deterministic interpreter/DOM budgets inside the application process. `--isolated-dump` executes the entire page in a separate process with a watchdog and validated text output; see [headless process isolation](docs/script-isolation.md). This process boundary alone does not restrict the worker's OS authority.
+
+Query-driven applications can use mutable `URLSearchParams` with duplicate-aware
+lookup, append/set/delete, form encoding, stable sorting, and live `forEach`
+callbacks. String, copy, pair-array and plain-record initialization work in native
+and isolated pages, including query strings passed to History and Fetch. See the
+[JavaScript contract](docs/javascript-compatibility.md) for bounds and remaining
+URL/iterator limitations.
+
 For local content, opt-in `--isolated-interactive --sandbox-root ABS_DIR` adds
 [Linux offline confinement](docs/offline-sandbox.md) with fail-closed Landlock
 and seccomp installation. It retains graphics-server/driver authority and supports

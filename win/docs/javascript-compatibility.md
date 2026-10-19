@@ -157,11 +157,49 @@ mutation. This is a storage subset, not general structured clone. General URL
 argument coercion, complete `go` Web IDL conversion, scrollRestoration, hashchange,
 navigation assignment and the Navigation API remain unsupported.
 
-The additional host surface includes `location.search`, string-initialized
-`URLSearchParams.get`, viewport globals and resize events, `getBoundingClientRect`,
+The additional host surface includes `location.search`, mutable
+`URLSearchParams`, viewport globals and resize events, `getBoundingClientRect`,
 client/offset dimensions, and live computed padding/font-size/pointer-events/flex-direction reads through
 `getComputedStyle`. VisualViewport, general computed styles, and navigation
 assignment are not implemented.
+
+The bounded parameter-list behavior follows the [URL Standard](https://url.spec.whatwg.org/#interface-urlsearchparams)
+and [Web IDL pair iteration](https://webidl.spec.whatwg.org/#es-iterable).
+`new URLSearchParams(init)` accepts strings, another native parameter list,
+arrays of two-item arrays, and plain records with enumerable own string keys.
+Omitted/undefined initialization creates an empty list; null is converted to
+the string `"null"`, producing a `null` key with an empty value.
+It provides `size`, `get`, `getAll`, `has`, `append`, `set`, `delete`, `sort`,
+`toString`, and `forEach`. Duplicate names retain insertion order; `set` replaces
+the first matching value and removes later duplicates. `has` and `delete`
+accept an optional value filter (explicit `undefined` means no filter).
+Serialization uses UTF-8 form encoding, including `+` for spaces and uppercase
+percent escapes. Decoding preserves embedded NUL and replaces malformed UTF-8;
+USVString conversion replaces lone surrogates. Sorting is stable by UTF-16 code
+units. String conversion supports primitives and the runtime's explicit ordinary
+conversion methods, including `String(params)`.
+
+`forEach(callback, thisArg)` visits the current list by index and observes
+appends, deletions, replacements, and sorting during callbacks. It passes value,
+name, and the original parameter object, propagates callback exceptions, and
+shares the active task's fuel. Async callbacks retain their arguments across
+await; iteration itself does not await their results. Methods check the native
+receiver and can be borrowed between parameter objects.
+
+Each list has at most 1,024 pairs and 65,536 UTF-16 units across names/values;
+input strings and serialized output are each limited to 65,536 units. A realm
+retains at most 256 parameter objects and 524,288 combined name/value units until
+document teardown. Failed construction releases its native allocations. Mutation
+and sort budget/quota failures preserve the existing list, apart from mutations
+already performed by user conversion functions or callbacks. Serialization can
+exceed its limit even when the unencoded list fits. These are terminal host
+limits, not standard URL API exceptions.
+
+This is a standalone parameter-list subset: the `URL` class and live
+`URL.searchParams` association, general iterable initializers, Symbol hooks,
+`entries`/`keys`/`values` iterator objects, and complete Web IDL reflection remain
+unsupported. `forEach` is the supported iteration interface. The existing
+History API can consume `'?' + params.toString()` for same-origin routing.
 
 `document`, `window.document`, and `document.body` expose stable element wrappers. The limited `window`/`globalThis` object is distinct from Document and has its own event registrations. `window.document === document` and `globalThis === window`; the Window wrapper is not the interpreter's lexical global environment, so global declarations do not automatically become Window properties.
 

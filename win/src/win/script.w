@@ -8,6 +8,7 @@ import win.modules
 import win.canvas
 import win.wasm
 import win.web_host
+import win.search_params
 import win.text_selection
 import win.events
 import win.event_handlers
@@ -57,6 +58,7 @@ struct win_script:
 	int execution_budget
 	win_pointer_state pointer
 	win_abort_context* aborts
+	win_search_context* search_params
 	win_web_viewport viewport
 	int layout_width
 	char* address
@@ -1485,43 +1487,6 @@ js_value* win_script_get_computed(void* runtime, void* context, js_value* receiv
 	js_runtime_fail(rt, 2, c"getComputedStyle requires an Element")
 	return rt.undefined_value
 
-js_value* win_script_search_get(void* context, list[js_value*] args):
-	js_runtime* rt = cast(js_runtime*, context)
-	if (args.length < 2 || args[0].kind != 4): return rt.undefined_value
-	js_text* name = 0
-	if (args[1].kind == 4): name = js_text_clone(args[1].text)
-	else if (args[1].kind < 4):
-		char* text = win_js_text(args[1])
-		name = js_runtime_key(text)
-		free(text)
-	else:
-		js_runtime_fail(rt, 6, c"URLSearchParams object coercion is unsupported")
-		return rt.undefined_value
-	js_value* result = win_web_search_get(rt, args[0].text, name)
-	js_text_free(name)
-	return result
-
-js_value* win_script_search_new(void* runtime, void* context, js_value* receiver, list[js_value*] args):
-	js_runtime* rt = cast(js_runtime*, runtime)
-	js_value* query = win_js_string(rt, c"")
-	if (args.length > 0 && args[0].kind != 0 && args[0].kind != 1):
-		if (args[0].kind == 4): query = args[0]
-		else if (args[0].kind < 4):
-			char* text = win_js_text(args[0])
-			query = win_js_string(rt, text)
-			free(text)
-		else:
-			js_runtime_fail(rt, 6, c"URLSearchParams supports string initialization only")
-			return rt.undefined_value
-	if (query.text.units.length > 65536):
-		js_runtime_fail(rt, 5, c"URLSearchParams input limit")
-		return rt.undefined_value
-	list[js_value*] call_args = new list[js_value*]
-	call_args.push(query)
-	js_value* result = js_runtime_call(rt, js_runtime_get(rt, rt.global, c"__winSearchObject"), call_args)
-	__w_list_free(cast(__w_list*, call_args))
-	return result
-
 js_value* win_script_event_new(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	js_runtime* rt = cast(js_runtime*, runtime)
 	win_script* script = cast(win_script*, context)
@@ -1562,13 +1527,7 @@ void win_script_web_install(win_script* script, js_value* window):
 	event_constructor.host_construct = 2
 	js_runtime_set(rt, rt.global, c"Event", event_constructor)
 	js_runtime_set(rt, window, c"Event", event_constructor)
-	js_runtime_bind(rt, c"__winSearchGet", win_script_search_get)
-	char* source = c"function __winSearchObject(query){return {get:function(name){return __winSearchGet(query,name);}};}"
-	win_script_result(script, js_runtime_eval(rt, source, strlen(source), script.execution_budget))
-	js_value* constructor = js_runtime_host_callable(rt, script, win_script_search_new)
-	constructor.host_construct = 1
-	js_runtime_set(rt, rt.global, c"URLSearchParams", constructor)
-	js_runtime_set(rt, window, c"URLSearchParams", constructor)
+	script.search_params = win_search_new(rt, window)
 	js_value* computed = js_runtime_host_callable(rt, script, win_script_get_computed)
 	js_runtime_set(rt, rt.global, c"getComputedStyle", computed)
 	js_runtime_set(rt, window, c"getComputedStyle", computed)
@@ -2192,6 +2151,7 @@ void win_script_free(win_script* script):
 	win_modules_free(script.modules)
 	win_wasm_free(script.wasm)
 	win_abort_free(script.aborts)
+	win_search_free(script.search_params)
 	js_runtime_free(script.runtime)
 	free(script.error)
 	free(script)

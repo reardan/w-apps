@@ -8,6 +8,59 @@ commits on W's `codex/modern-browser-integration`. Those branches are preserved;
 the local main merge is recorded below. Remote publication has not occurred. The [roadmap](modern-browser-plan.md) also tracks remaining platform work;
 this implementation is bounded app support, not full browser conformance.
 
+## Mutable query parameters (2026-10-19)
+
+This application-only increment starts from `cf0be72ea835971ead89a753f170670aa3b05786`
+and retains W `79b5378f553db17303efdecc1506156891757260`. It replaces the
+string/get-only URLSearchParams shim with native parameter lists: string, copy,
+pair-array and plain-record construction; `size`, `get`, `getAll`, `has`,
+`append`, `set`, `delete`, `sort`, `toString`, and `forEach`. Query-driven routing
+and Fetch now work with duplicate filters, UTF-8 form encoding and live callbacks
+in native, isolated dump, and isolated interactive execution.
+
+Focused regressions cover duplicate ordering, optional value filters, malformed
+UTF-8, embedded NUL, surrogate replacement, stable UTF-16 sorting, borrowed-method
+receiver checks, conversion side effects, async callback retention/cancellation,
+GC, failed-constructor cleanup, and atomic quota/fuel refusals. A separate native
+ownership test passes with `W_DEBUG_ALLOC=1` and zero reported leaks. The larger
+script test exhausted this host's VMA quota under the guard allocator; that run
+is not passing memory-safety evidence. Its ordinary allocator run passes.
+
+Nine portable semantic groups also pass in Chromium 145.0.7632.6. The comparison
+caught the legacy null-constructor mismatch: null now becomes `"null"`, while
+omitted/undefined initialization stays empty. Node 20's null and mutable-pair
+constructor behavior differs, so Chromium is the recorded differential reference.
+These are authored regressions, not new imported WPT cases or a conformance
+percentage. The [JavaScript contract](javascript-compatibility.md) records exact
+bounds and the remaining `URL`, Symbol, general iterable and iterator-object gaps.
+
+Validation logs are under `win/bin/search-params-*.log`, with the reference page
+in `win/bin/search-params-reference.html`. `search-params-validation.json` records
+the tested working-tree source SHA-256 hashes against the baseline commits above;
+the copied Test262/WPT reports preserve the selected gate results.
+
+| Gate | Result |
+| --- | --- |
+| Full Win suite, Node 20.19.3 and dedicated Xvfb | Passed: 62 native test programs and all integrations/application/rendering acceptance |
+| Query routing + Fetch workflow | Passed in native, isolated dump and isolated interactive modes |
+| Focused native ownership under guard allocator | Passed, zero reported leaks |
+| Chromium 145.0.7632.6 differential | Nine authored semantic groups passed |
+| Selected Test262 gate | 110 PASS / 35 explicit UNSUPPORTED / zero FAIL or ERROR |
+| Native WPT rendering | 20 PASS / zero FAIL, UNSUPPORTED or ERROR |
+
+Reproduce the integrated gates with Node 20.19.3 on PATH:
+`xvfb-run -a ./win/build test` and `xvfb-run -a ./win/build standards`.
+The focused ownership command after building tests is
+`W_DEBUG_ALLOC=1 win/bin/search_params_ownership_test`.
+W sources and the dependency gitlink are unchanged; the W full suite was not
+rerun for this application-only increment.
+
+An initial full-suite run stopped at the existing interactive-worker crash test:
+its process-exit/socket-EOF race reported disconnected status 4 instead of exited
+status 3. Its focused rerun passed. The compiler dependency report confirms that
+this transport test imports neither changed browser source; no assertion or
+transport behavior was changed. The initial failure log is retained separately.
+
 ## Merge to main (2026-10-19)
 
 Both repositories are now on local `main`. The app was fast-forwarded through

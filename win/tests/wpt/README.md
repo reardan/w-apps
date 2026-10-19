@@ -177,9 +177,12 @@ completion snapshot remain ERROR. Reported exceptions without an original
 completion callback cannot become PASS. Counter types and relationships are
 validated strictly; protocol-1 driver output is rejected by the current adapter.
 
-The original three selected files still pass all eight subtests. A fresh full
-parent-family checkpoint after microtask reporting records 10 PASS, 23 mandatory
-UNSUPPORTED and 2 ERROR across all 35 items. The unchanged
+The original three selected files still pass all eight subtests. The first full
+parent-family checkpoint after microtask reporting recorded 10 PASS, 23 mandatory
+UNSUPPORTED and 2 ERROR across all 35 items. After computed property-key
+conversion enabled the original failure formatter, the fresh checkpoint records
+10 PASS, 1 FAIL, 23 UNSUPPORTED and 1 ERROR: both MutationObserver assertions
+are now reported as genuine failures rather than formatter execution errors. The unchanged
 `queue-microtask-exceptions.any.js` now passes with one raw exception, one
 reported exception and one original completion callback. MutationObserver
 delivery and string timer callbacks remain execution blockers. This is a

@@ -568,17 +568,7 @@ void win_browser_form_events(win_browser* b):
 		if (submitter == b.forms.submitter || win_script_dispatch(b.script, submitter, c"click")): win_browser_submit(b, submitter)
 
 html_node* win_browser_node_hit(win_page* page, float32 x, float32 y):
-	int i = page.runs.length - 1
-	while (i >= 0):
-		win_run* run = page.runs[i]
-		if (run.hidden == 0 && x >= run.x && x < run.x + run.width && y >= run.y && y < run.y + run.height): return run.node
-		i = i - 1
-	i = page.boxes.length - 1
-	while (i >= 0):
-		win_box* box = page.boxes[i]
-		if (box.hidden == 0 && x >= box.x && x < box.x + box.width && y >= box.y && y < box.y + box.height): return box.node
-		i = i - 1
-	return 0
+	return win_page_node_hit(page, x, y)
 
 html_node* win_browser_pointer_hit(win_browser* b, ui_rect viewport, int x, int y):
 	if (b.page == 0 || ui_rect_contains(viewport, cast(float32, x), cast(float32, y)) == 0): return 0

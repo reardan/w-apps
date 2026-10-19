@@ -50,6 +50,7 @@ int win_cssom_contains(char* name, int property):
 	return 0
 
 char* win_cssom_longhand(int property):
+	if (property == 41): return c"pointer-events"
 	if (property == 36): return c"position"
 	if (property == 37): return c"top"
 	if (property == 38): return c"right"
@@ -114,7 +115,7 @@ char* win_cssom_get(char* source, char* name, int priority):
 		win_css_custom_free(custom)
 		css_document_free(css)
 		return result
-	win_css_specified[41] winners
+	win_css_specified[42] winners
 	win_cssom_collect(css, &winners[0])
 	int[4] properties
 	int count = 0
@@ -220,7 +221,7 @@ char* win_cssom_edit(char* source, char* name, char* value, char* priority):
 			css_document_free(parsed)
 			return 0
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[41] winners
+	win_css_specified[42] winners
 	win_cssom_collect(css, &winners[0])
 	if (name != 0 && value[0] == 0 && win_css_property(name) >= 0):
 		win_css_specified* removed = &winners[win_css_property(name)]

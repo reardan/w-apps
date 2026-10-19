@@ -203,6 +203,8 @@ int win_web_computed_index(js_text* key):
 	if (js_runtime_key_is(key, c"paddingTop") || js_runtime_key_is(key, c"padding-top")): property = 2
 	if (js_runtime_key_is(key, c"paddingBottom") || js_runtime_key_is(key, c"padding-bottom")): property = 3
 	if (js_runtime_key_is(key, c"fontSize") || js_runtime_key_is(key, c"font-size")): property = 4
+	if (js_runtime_key_is(key, c"pointerEvents") || js_runtime_key_is(key, c"pointer-events")): property = 5
+	if (js_runtime_key_is(key, c"flexDirection") || js_runtime_key_is(key, c"flex-direction")): property = 6
 	return property
 
 js_value* win_web_computed_get(js_runtime* rt, win_page* page, html_node* node, js_text* key):
@@ -210,6 +212,15 @@ js_value* win_web_computed_get(js_runtime* rt, win_page* page, html_node* node, 
 	if (property < 0): return 0
 	win_style style
 	if (win_web_style(rt, page, node, &style) == 0): return rt.undefined_value
+	if (property == 5):
+		if (style.pointer_none): return win_web_string(rt, c"none")
+		return win_web_string(rt, c"auto")
+	if (property == 6):
+		if (style.flex_column):
+			if (style.flex_reverse): return win_web_string(rt, c"column-reverse")
+			return win_web_string(rt, c"column")
+		if (style.flex_reverse): return win_web_string(rt, c"row-reverse")
+		return win_web_string(rt, c"row")
 	float32 value = style.size
 	if (property == 0): value = style.padding_left
 	if (property == 1): value = style.padding_right

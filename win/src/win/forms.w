@@ -296,6 +296,15 @@ ui_theme win_form_theme(ui_theme theme, win_box* box):
 	if (box.author_paint & WIN_PAINT_BORDER): theme.border.a = 0.0
 	return theme
 
+# The DOM hit test also governs native widgets. In particular, excluding a
+# control from pointer targeting must not disable its keyboard input or paint.
+html_node* win_form_pointer_owner(win_page* page, float32 x, float32 y):
+	html_node* node = win_page_node_hit(page, x, y)
+	while (node != 0):
+		if (win_form_control(node)): return node
+		node = node.parent
+	return 0
+
 void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 	forms.clicked = 0
 	forms.changed = 0
@@ -324,6 +333,9 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 			kept = kept + 1
 	ctx.char_count = kept
 	int saved_id = ctx.next_id
+	html_node* pointer_owner = win_form_pointer_owner(forms.page, cast(float32, ctx.input.mouse_x) - x, cast(float32, ctx.input.mouse_y) - y)
+	html_node* press_owner = win_form_pointer_owner(forms.page, cast(float32, ctx.input.press_x) - x, cast(float32, ctx.input.press_y) - y)
+	html_node* wheel_owner = win_form_pointer_owner(forms.page, cast(float32, ctx.input.scroll_at_x) - x, cast(float32, ctx.input.scroll_at_y) - y)
 	for i in range(forms.page.boxes.length):
 		win_box* box = forms.page.boxes[i]
 		if (box.hidden): continue
@@ -332,6 +344,16 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 		html_node* node = c.node
 		char* type = win_form_type(node)
 		if (strcmp(type, c"hidden") == 0): continue
+		ui_input saved_input = ctx.input
+		if (pointer_owner != node):
+			ctx.input.mouse_x = -2000000
+			ctx.input.mouse_y = -2000000
+			ctx.input.mouse_released = 0
+		if (press_owner != node): ctx.input.mouse_pressed = 0
+		if (wheel_owner != node):
+			ctx.input.scroll_x = 0
+			ctx.input.scroll_y = 0
+			ctx.input.scroll_pixels_y = 0
 		ctx.next_id = c.id
 		ui_rect area = ui_rect_new(x + box.x, y + box.y, box.width, box.height)
 		ui_theme* previous_theme = ctx.theme
@@ -405,4 +427,9 @@ void win_forms_draw(win_forms* forms, ui_context* ctx, float32 x, float32 y):
 		ui_disable(ctx, 0)
 		ui_clip_pop(ctx.rndr)
 		ctx.theme = previous_theme
+		if (wheel_owner == node):
+			saved_input.scroll_x = ctx.input.scroll_x
+			saved_input.scroll_y = ctx.input.scroll_y
+			saved_input.scroll_pixels_y = ctx.input.scroll_pixels_y
+		ctx.input = saved_input
 	ctx.next_id = saved_id

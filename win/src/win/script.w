@@ -1614,6 +1614,16 @@ win_script* win_script_new(win_page* page):
 	script.wasm = win_wasm_install(script.runtime)
 	js_runtime_set(script.runtime, window, c"WebAssembly", js_runtime_get(script.runtime, script.runtime.global, c"WebAssembly"))
 	win_script_web_install(script, window)
+	# This product currently has one top-level browsing context. Alias the
+	# actual Window, then install the runtime object environment so exported
+	# Window properties and global identifiers share ordinary Get/Set semantics.
+	js_runtime_set(script.runtime, window, c"self", window)
+	js_runtime_set(script.runtime, window, c"parent", window)
+	js_runtime_set(script.runtime, window, c"top", window)
+	js_runtime_set(script.runtime, window, c"opener", js_runtime_alloc(script.runtime, 1))
+	if (js_runtime_set_global_object(script.runtime, window) == 0):
+		js_runtime_fail(script.runtime, 6, c"Window global object installation failed")
+		win_script_result(script, script.runtime.completion)
 	win_script_collect_nodes(script, page.html.root)
 	return script
 

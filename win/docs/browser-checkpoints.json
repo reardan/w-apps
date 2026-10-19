@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "note": "Correctness evidence and local implementation history. Not performance qualification or full standards completion. Build logs/artifacts are local ignored files; source and upstream hashes permit reproduction.",
+  "baseline": {
+    "app": "82f06c3720d0522396e2c59c119a1a4cb2a2ec1d",
+    "w": "79b5378f553db17303efdecc1506156891757260",
+    "classification": "fresh correctness run; concurrent load; timings not performance evidence",
+    "checks": [
+      {
+        "name": "w",
+        "command": [
+          "./wbuild",
+          "-j",
+          "4",
+          "tests"
+        ],
+        "cwd": "w",
+        "exit_code": 0,
+        "seconds": 423.4044246673584
+      },
+      {
+        "name": "win",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "test"
+        ],
+        "cwd": ".",
+        "exit_code": 1,
+        "seconds": 388.5289149284363
+      },
+      {
+        "name": "standards",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "standards"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 99.38244915008545
+      }
+    ]
+  },
+  "first_integration": {
+    "app": "ee390778498afc7e15a39fbf3936e866489368d2",
+    "w": "a9632a304a1fa3e308fe9745c10b374fd7d621ee",
+    "validation_state": "FAILED; preserved checkpoint, not a passing full suite",
+    "validation_artifacts": "win/bin/completion-wave1/checkpoint/",
+    "app_commits": [
+      "46c5b14ee7c726d26aa0f8cb31590e54982f84b0 Track browser completion families and freeze reproducible measurement inputs",
+      "8ffa923b102f62c5ed770980e0831bf3b2853c45 Pin CSS module inventory and record fresh baseline W checkpoint",
+      "3e631ad70c4a4614119dc78786cb106af2417bb8 Integrate W object reflection, host globals, async conformance and HTML fragments",
+      "a0712ec0591edce445171209c2c4f7f239ee0988 win: add DocumentFragment creation and atomic child splicing",
+      "6b7a8062ff481f7f5b2193cd9c921b7b65cec7ed win: retain and release native live collection owners",
+      "4b0ef39de2f25837ceb336769c7dddd6a1a94729 win: provide live tag-name HTML collections with bounded traversal",
+      "db9d11398d6d036f1044e88a3a3024fe06ea61ed win: add native asynchronous WPT driver and strict reports",
+      "334e63126bab905b19de4da98801c8676b993830 Resolve interactive worker EOF before exit without blocking parent polls",
+      "fe7d88db9477e95bc087702d4381ac09ae99644d Bind Window identity and host globals to the native runtime environment",
+      "76591299b3c609cb5c7fa1213a3b7ee93c66fd56 Register async harness integrity checks and strict upstream WPT command",
+      "ee390778498afc7e15a39fbf3936e866489368d2 Integrate traced primitive wrappers for Object reflection"
+    ],
+    "w_commits": [
+      "e5efa708ebc928d0a6dd3fcbf234239e05f9f04e javascript: add ordinary Object and Reflect descriptor operations",
+      "c248d06253073b00f3c9a6db68d8db75c90ad6a3 javascript: bind host global objects and preserve intrinsic error identity",
+      "547cdb3392972b50e96594086a4fc753959e67bf javascript: execute switch and delete and correct host reflection boundaries",
+      "e5232b2ee86b44ad46fd447ab7b15c6dedef8e50 test262: execute async jobs and audit complete pinned families",
+      "1ad0503739ce1d6a4df1f640904fd347a6e680fb test262: reject thrown callables in assert throws",
+      "1e2312a8d228911d0145b607354987adfb043629 html: add owned fragment contexts and plaintext tokenization",
+      "85d929dffd6e07988ba1347b0d581bdf37dcc129 html: preserve html-context fragment ownership and report full corpus outcomes",
+      "a9632a304a1fa3e308fe9745c10b374fd7d621ee javascript: implement primitive wrappers and Object coercion for reflection"
+    ],
+    "validation": {
+      "app": "ee390778498afc7e15a39fbf3936e866489368d2",
+      "w": "a9632a304a1fa3e308fe9745c10b374fd7d621ee",
+      "classification": "fresh integrated correctness checkpoint; not performance evidence",
+      "checks": [
+        {
+          "name": "w",
+          "command": [
+            "./wbuild",
+            "-j",
+            "4",
+            "tests"
+          ],
+          "cwd": "w",
+          "exit_code": 1,
+          "seconds": 1048.3083958625793
+        },
+        {
+          "name": "win",
+          "command": [
+            "xvfb-run",
+            "-a",
+            "./win/build",
+            "test"
+          ],
+          "cwd": ".",
+          "exit_code": 1,
+          "seconds": 128.68022298812866
+        },
+        {
+          "name": "standards",
+          "command": [
+            "xvfb-run",
+            "-a",
+            "./win/build",
+            "standards"
+          ],
+          "cwd": ".",
+          "exit_code": 1,
+          "seconds": 17.075225830078125
+        },
+        {
+          "name": "wpt-async",
+          "command": [
+            "./win/build",
+            "wpt-async"
+          ],
+          "cwd": ".",
+          "exit_code": 1,
+          "seconds": 18.33000636100769
+        }
+      ]
+    },
+    "failures": [
+      "W:120PASS/31UNSUPPORTED/0FAIL/0ERROR in Test262, but two newly passing variants required explicit baseline promotion; stopped with695of1613targets not attempted",
+      "Win:history_test rejected ordinary Object.prototype-backed objects after runtime integration; coordinator fix pending",
+      "standards: same Test262 promotion mismatch; later static rendering not reached",
+      "wpt-async:0PASS/3ERROR original harness bootstrap blockers,12negative supervisor contracts pass"
+    ]
+  },
+  "remaining": "All136mandatory ledger families remain open; current runtime/parser/DOM/network slices do not close the entire plan."
+}

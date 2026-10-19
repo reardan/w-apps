@@ -15,12 +15,15 @@ were copied, never hard-linked. No worker writes the coordinator checkout.
 | --- | --- | --- |
 | Coordinator | `/home/w/git/W/w-apps` | `win/main.w`, `win/build`, `win/src/win/{script,browser,app}.w`, documentation, gitlink, registration, `win/tests/browser_measurements*.py`, `win/tests/standards_ledger*.py` |
 | A | `/home/w/git/W/browser-workers/a` | `w/libs/extras/javascript/`, new object/global runtime tests under `w/tests/javascript/` |
-| B | `/home/w/git/W/browser-workers/b` | `w/libs/extras/html/`, `win/src/win/dom_tree.w`, `win/tests/dom_fragment_test.w` |
+| B → D | `/home/w/git/W/browser-workers/b` | Completed parser/DOM slice; now `w/libs/standard/web/{cookies,http_client}.w` and their tests, `win/src/win/{network_state,loader}.w`, `win/tests/network{_test.w,_integration.py}`, `win/tests/cookie_dates_test.w`, `win/tests/cookie-fixtures/` |
 | F | `/home/w/git/W/browser-workers/f` | `w/tools/test262_conformance.py`, `w/tools/test262_runtime_runner.w`, `w/tests/javascript/test262/{README.md,manifest.json,inventory.json}`, `w/tests/javascript/test262_runner_test.py`, `win/tests/wpt*` |
 
 The coordinator temporarily owns E's `win/src/win/interactive_worker.w` and
 `win/tests/interactive_worker_test.w` solely for the recorded exit/EOF race.
-`document.w`, rendering, network policy, graphics and platform modules are reserved
+B released HTML and DOM implementation ownership after app `8fb08cb`; the coordinator
+now maintains those integrated files. The D transfer includes only cookie parsing,
+state and separate HTTP Set-Cookie field transport, preserving existing security
+denials. `document.w`, rendering, other network policy, graphics and platform modules are reserved
 for their plan owners; they cannot be edited without an explicit transfer. A sends
 Test262 family requests to F. B sends script-host hooks to the coordinator. W
 commits land before dependent application changes. A separate agent reviews each
@@ -96,7 +99,11 @@ serialized isolated snapshots must not transfer native pointers.
 The existing same-origin broker restrictions remain enforced. A shared trusted
 policy service must decide origin, top-level site, credential mode, redirects,
 cache partition and capability admission before any external request. Opaque origins
-never collapse into a shared empty bucket. No `document.cookie` exposure before
+never collapse into a shared empty bucket. Set-Cookie fields retain original boundaries and order through the HTTP client and
+loader. The general merged-header API remains for existing callers; cookie parsing
+never reconstructs field boundaries from commas. Borrowed fields live until response
+teardown. Cookie metadata is bounded by the jar capacity and overall loader limits.
+No `document.cookie` exposure before
 HttpOnly/SameSite/PSL/partition rules are implemented and tested.
 
 Native byte ownership is length-delimited and preserves NUL. Consumption is

@@ -26,8 +26,11 @@ adds the complete 59-entry module-classification inventory from CSS Snapshot 202
 Fresh baseline W validation on the original dependency passed **1,606 targets**:
 `(cd w && env -u NO_COLOR ./wbuild -j 4 tests)` with Node 20.19.3. Raw log and
 machine-readable result: `win/bin/completion-baseline/{w.log,validation.json}`.
-Win and selected standards baseline checks are still running at this checkpoint.
-No later worker result is included in this baseline count.
+The original Win baseline command failed in `interactive_worker_test`: expected
+crash status 3, observed disconnect status 4. Later Win integrations were not reached.
+Selected standards passed (Test262 110 PASS / 35 UNSUPPORTED; static WPT 20 PASS).
+These are fresh commands at the original revisions, with W content-hash cache reuse;
+no later worker result is included and timings under load are not performance results.
 
 `python3 win/tests/browser_measurements.py freeze` copied unchanged host, current
 M1/M2 Wasm modules, workflow and graphics sources into
@@ -59,6 +62,34 @@ upstream harness again, integrate W commits before DOM/host/application commits,
 fix exit/EOF classification with deterministic native regression, register new
 checks, then run full integrated W, Win, standards and affected upstream families.
 Repeat idle preflight after builders stop; never substitute a loaded-host run.
+
+## Completion first integrated checkpoint (2026-10-19)
+
+Application `ee390778498afc7e15a39fbf3936e866489368d2`, W
+`a9632a304a1fa3e308fe9745c10b374fd7d621ee` integrate ordinary reflection,
+primitive wrappers, Window global binding, switch/delete, native async Test262,
+owned HTML fragments and live DOM collections. Local commit history and exact
+commands/results are in [checkpoint records](browser-checkpoints.json).
+
+This checkpoint **failed** and remains preserved in
+`win/bin/completion-wave1/checkpoint/`. W and standards stopped on two reviewed
+UNSUPPORTED-to-PASS Test262 promotions: 120 PASS / 31 UNSUPPORTED / 0 FAIL / 0 ERROR;
+695 of 1,613 W targets were not attempted. Win stopped in `history_test`: the
+bounded JSON-tree validator still rejected ordinary objects with the new intrinsic
+Object prototype. WPT's unchanged harness reported 0 PASS / 3 ERROR at the then
+missing runtime operations; 12 supervisor failure/timeout/protocol contracts passed.
+No full integrated PASS is claimed. The deterministic EOF race regression and
+Window identity/global/host tests passed focused checks and the latter passed this
+integrated Win run before the history failure.
+
+Next integration includes reviewed numeric keys, Math.pow, joining, remainder,
+mapped arguments, UTF-16 construction/search/splitting, original Test262 includes
+and metadata, collection allocation rollback, and the first Phase 2 cookie date,
+HttpOnly and original-field transport slices. History serialization must recognize
+ordinary intrinsic prototypes while rejecting unsupported custom/exotic values
+and serialization hooks. Timer registration clock/conversion/arguments/quota
+regressions pass against a staged coordinator module; full integrated rerun follows
+these changes. Every broader mandatory family stays open in the ledger.
 
 ## Mutable query parameters (2026-10-19)
 

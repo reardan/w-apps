@@ -4,7 +4,7 @@
     "app": "82f06c3720d0522396e2c59c119a1a4cb2a2ec1d",
     "w": "79b5378f553db17303efdecc1506156891757260"
   },
-  "scope": "Initial owned requirement-family ledger. Algorithm-level decomposition, complete suite inventory, CSS module expansion and applicability review remain mandatory blockers; no family is closed by selected passes.",
+  "scope": "Owned mandatory requirement-family ledger, with partial implementation evidence kept separate from closure. Algorithm-level normative review and applicable test/variant denominators remain mandatory blockers; no family is closed by selected passes.",
   "snapshots": "standards-snapshots.json",
   "suite_pins": {
     "test262": "2e0a56762801e275a9fdf96dc49d90ba0cddcf63",
@@ -51,11 +51,20 @@
         "F.test262-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/tests/javascript/runtime_object_reflection_test.w",
+        "w/tests/javascript/runtime_boxed_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Ordinary Object/Reflect descriptor and prototype operations with nonconfigurable invariants and receiver/exception ordering",
+        "Traced primitive wrappers; string UTF-16 own-index and length descriptors"
+      ],
+      "remaining_blockers": [
+        "Array descriptor mutation and general native exotic reflection remain incomplete",
+        "Full-family audit retains FAIL and UNSUPPORTED outcomes; later revisions require re-execution"
+      ]
     },
     {
       "id": "A.coercion",
@@ -654,11 +663,19 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/libs/extras/html/html_fragment_test.w",
+        "w/tests/html_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Separately owned context-sensitive fragment API, raw text/RCDATA/plaintext/noscript and html context"
+      ],
+      "remaining_blockers": [
+        "Table/select/template and foreign-content contexts explicitly unsupported",
+        "html5lib tests4.dat tree outputs9/9;1787cases not run and parse-error comparison unverified"
+      ]
     },
     {
       "id": "B.encoding",
@@ -798,11 +815,19 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "win/tests/dom_fragment_test.w",
+        "win/tests/dom_collection_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "DocumentFragment ordered atomic insertion preserves wrappers/listeners",
+        "Bounded live getElementsByTagName collections with detached-tree ownership and traversal limits"
+      ],
+      "remaining_blockers": [
+        "Full Web IDL/native prototypes, adoption, other live collections and general fragment operations remain incomplete"
+      ]
     },
     {
       "id": "B.mutation",
@@ -874,7 +899,10 @@
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "remaining_blockers": [
+        "HTML timer nesting/minimum-delay, string handlers and full Web IDL/event surface remain incomplete; clock/conversion/argument/rollback follow-up staged by coordinator"
+      ]
     },
     {
       "id": "B.forms",
@@ -1623,7 +1651,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1659,7 +1687,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1695,7 +1723,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1731,7 +1759,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1767,7 +1795,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1803,7 +1831,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1839,7 +1867,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1875,7 +1903,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1911,7 +1939,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -1947,7 +1975,7 @@
       "implementation_paths": [
         "win/src/win/fetch.w",
         "win/src/win/loader.w",
-        "win/src/win/network.w",
+        "win/src/win/network_state.w",
         "w/libs/"
       ],
       "dependencies": [],
@@ -2140,11 +2168,17 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "win/tests/interactive_worker_test.w"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Nonblocking closing state distinguishes EOF from process exit, with bounded live-disconnect grace"
+      ],
+      "remaining_blockers": [
+        "Integrated suite must confirm regression; other isolation/product gaps remain mandatory"
+      ]
     },
     {
       "id": "E.runtime-performance",
@@ -2515,11 +2549,18 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "w/tests/javascript/test262_runner_test.py"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Native async $DONE/Promise jobs with strict failure accounting and complete archive family audit"
+      ],
+      "remaining_blockers": [
+        "Original upstream harness/include mode is implemented in worker, pending integration",
+        "Realms, modules and complete applicable variant execution remain incomplete"
+      ]
     },
     {
       "id": "F.wpt-harness",
@@ -2554,11 +2595,18 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "win/tests/wpt_testharness_test.py"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Real native Win script/timer execution with explicit JSON completion and strict supervisor failures"
+      ],
+      "remaining_blockers": [
+        "Original upstream testharness bootstrap still exposes missing runtime builtins",
+        "HTTP/TLS resources, variants, dynamic reftests and product adapter remain incomplete"
+      ]
     },
     {
       "id": "F.wpt-product",
@@ -2624,11 +2672,18 @@
         "F.wpt-harness"
       ],
       "negative_tests": [
-        "Required adversarial/error/lifecycle family; review pending"
+        "win/tests/browser_measurements_test.py"
       ],
       "performance_fixture": "unchanged M1/M2/M3, applicable execution profiles",
       "status": "mandatory-open",
-      "closure_evidence": []
+      "closure_evidence": [],
+      "implemented_slices": [
+        "Immutable benchmark artifact copy/hashes, provenance, idle contention refusal and raw percentile summaries"
+      ],
+      "remaining_blockers": [
+        "Host busy with independent builds; no fresh idle latency results",
+        "Presentation/vsync, required sample counts and real GPU qualification missing"
+      ]
     },
     {
       "id": "F.qualification",
@@ -5837,5 +5892,120 @@
     "vsync_period_ms": null,
     "presentation_tolerance_ms": null
   },
-  "css_inventory_note": "All specification entries in CSS Snapshot 2024 module classification are retained mandatory pending applicability/supersession review. No unsupported module silently excluded."
+  "css_inventory_note": "All specification entries in CSS Snapshot 2024 module classification are retained mandatory pending applicability/supersession review. No unsupported module silently excluded.",
+  "implementation_evidence": [
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/test262-object-families.json",
+      "sha256": "b17400c3c26e71e87a42db720efc2f89e65a55572b720b2aa0585baa39962b66",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:04:03.876045+00:00",
+        "w_revision": "a38aca9dbfc6d1884e0e250d37bd0ce419179285",
+        "application_revision": "82f06c3720d0522396e2c59c119a1a4cb2a2ec1d",
+        "runner_sha256": "8c95c3cb5d96d3a8e3efb3ea613e4e96e017d103c93b6d25e42802a3e0c7d40a",
+        "kind": "fresh-execution"
+      },
+      "profile": "native-assertions-async-v2",
+      "families": [
+        "test/built-ins/Object/create/",
+        "test/built-ins/Object/getOwnPropertyDescriptor/",
+        "test/built-ins/Reflect/get/",
+        "test/built-ins/Reflect/set/"
+      ],
+      "counts": {
+        "PASS": 695,
+        "FAIL": 315,
+        "UNSUPPORTED": 308,
+        "ERROR": 0
+      },
+      "variants": 1318,
+      "classification": "fresh worker execution at recorded revisions; superseded by later implementation, not current integrated qualification",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/test262-object-is.json",
+      "sha256": "1163fc29c2e83ff11bc73991d80bfff98ac1c38d521f6dc0e31d01203cd73456",
+      "source_evidence": {
+        "recorded_at_utc": "2026-10-19T20:05:55.268496+00:00",
+        "w_revision": "a38aca9dbfc6d1884e0e250d37bd0ce419179285",
+        "application_revision": "82f06c3720d0522396e2c59c119a1a4cb2a2ec1d",
+        "runner_sha256": "8c95c3cb5d96d3a8e3efb3ea613e4e96e017d103c93b6d25e42802a3e0c7d40a",
+        "kind": "fresh-execution"
+      },
+      "profile": "native-assertions-async-v2",
+      "families": [
+        "test/built-ins/Object/is/"
+      ],
+      "counts": {
+        "PASS": 24,
+        "FAIL": 0,
+        "UNSUPPORTED": 18,
+        "ERROR": 0
+      },
+      "variants": 42,
+      "classification": "fresh worker execution at recorded revisions; superseded by later implementation, not current integrated qualification",
+      "closure": false
+    },
+    {
+      "artifact": "win/bin/completion-wave1/f-conformance/wpt-testharness.json",
+      "sha256": "6799ea4704e1914eb9ad0fe6778e459f2ef928e570082e0a30d918e31dd1c43b",
+      "source_evidence": null,
+      "profile": "native-window-script-testharness-v1",
+      "families": null,
+      "counts": {
+        "PASS": 0,
+        "FAIL": 0,
+        "UNSUPPORTED": 0,
+        "ERROR": 3
+      },
+      "variants": null,
+      "classification": "fresh worker execution at recorded revisions; superseded by later implementation, not current integrated qualification",
+      "closure": false
+    }
+  ],
+  "fresh_baseline": {
+    "app": "82f06c3720d0522396e2c59c119a1a4cb2a2ec1d",
+    "w": "79b5378f553db17303efdecc1506156891757260",
+    "classification": "fresh correctness run; concurrent load; timings not performance evidence",
+    "checks": [
+      {
+        "name": "w",
+        "command": [
+          "./wbuild",
+          "-j",
+          "4",
+          "tests"
+        ],
+        "cwd": "w",
+        "exit_code": 0,
+        "seconds": 423.4044246673584
+      },
+      {
+        "name": "win",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "test"
+        ],
+        "cwd": ".",
+        "exit_code": 1,
+        "seconds": 388.5289149284363
+      },
+      {
+        "name": "standards",
+        "command": [
+          "xvfb-run",
+          "-a",
+          "./win/build",
+          "standards"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "seconds": 99.38244915008545
+      }
+    ],
+    "log_directory": "win/bin/completion-baseline/",
+    "failure": "Win interactive_worker_test expected crash status 3, observed disconnect status 4; full Win command stopped before later integrations. Fixed later in app334e631, not retroactively a baseline PASS.",
+    "cache_note": "W full command passed 1606 targets with content-hash cache reuse; not every test was newly executed."
+  }
 }

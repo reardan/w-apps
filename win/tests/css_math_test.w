@@ -5,7 +5,7 @@ import win.cssom
 
 win_style math_style(char* source):
 	css_document* css = css_parse_declarations_n(source, strlen(source), 0)
-	win_css_specified[41] winners
+	win_css_specified[42] winners
 	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	for i in range(css.nodes.length):
 		css_node* d = css.nodes[i]

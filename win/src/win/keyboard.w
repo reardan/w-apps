@@ -1,5 +1,6 @@
 # Ordered native key/default-edit tasks share the DOM dispatcher and editor.
 import win.input
+import win.keyboard_focus
 
 int win_keyboard_dispatch(win_script* script, html_node* node, win_keyboard_packet* packet):
 	if (node == 0): return 1
@@ -235,8 +236,11 @@ void win_keyboard_edit(win_script* script, win_forms* forms, ui_context* ctx, gf
 
 void win_keyboard_record(win_script* script, win_forms* forms, ui_context* ctx, win_native_input* input, int index):
 	gfx_event* event = &input.events[index]
-	html_node* target = script.active_focus
-	if (target == 0 || (ctx.focus > 0 && ctx.focus < 1000)): return
+	if (ctx.focus > 0 && ctx.focus < 1000):
+		if (win_keyboard_tab(script, forms, ctx, event)): win_keyboard_remove_default(ctx, event)
+		return
+	html_node* target = win_script_active_element(script)
+	if (target == 0): target = script.page.html.root
 	if (win_pointer_connected(script.page, target) == 0): return
 	if (event.kind == GFX_EVENT_KEY_DOWN || event.kind == GFX_EVENT_KEY_UP):
 		win_keyboard_key(script, input, index, target)
@@ -244,4 +248,5 @@ void win_keyboard_record(win_script* script, win_forms* forms, ui_context* ctx, 
 		win_keyboard_preedit(script, ctx, input, index)
 	else if (event.kind == GFX_EVENT_CHAR || event.kind == GFX_EVENT_NAV):
 		if (script.keyboard.suppress_default): win_keyboard_remove_default(ctx, event)
+		else if (win_keyboard_tab(script, forms, ctx, event)): win_keyboard_remove_default(ctx, event)
 		else if (forms != 0): win_keyboard_edit(script, forms, ctx, event, target)

@@ -10,7 +10,20 @@ int win_focus_explicit_index(html_node* node):
 	return text[at] >= '0' && text[at] <= '9'
 
 int win_focus_tab_index(html_node* node):
-	if (win_focus_explicit_index(node)): return atoi(win_attr(node, c"tabindex"))
+	if (win_focus_explicit_index(node)):
+		char* text = win_attr(node, c"tabindex")
+		int at = 0
+		while (html_space(text[at])): at = at + 1
+		int negative = text[at] == '-'
+		if (text[at] == '+' || text[at] == '-'): at = at + 1
+		int value = 0
+		while (text[at] >= '0' && text[at] <= '9'):
+			int digit = text[at] - '0'
+			if (value > 214748364 || value == 214748364 && digit > 7): value = 2147483647
+			else: value = value * 10 + digit
+			at = at + 1
+		if (negative): value = 0 - value
+		return value
 	if (win_form_control(node) && css_ascii_equal(win_form_type(node), c"hidden") == 0): return 0
 	if (win_tag(node, c"a") && win_form_has(node, c"href")): return 0
 	return 0 - 1
@@ -19,14 +32,24 @@ int win_focus_eligible(win_page* page, html_node* node):
 	if (node == 0 || node.kind != HTML_START || win_pointer_connected(page, node) == 0): return 0
 	if (win_form_control(node) && (win_form_disabled(node) || css_ascii_equal(win_form_type(node), c"hidden"))): return 0
 	if (win_focus_tab_index(node) < 0 && win_focus_explicit_index(node) == 0): return 0
-	# Check ancestors too: display:none removes the whole descendant subtree.
+	# Compute inherited visibility from root to target. A visible descendant
+	# can override visibility:hidden; display:none removes its whole subtree.
+	list[html_node*] ancestors = new list[html_node*]
 	html_node* ancestor = node
-	for i in range(128):
-		if (ancestor == 0 || ancestor == page.html.root): return 1
-		win_style style = win_node_style(page, ancestor, win_default_style())
-		if (style.display == 0 || style.hidden): return 0
+	while (ancestor != 0 && ancestor != page.html.root && ancestors.length < 128):
+		ancestors.push(ancestor)
 		ancestor = ancestor.parent
-	return 0
+	int eligible = ancestor == page.html.root
+	win_style style = win_default_style()
+	int i = ancestors.length - 1
+	while (i >= 0 && eligible):
+		ancestor = ancestors[i]
+		if (win_layout_skipped(ancestor)): eligible = 0
+		style = win_node_style(page, ancestor, style)
+		if (style.display == 0): eligible = 0
+		i = i - 1
+	__w_list_free(cast(__w_list*, ancestors))
+	return eligible && style.hidden == 0
 
 html_node* win_focus_fallback(win_page* page):
 	html_node* root = 0

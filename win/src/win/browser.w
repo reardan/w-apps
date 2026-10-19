@@ -52,6 +52,8 @@ struct win_browser:
 	int restore_history
 	float32 restore_scroll
 	char* new_tab
+	char* keyboard_href
+	int keyboard_new_tab
 	win_load* load
 	char* executable
 	char* home
@@ -115,6 +117,8 @@ void win_browser_init(win_browser* b, char* executable, char* home):
 	b.restore_history = 0
 	b.restore_scroll = 0.0
 	b.new_tab = 0
+	b.keyboard_href = 0
+	b.keyboard_new_tab = 0
 	b.load = 0
 	b.executable = strclone(executable)
 	b.home = strclone(home)
@@ -138,6 +142,7 @@ void win_browser_free(win_browser* b):
 	free(b.interactive_html)
 	win_load_free(b.load)
 	free(b.new_tab)
+	free(b.keyboard_href)
 	if (b.script != 0): js_runtime_async_cancel(b.script.runtime)
 	win_fetch_free(b.fetches)
 	win_script_free(b.script)
@@ -159,6 +164,8 @@ void win_browser_free(win_browser* b):
 	free(b.status)
 
 void win_stop(win_browser* b):
+	free(b.keyboard_href)
+	b.keyboard_href = 0
 	b.history_pop_pending = 0
 	while (b.traversals.length > 0): b.traversals.pop()
 	win_script_pointer_cancel(b.script)
@@ -577,6 +584,30 @@ html_node* win_browser_pointer_hit(win_browser* b, ui_rect viewport, int x, int 
 	if (node == 0): node = b.page.html.root
 	return node
 
+# Link activation follows the ordered key task, including cancelable click.
+# Navigation waits until the frame finishes so it cannot free this input queue.
+void win_browser_keyboard_link(win_browser* b, ui_context* ctx, gfx_event* event):
+	if (event.kind != GFX_EVENT_CHAR || (event.code != 13 && event.code != 10) || (event.mods & GFX_MOD_ALT)): return
+	if (b.script.keyboard.suppress_default || ctx.focus > 0 && ctx.focus < 1000): return
+	html_node* node = b.script.active_focus
+	if (win_tag(node, c"a") == 0 || win_form_has(node, c"href") == 0): return
+	win_keyboard_remove_default(ctx, event)
+	if (win_script_dispatch(b.script, node, c"click") == 0 || win_pointer_connected(b.page, node) == 0 || win_form_has(node, c"href") == 0): return
+	free(b.keyboard_href)
+	b.keyboard_href = strclone(win_attr(node, c"href"))
+	b.keyboard_new_tab = (event.mods & (GFX_MOD_CTRL | GFX_MOD_SUPER)) != 0 || strcmp(win_attr(node, c"target"), c"_blank") == 0
+
+void win_browser_keyboard_navigate(win_browser* b):
+	char* reference = b.keyboard_href
+	if (reference == 0): return
+	b.keyboard_href = 0
+	if (b.keyboard_new_tab):
+		free(b.new_tab)
+		b.new_tab = reference
+	else:
+		win_navigate(b, reference, win_browser_base(b), -1)
+		free(reference)
+
 void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport):
 	if (b.isolated):
 		win_browser_interactive_input(b, ctx, viewport)
@@ -606,6 +637,7 @@ void win_browser_pointer_frame(win_browser* b, ui_context* ctx, ui_rect viewport
 		if (kind == GFX_EVENT_POINTER_CANCEL): win_keyboard_cancel(b.script)
 		if (kind == GFX_EVENT_KEY_DOWN || kind == GFX_EVENT_KEY_UP || kind == GFX_EVENT_CHAR || kind == GFX_EVENT_NAV || kind == GFX_EVENT_PREEDIT_BEGIN || kind == GFX_EVENT_PREEDIT_TEXT || kind == GFX_EVENT_PREEDIT_END):
 			win_keyboard_record(b.script, b.forms, ctx, &b.native_input, i)
+			win_browser_keyboard_link(b, ctx, event)
 			if (b.script.runtime.completion.status == 5):
 				win_keyboard_cancel(b.script)
 				win_native_clear(&b.native_input)
@@ -656,7 +688,7 @@ void win_browser_focus_scroll(win_browser* b, ui_rect viewport):
 	else:
 		for i in range(b.page.runs.length):
 			win_run* run = b.page.runs[i]
-			if (run.node == node):
+			if (run.hidden == 0 && win_focus_contains(node, run.node)):
 				if (run.fixed): return
 				top = run.y
 				height = run.height
@@ -734,6 +766,29 @@ void win_browser_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float3
 		else if (run.image != 0): win_image_draw(ctx.rndr, run.image, ui_rect_new(viewport.x + run.x, y, run.width, run.height))
 		else: ui_draw_text_strike(ctx.rndr, viewport.x + run.x, y, run.text, run.strike, run.flags, win_paint_color(run.color))
 
+# Both the live DOM and isolated snapshot expose the same node identity.
+void win_browser_focus_paint(win_browser* b, ui_context* ctx, ui_rect viewport, float32 y_offset):
+	if (b.page == 0 || ctx.focus > 0 && ctx.focus < 1000): return
+	html_node* focused = 0
+	if (b.script != 0): focused = b.script.active_focus
+	else if (b.isolated && b.interactive != 0 && b.interactive.focus_node > 0):
+		html_node* node = b.page.html.allocations
+		while (node != 0):
+			if (atoi(win_attr(node, c"data-win-node")) == b.interactive.focus_node):
+				focused = node
+				break
+			node = node.allocation_next
+	if (focused == 0): return
+	ui_clip_push(ctx.rndr, viewport)
+	win_box* box = win_page_node_box(b.page, focused)
+	if (box != 0 && box.hidden == 0):
+		win_focus_ring(ctx.rndr, ui_rect_new(viewport.x + box.x, y_offset + box.y, box.width, box.height), ctx.theme.focus)
+	else:
+		for win_run* run in b.page.runs:
+			if (run.hidden == 0 && win_focus_contains(focused, run.node)):
+				win_focus_ring(ctx.rndr, ui_rect_new(viewport.x + run.x, y_offset + run.y, run.width, run.height), ctx.theme.focus)
+	ui_clip_pop(ctx.rndr)
+
 void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	if (width < 360 || height < 240):
 		ui_draw_text(ctx.rndr, 12.0, 12.0, c"Enlarge the window to browse", 2, ctx.theme.text)
@@ -801,6 +856,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 					if (link[0] != 0): activate = strclone(link)
 		if (b.isolated == 0): win_input_before(b.script, b.forms, ctx)
 		win_forms_draw(b.forms, ctx, viewport.x, y_offset)
+		win_browser_focus_paint(b, ctx, viewport, y_offset)
 		if (b.isolated == 0): win_input_after(b.script, b.forms, ctx)
 		ui_scroll_end(ctx, &b.scroll)
 		win_browser_sync_viewport(b)
@@ -813,6 +869,7 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 	ui_draw_text(ctx.rndr, 18.0, h - 29.0, b.status, 2, ctx.theme.text_muted)
 	ui_clip_pop(ctx.rndr)
 	win_browser_form_events(b)
+	win_browser_keyboard_navigate(b)
 	if (b.isolated):
 		if (click_target != 0): win_browser_interactive_event(b, click_target, 2, c"")
 		free(activate)

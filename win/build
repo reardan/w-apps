@@ -10,8 +10,8 @@ if [[ ! -x "$w_root/wbuild" ]]; then
   exit 1
 fi
 case "$action" in
-  build|run|check|test|standards) ;;
-  *) echo 'Usage: win/build [build|run|check|test|standards] [browser arguments]' >&2; exit 2 ;;
+  build|run|check|test|standards|wpt-async) ;;
+  *) echo 'Usage: win/build [build|run|check|test|standards|wpt-async] [browser arguments]' >&2; exit 2 ;;
 esac
 (cd "$w_root" && ./wbuild build javascript_parser)
 mkdir -p "$win_root/bin"
@@ -22,6 +22,18 @@ if [[ "$action" == check ]]; then exit 0; fi
 "${compiler[@]}" --strict "${imports[@]}" "$win_root/main.w" -o "$win_root/bin/win"
 if [[ "$action" == run ]]; then
   exec "$win_root/bin/win" --home "$win_root/fixtures/start.html" "$@"
+fi
+if [[ "$action" == test || "$action" == standards || "$action" == wpt-async ]]; then
+  python3 "$win_root/tests/standards_ledger.py"
+  python3 "$win_root/tests/browser_measurements_test.py"
+  "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/wpt_driver.w"
+  "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/wpt_driver.w" -o "$win_root/bin/wpt_driver"
+  python3 "$win_root/tests/wpt_testharness_test.py"
+fi
+# Strict experimental upstream gate: original harness failures stay nonzero.
+# The existing selected standards profile remains separately reproducible.
+if [[ "$action" == wpt-async ]]; then
+  python3 "$win_root/tests/wpt_testharness.py" --json "$win_root/bin/wpt-testharness.json"
 fi
 if [[ "$action" == test ]]; then
   for source in "$win_root"/tests/*_test.w; do

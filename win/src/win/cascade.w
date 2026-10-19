@@ -145,7 +145,8 @@ int win_css_longhand_valid(int property, css_document* css, int first, int last)
 	if (property == 23): return win_css_ident(token, c"visible") || win_css_ident(token, c"hidden") || win_css_ident(token, c"collapse")
 	if (property == 33): return win_css_ident(token, c"nowrap") || win_css_ident(token, c"wrap")
 	if (property == 34 || property == 35): return win_css_ident(token, c"stretch") || win_css_ident(token, c"flex-start") || win_css_ident(token, c"flex-end") || win_css_ident(token, c"center") || property == 35 && win_css_ident(token, c"auto")
-	if (property == 25): return win_css_ident(token, c"row") || win_css_ident(token, c"column")
+	if (property == 41): return win_css_ident(token, c"auto") || win_css_ident(token, c"none")
+	if (property == 25): return win_css_ident(token, c"row") || win_css_ident(token, c"column") || win_css_ident(token, c"row-reverse") || win_css_ident(token, c"column-reverse")
 	if (property == 27): return win_css_ident(token, c"normal") || n.value >= 0.0 && (length || n.unit == 1 || n.unit == 5)
 	if (property == 32): return win_css_ident(token, c"flex-start") || win_css_ident(token, c"flex-end") || win_css_ident(token, c"center") || win_css_ident(token, c"space-between") || win_css_ident(token, c"space-around") || win_css_ident(token, c"space-evenly")
 	if (property == 29 || property == 30): return n.unit == 1 && n.value >= 0.0
@@ -320,7 +321,7 @@ list[css_document*] win_css_pending(win_css_specified* winners, list[win_css_cus
 		string_free(text)
 		documents.push(css)
 		if (css.failed || css.nodes.length != 1): continue
-		win_css_specified[41] resolved
+		win_css_specified[42] resolved
 		for i in range(WIN_CSS_PROPERTY_COUNT): resolved[i].present = 0
 		if (win_css_collect(css, css.nodes[0], slot.key, &resolved[0]) && resolved[p].present && resolved[p].pending == 0): slot[0] = resolved[p]
 	return documents
@@ -329,7 +330,7 @@ int win_css_declaration_supported(css_document* css, css_node* declaration):
 	return win_css_collect(css, declaration, win_cascade_author(0, 0, win_specificity_zero(), 0), 0)
 
 int win_css_inherited(int property):
-	return property == 0 || property == 1 || property == 2 || property == 3 || property == 6 || property == 7 || property == 23 || property == 27
+	return property == 0 || property == 1 || property == 2 || property == 3 || property == 6 || property == 7 || property == 23 || property == 27 || property == 41
 
 void win_css_copy(win_style* s, win_style from, int property):
 	if (property == 36): s.position = from.position
@@ -369,12 +370,15 @@ void win_css_copy(win_style* s, win_style from, int property):
 		s.border_color = from.border_color
 		s.border_current_color = from.border_current_color
 	if (property == 22): s.box_sizing = from.box_sizing
+	if (property == 41): s.pointer_none = from.pointer_none
 	if (property == 23): s.hidden = from.hidden
 	if (property == 24): s.gap = from.gap
 	if (property == 33): s.flex_wrap = from.flex_wrap
 	if (property == 34): s.align_items = from.align_items
 	if (property == 35): s.align_self = from.align_self
-	if (property == 25): s.flex_column = from.flex_column
+	if (property == 25):
+		s.flex_column = from.flex_column
+		s.flex_reverse = from.flex_reverse
 	if (property == 26): s.columns = from.columns
 	if (property == 27):
 		s.line_height = from.line_height
@@ -522,7 +526,10 @@ void win_css_compute_value(win_css_specified* slot, int property, win_style* s, 
 		if (win_css_ident(token, c"center")): alignment = 3
 		if (property == 34): s.align_items = alignment
 		else: s.align_self = alignment
-	else if (property == 25): s.flex_column = win_css_ident(token, c"column")
+	else if (property == 41): s.pointer_none = win_css_ident(token, c"none")
+	else if (property == 25):
+		s.flex_column = win_css_ident(token, c"column") || win_css_ident(token, c"column-reverse")
+		s.flex_reverse = win_css_ident(token, c"row-reverse") || win_css_ident(token, c"column-reverse")
 	else if (property == 26): s.columns = win_css_grid_columns(css, slot.first, slot.last)
 	else if (property == 27):
 		s.line_height_factor = 0.0

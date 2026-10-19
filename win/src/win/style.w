@@ -7,7 +7,7 @@ import lib.fmath
 import win.selectors
 import win.css_values
 
-const int WIN_CSS_PROPERTY_COUNT = 41
+const int WIN_CSS_PROPERTY_COUNT = 42
 
 const int WIN_PAINT_BACKGROUND = 1
 const int WIN_PAINT_TEXT = 2
@@ -33,6 +33,7 @@ struct win_style:
 	int bold
 	int flags
 	int hidden
+	int pointer_none
 	int pre
 	int display
 	int align
@@ -59,6 +60,7 @@ struct win_style:
 	int border_current_color
 	float32 gap
 	int flex_column
+	int flex_reverse
 	int flex_wrap
 	# Cross alignment: 0 stretch, 1 start, 2 end, 3 center; self -1 auto.
 	int align_items
@@ -94,6 +96,7 @@ win_style win_default_style():
 	s.bold = 0
 	s.flags = 0
 	s.hidden = 0
+	s.pointer_none = 0
 	s.pre = 0
 	s.display = 2
 	s.align = 0
@@ -120,6 +123,7 @@ win_style win_default_style():
 	s.border_current_color = 1
 	s.gap = 0
 	s.flex_column = 0
+	s.flex_reverse = 0
 	s.flex_wrap = 0
 	s.align_items = 0
 	s.align_self = -1
@@ -232,6 +236,7 @@ int win_css_property(char* name):
 	if (css_ascii_equal(name, c"right")): return 38
 	if (css_ascii_equal(name, c"bottom")): return 39
 	if (css_ascii_equal(name, c"left")): return 40
+	if (css_ascii_equal(name, c"pointer-events")): return 41
 	return -1
 
 float32 win_css_color_clamp(float32 value):

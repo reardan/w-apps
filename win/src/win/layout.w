@@ -12,6 +12,8 @@ struct win_layout_item:
 	win_style style
 	win_intrinsic_size intrinsic
 	float32 main_size
+	float32 main_position
+	float32 main_extent
 	float32 content_height
 	float32 minimum
 	float32 maximum

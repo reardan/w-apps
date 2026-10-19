@@ -10,6 +10,7 @@ import lib.utf8
 struct win_run:
 	int fixed
 	int hidden
+	int pointer_none
 	html_node* node
 	win_image* image
 	char* text
@@ -32,6 +33,7 @@ struct win_box:
 	ui_color text_color
 	int fixed
 	int hidden
+	int pointer_none
 	html_node* node
 	float32 x
 	float32 y
@@ -244,7 +246,7 @@ list[win_css_custom*] win_node_custom(win_page* page, html_node* node):
 win_style win_computed_style(win_page* page, html_node* node, win_style style, win_style inherited):
 	style.viewport_width = cast(float32, page.viewport_width)
 	style.viewport_height = cast(float32, page.viewport_height)
-	win_css_specified[41] winners
+	win_css_specified[42] winners
 	for i in range(WIN_CSS_PROPERTY_COUNT): winners[i].present = 0
 	int order = 0
 	for i in range(page.stylesheets.length):
@@ -384,6 +386,7 @@ void win_word(win_page* page, char* word, win_style style, char* href):
 	win_run* run = new win_run()
 	run.fixed = page.fixed_context
 	run.hidden = style.hidden
+	run.pointer_none = style.pointer_none
 	run.node = page.layout_node
 	run.image = 0
 	run.text = strclone(word)
@@ -437,6 +440,7 @@ win_box* win_box_add(win_page* page, html_node* node, win_style style, float32 x
 	win_box* box = new win_box()
 	box.fixed = page.fixed_context
 	box.hidden = style.hidden
+	box.pointer_none = style.pointer_none
 	box.node = node
 	box.x = x
 	box.y = y
@@ -463,6 +467,7 @@ win_style win_node_style(win_page* page, html_node* node, win_style inherited):
 	style.pre = inherited.pre
 	style.align = inherited.align
 	style.hidden = inherited.hidden
+	style.pointer_none = inherited.pointer_none
 	int block = win_block(node) || win_tag(node, c"html") || win_tag(node, c"body") || win_tag(node, c"form") || win_tag(node, c"fieldset") || win_tag(node, c"table") || win_tag(node, c"tr") || win_tag(node, c"hr")
 	if (win_tag(node, c"h1") || win_tag(node, c"h2") || win_tag(node, c"h3") || win_tag(node, c"h4") || win_tag(node, c"h5") || win_tag(node, c"h6") || win_tag(node, c"ul") || win_tag(node, c"ol") || win_tag(node, c"blockquote") || win_tag(node, c"pre")):
 		style.margin_top = 10
@@ -832,6 +837,8 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 				page.y = cursor
 			page.right = page.left + outer_width
 			page.x = page.left
+			item.main_position = cursor
+			item.main_extent = outer_width
 			item.line_index = line_count
 			item.box_first = page.boxes.length
 			item.run_first = page.runs.length
@@ -852,7 +859,9 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 			item.run_end = page.runs.length
 			item.anchor_end = page.anchors.length
 			item.cross_size = page.y - line_top
-			if (vertical): item.cross_size = outer_width
+			if (vertical):
+				item.cross_size = outer_width
+				item.main_extent = page.y - cursor
 			if (item.cross_size > cross): cross = item.cross_size
 			if (vertical): cursor = page.y + spacing
 			else: cursor = cursor + outer_width + spacing
@@ -877,13 +886,24 @@ void win_layout_flex(win_page* page, html_node* node, win_style style, char* hre
 				if (free_cross > 0.0 && item.style.margin_left_auto):
 					offset = free_cross
 					if (item.style.margin_right_auto): offset = free_cross / 2.0
-			if (vertical): win_flex_translate(page, item, offset, main_offset + main_spacing * cast(float32, i))
+			float32 main_shift = main_offset + main_spacing * cast(float32, i)
+			if (style.flex_reverse):
+				float32 origin = left
+				float32 extent = available
+				if (vertical):
+					origin = top
+					extent = cursor - spacing - top
+					if (style.height >= 0.0): extent = win_box_content_height(style)
+				# Reflect the outer margin box; descendants retain their own
+				# orientation and DOM/paint order stays unchanged.
+				main_shift = 2.0 * origin + extent - 2.0 * item.main_position - item.main_extent - main_shift
+			if (vertical): win_flex_translate(page, item, offset, main_shift)
 			else:
 				if (alignment == 0 && item.anonymous == 0 && item.style.height < 0.0 && item.box_first < item.box_end):
 					win_box* box = page.boxes[item.box_first]
 					box.height = cross - item.style.margin_top - item.style.margin_bottom
 					if (box.height < win_box_vertical_extras(item.style)): box.height = win_box_vertical_extras(item.style)
-				win_flex_translate(page, item, 0.0, offset)
+				win_flex_translate(page, item, main_shift, offset)
 		__w_list_free(cast(__w_list*, line))
 		if (vertical): line_top = cursor
 		else: line_top = line_top + cross + style.gap
@@ -1006,6 +1026,7 @@ void win_layout_node_style(win_page* page, html_node* node, win_style style, cha
 			win_run* run = new win_run()
 			run.fixed = page.fixed_context
 			run.hidden = style.hidden
+			run.pointer_none = style.pointer_none
 			run.node = node
 			run.image = image
 			run.text = strclone(c"")
@@ -1273,10 +1294,26 @@ void win_page_layout(win_page* page, int width):
 		fixed = fixed + 1
 	win_page_set_scroll(page, scroll)
 
+# Follow the painter's reverse run/box order. pointer-events is inherited
+# during style computation, so descendants can explicitly restore auto.
+html_node* win_page_node_hit(win_page* page, float32 x, float32 y):
+	int i = page.runs.length - 1
+	while (i >= 0):
+		win_run* run = page.runs[i]
+		if (run.hidden == 0 && run.pointer_none == 0 && x >= run.x && x < run.x + run.width && y >= run.y && y < run.y + run.height): return run.node
+		i = i - 1
+	i = page.boxes.length - 1
+	while (i >= 0):
+		win_box* box = page.boxes[i]
+		if (box.hidden == 0 && box.pointer_none == 0 && x >= box.x && x < box.x + box.width && y >= box.y && y < box.y + box.height): return box.node
+		i = i - 1
+	return 0
+
 char* win_page_hit(win_page* page, float32 x, float32 y):
-	for i in range(page.runs.length):
-		win_run* r = page.runs[i]
-		if (r.hidden == 0 && r.href[0] != 0 && x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height): return r.href
+	html_node* node = win_page_node_hit(page, x, y)
+	while (node != 0):
+		if (win_tag(node, c"a") && win_attr(node, c"href")[0] != 0): return win_attr(node, c"href")
+		node = node.parent
 	return c""
 
 float32 win_page_anchor(win_page* page, char* id):

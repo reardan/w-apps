@@ -20,6 +20,7 @@ import lib.time
 import libs.extras.javascript.runtime
 
 struct win_dom_binding:
+	void* collections
 	js_value* child_nodes
 	int selection_revision
 	win_text_selection selection
@@ -2139,6 +2140,7 @@ void win_script_free(win_script* script):
 	free(script.address)
 	for i in range(script.bindings.length):
 		win_canvas_free(script.bindings[i].canvas)
+		win_dom_collections_free(script.bindings[i])
 		free(script.bindings[i])
 	for i in range(script.listeners.length):
 		free(script.listeners[i].event)

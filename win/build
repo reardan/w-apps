@@ -41,6 +41,7 @@ if [[ "$action" == standards || "$action" == cookie-upstream ]]; then
   "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/cookie_dates_test.w"
   "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/cookie_dates_test.w" -o "$win_root/bin/cookie_dates_test"
   "$win_root/bin/cookie_dates_test"
+  PYTHONDONTWRITEBYTECODE=1 python3 "$win_root/tests/cookie-fixtures/report_test.py"
   cookie_gate=http
   if [[ "$action" == cookie-upstream ]]; then cookie_gate=all; fi
   python3 "$win_root/tests/cookie-fixtures/run.py" "$win_root/bin/cookie_dates_test" --gate "$cookie_gate" --output "$win_root/bin/cookie-upstream.json"
@@ -52,6 +53,7 @@ if [[ "$action" == test ]]; then
     "${compiler[@]}" --strict "${imports[@]}" "$source" -o "$win_root/bin/$name"
     "$win_root/bin/$name" "$win_root/bin/win" "$win_root/fixtures/start.html"
   done
+  PYTHONDONTWRITEBYTECODE=1 python3 "$win_root/tests/cookie-fixtures/report_test.py"
   python3 "$win_root/tests/cookie-fixtures/run.py" "$win_root/bin/cookie_dates_test" --gate http --output "$win_root/bin/cookie-upstream.json"
   python3 "$win_root/tests/wpt_runner_test.py"
   for test in "$win_root"/tests/*integration.py; do

@@ -210,6 +210,7 @@ void win_abort_fire(win_abort_state* state, js_value* reason):
 	js_runtime* rt = state.context.runtime
 	if (reason.kind == 0):
 		reason = js_runtime_error_value(rt, c"The operation was aborted")
+		if (reason == rt.undefined_value && rt.completion.status == 0): js_runtime_fail(rt, 5, c"Abort reason allocation limit")
 		if (rt.completion.status != 0): return
 		js_runtime_set(rt, reason, c"name", win_web_string(rt, c"AbortError"))
 	if (rt.completion.status != 0): return

@@ -210,6 +210,14 @@ int main(int argc, char** argv):
 	assert_equal(0, state.aborted)
 	quota_unchanged(rt, roots, prototype)
 	rt.max_values = values
+	for cap in range(13, 25):
+		js_runtime_begin(rt, 100000)
+		rt.max_properties = cap
+		win_abort_fire(state, rt.undefined_value)
+		assert_equal(5, rt.completion.status)
+		assert_equal(0, state.aborted)
+		quota_unchanged(rt, roots, prototype)
+	rt.max_properties = properties
 	__w_list_free(cast(__w_list*, args))
 	# Teardown cannot remove the caller's independent sentinel root.
 	win_abort_free(script.aborts)

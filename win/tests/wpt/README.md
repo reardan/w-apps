@@ -142,3 +142,26 @@ or unexpanded files. Neither expansion is a conformance execution.
 Only the explicit inventory download uses the network. Archive and index hashes
 are pinned in the committed summaries. The GitHub recursive-tree API truncates
 both suites and is not a valid complete-suite denominator.
+
+## Complete asynchronous parent-family audit
+
+`async-family-manifest.json` contains every item from the pinned official WPT
+manifest under `html/webappapis/timers/` and
+`html/webappapis/microtask-queuing/`: 20 test source files, 35 declared items,
+and two separate support metadata files. All original source bytes are pinned.
+The native script host admits all 12 window-script items. Fifteen worker
+variants and eight HTML-document items remain mandatory UNSUPPORTED; they are
+retained individually in the denominator, including cross-realm/resource cases.
+
+```sh
+python3 win/tests/wpt_family_audit_test.py
+python3 win/tests/wpt_family_audit.py --json win/bin/wpt-family-audit.json
+```
+
+The audit has no favorable-file filter or expected-failure masking. It retains
+all statuses and separately reports admitted-item counts. Its strict exit status
+remains nonzero for any FAIL, ERROR or UNSUPPORTED. The four local contract tests
+verify accounting, malformed environment admission and missing-driver behavior;
+their synthetic executor results are not upstream WPT passes. Full Window,
+HTML/resource loading, worker and multi-origin execution remain implementation
+requirements beyond this script-host seam.

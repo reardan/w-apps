@@ -1,0 +1,368 @@
+{
+  "version": 1,
+  "upstream": {
+    "repository": "https://github.com/web-platform-tests/wpt",
+    "revision": "6d4552a8b1057e42a180119d70273f563e53a264"
+  },
+  "official_manifest_sha256": "f020a0faf3a2c9f94486767850f0ebd85e156d20eb2c3e4d8326b7143b73ef28",
+  "families": [
+    "html/webappapis/timers/",
+    "html/webappapis/microtask-queuing/"
+  ],
+  "files": {
+    "LICENSE.md": "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570",
+    "html/webappapis/microtask-queuing/WEB_FEATURES.yml": "2ef75537a3fd08d12107156347876d934a25803b5a2a38d7b4e3d560d2cfbe14",
+    "html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html": "508fc09f9a1e4e24a63f4a33b13346e36155e954ffc8413331c4d50c9ea5ae98",
+    "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js": "c2c7e9d955f49b61e832ebe25341e48aab91742526246aad213033b329d499bd",
+    "html/webappapis/microtask-queuing/queue-microtask.any.js": "715bcb23b288b8d00107e5ffdd2e451e28a4492580243d4bc8d91385386ae21e",
+    "html/webappapis/microtask-queuing/queue-microtask.window.js": "4a0f7a626ea5d3f21785f5dc30649430c5cf9cfcf2a016759eb41270500402e4",
+    "html/webappapis/timers/WEB_FEATURES.yml": "1b48946ad48ce3a0f4d732063663185a7d93768e97ca03f9bcfb6f0cf4a85f74",
+    "html/webappapis/timers/arguments.html": "a26427b54430eac87d25354a593c195525d563dff2b066dd1990b61c27cef2f8",
+    "html/webappapis/timers/clearinterval-from-callback.any.js": "c48db2297ad8796a98f4c0d12e0d4bf466ff599cbbb982065dcbd740490fb574",
+    "html/webappapis/timers/cleartimeout-clearinterval.any.js": "88249c3de681efa1db0c3a6ca39cdc74b657b052eeb96ca7d43b2971d5327985",
+    "html/webappapis/timers/errors.html": "bff611de25e698d080572f8ce61c3d148ede7711a545b24e1b5dbfb3b38bda5a",
+    "html/webappapis/timers/evil-spec-example.any.js": "5c062ad8966ff14146f4437aa44b3a038d47c5ce44baaa8f142d60479539867e",
+    "html/webappapis/timers/missing-timeout-setinterval.any.js": "5edf0f09d55cacd4ffa6e62696d3614d7fcd099627a56b4a9d00449633395da5",
+    "html/webappapis/timers/negative-setinterval.any.js": "cc6bba6aa3bffc42321a44380937b4b7fb97ad494dd3a6db919122372ddf1400",
+    "html/webappapis/timers/negative-settimeout.any.js": "8f8adbe6e0c94b801dd36ba9c8a484bdb7a3f2a1813aa5b19024d3fb04660e94",
+    "html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html": "359c1d4eb6074567a292647fe70ccc51f7fac796f494ac89c7f75963e808b878",
+    "html/webappapis/timers/setinterval-settimeout-clamping.any.js": "4b94600ee145a44c85b4b8c41bfd4f6b409638e43ef7d191d0869aa18b6f0f71",
+    "html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html": "1170cf9ee2fa9f6786e2b9df1bca624dd71b4174b8b27cc6276de55290445c53",
+    "html/webappapis/timers/settimeout-detached-iframe.html": "7e82617d6fd0d6a62b7cfb03d8a8b1bd47db71db181b14eea6fb569d3f221a53",
+    "html/webappapis/timers/settimeout-setinterval-handles.html": "419bfcc95d315e18a4c760b7dd0b5016258f8e064cb37bdfca111f37718d9ae3",
+    "html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html": "32c9514cdbf76af2f3666943f3710da9cb9177f78a48d44486138ce507d02771",
+    "html/webappapis/timers/type-long-setinterval.any.js": "e8b26e677d157340785e1275c012be94311944118a70b43318e995c48a07f4c9",
+    "html/webappapis/timers/type-long-settimeout.any.js": "32135939cf01765305e5dee33c5c3eef0783bacd41e7320080b1c763850e2e8e",
+    "resources/testharness.js": "7a108d7cfa98ac413ddb38f82fd509fb2037dfcc25ccf466567520cbb6bdf1fa"
+  },
+  "support_files": [
+    "html/webappapis/microtask-queuing/WEB_FEATURES.yml",
+    "html/webappapis/timers/WEB_FEATURES.yml"
+  ],
+  "cases": [
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.serviceworker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.sharedworker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.worker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask.any.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask.any.serviceworker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask.any.sharedworker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask.any.worker.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "global",
+            "window,worker"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/microtask-queuing/queue-microtask.window.html",
+      "source": "html/webappapis/microtask-queuing/queue-microtask.window.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/arguments.html",
+      "source": "html/webappapis/timers/arguments.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/clearinterval-from-callback.any.html",
+      "source": "html/webappapis/timers/clearinterval-from-callback.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/clearinterval-from-callback.any.worker.html",
+      "source": "html/webappapis/timers/clearinterval-from-callback.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/cleartimeout-clearinterval.any.html",
+      "source": "html/webappapis/timers/cleartimeout-clearinterval.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/cleartimeout-clearinterval.any.worker.html",
+      "source": "html/webappapis/timers/cleartimeout-clearinterval.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/errors.html",
+      "source": "html/webappapis/timers/errors.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/evil-spec-example.any.html",
+      "source": "html/webappapis/timers/evil-spec-example.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/evil-spec-example.any.worker.html",
+      "source": "html/webappapis/timers/evil-spec-example.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/missing-timeout-setinterval.any.html",
+      "source": "html/webappapis/timers/missing-timeout-setinterval.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/missing-timeout-setinterval.any.worker.html",
+      "source": "html/webappapis/timers/missing-timeout-setinterval.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/negative-setinterval.any.html",
+      "source": "html/webappapis/timers/negative-setinterval.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/negative-setinterval.any.worker.html",
+      "source": "html/webappapis/timers/negative-setinterval.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/negative-settimeout.any.html",
+      "source": "html/webappapis/timers/negative-settimeout.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/negative-settimeout.any.worker.html",
+      "source": "html/webappapis/timers/negative-settimeout.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html",
+      "source": "html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/setinterval-settimeout-clamping.any.html",
+      "source": "html/webappapis/timers/setinterval-settimeout-clamping.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {
+        "script_metadata": [
+          [
+            "title",
+            "setTimeout and setInterval sequencing is correct even with 0 timeout"
+          ],
+          [
+            "spec",
+            "https://html.spec.whatwg.org/#run-steps-after-a-timeout"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/timers/setinterval-settimeout-clamping.any.worker.html",
+      "source": "html/webappapis/timers/setinterval-settimeout-clamping.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {
+        "script_metadata": [
+          [
+            "title",
+            "setTimeout and setInterval sequencing is correct even with 0 timeout"
+          ],
+          [
+            "spec",
+            "https://html.spec.whatwg.org/#run-steps-after-a-timeout"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html",
+      "source": "html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/settimeout-detached-iframe.html",
+      "source": "html/webappapis/timers/settimeout-detached-iframe.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/settimeout-setinterval-handles.html",
+      "source": "html/webappapis/timers/settimeout-setinterval-handles.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html",
+      "source": "html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html",
+      "type": "testharness",
+      "environment": "html-document",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/type-long-setinterval.any.html",
+      "source": "html/webappapis/timers/type-long-setinterval.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/type-long-setinterval.any.worker.html",
+      "source": "html/webappapis/timers/type-long-setinterval.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/type-long-settimeout.any.html",
+      "source": "html/webappapis/timers/type-long-settimeout.any.js",
+      "type": "testharness",
+      "environment": "window-script",
+      "metadata": {}
+    },
+    {
+      "id": "html/webappapis/timers/type-long-settimeout.any.worker.html",
+      "source": "html/webappapis/timers/type-long-settimeout.any.js",
+      "type": "testharness",
+      "environment": "worker",
+      "metadata": {}
+    }
+  ],
+  "limitations": "Complete original manifest items for these parent families. Worker and HTML/resource execution remain mandatory unsupported. Window-script execution is a native host seam, not full product applicability."
+}

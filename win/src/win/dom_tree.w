@@ -97,7 +97,10 @@ int win_dom_tree_key(win_dom_binding* b, js_text* key):
 	if (js_runtime_key_is(key, c"ownerDocument")): return 7
 	if (js_runtime_key_is(key, c"childNodes")): return 8
 	if (js_runtime_key_is(key, c"nodeValue")): return 9
-	if (b.node.kind == HTML_TEXT && js_runtime_key_is(key, c"data")): return 10
+	if ((b.node.kind == HTML_TEXT || b.node.kind == HTML_PROCESSING_INSTRUCTION) && js_runtime_key_is(key, c"data")): return 10
+	if (b.node.kind == HTML_PROCESSING_INSTRUCTION):
+		if (js_runtime_key_is(key, c"textContent")): return 9
+		if (js_runtime_key_is(key, c"target")): return 16
 	if (b.node.kind == HTML_START):
 		if (js_runtime_key_is(key, c"localName")): return 11
 		if (js_runtime_key_is(key, c"namespaceURI")): return 12
@@ -141,16 +144,35 @@ js_value* win_dom_tree_get(win_dom_binding* b, js_text* key):
 		return win_script_wrap(script, script.page.html.root)
 	if (id == 8):
 		if (b.child_nodes == 0):
-			b.child_nodes = js_runtime_alloc(rt, 5)
-			js_runtime_root(rt, b.child_nodes)
-			js_runtime_set(rt, b.child_nodes, c"item", js_runtime_host_callable(rt, b, win_dom_children_item))
-			js_runtime_set_host_hooks(rt, b.child_nodes, b, win_dom_children_get, win_dom_children_set)
-			js_runtime_set_host_has(rt, b.child_nodes, win_dom_children_has)
+			js_value* children = js_runtime_alloc(rt, 5)
+			if (rt.completion.status != 0): return rt.undefined_value
+			js_runtime_root(rt, children)
+			js_value* item = js_runtime_host_callable(rt, b, win_dom_children_item)
+			if (rt.completion.status == 0):
+				js_text* name = js_runtime_key(c"item")
+				int defined = js_runtime_define_data(rt, children, name, item, 1, 1, 1)
+				if (defined == 0 && rt.completion.status == 0): js_runtime_fail(rt, 5, c"NodeList item property allocation failed")
+				js_text_free(name)
+			if (rt.completion.status != 0):
+				js_runtime_unroot(rt, children)
+				return rt.undefined_value
+			# Publish only complete unique owners; no prototype setter can retain it.
+			js_runtime_set_host_hooks(rt, children, b, win_dom_children_get, win_dom_children_set)
+			js_runtime_set_host_has(rt, children, win_dom_children_has)
+			b.child_nodes = children
 		return b.child_nodes
 	if (id == 9 || id == 10):
+		if (node.kind == HTML_PROCESSING_INSTRUCTION):
+			js_text* data = js_text_from_utf8(node.text, node.text_length)
+			if (data == 0):
+				js_runtime_fail(rt, 6, c"Processing instruction data requires scalar UTF-8")
+				return rt.undefined_value
+			js_value* result = js_runtime_string(rt, data)
+			js_text_free(data)
+			return result
 		if (node.kind == HTML_TEXT || node.kind == HTML_COMMENT): return win_js_string(rt, node.text)
 		return js_runtime_alloc(rt, 1)
-	if (id == 11): return win_js_string(rt, node.name)
+	if (id == 11 || id == 16): return win_js_string(rt, node.name)
 	if (id == 12): return win_js_string(rt, c"http://www.w3.org/1999/xhtml")
 	html_node* element = win_dom_document_element(script)
 	if (id == 13): return win_script_wrap(script, element)
@@ -177,9 +199,42 @@ char* win_dom_tree_text(js_runtime* rt, js_value* value):
 		return text
 	return win_js_text(value)
 
+# Processing-instruction data may contain NUL; never use C-string length for it.
+# Scalar UTF-8 and primitive conversion retain the existing bounded DOM contract.
+int win_dom_instruction_set(win_dom_binding* b, js_value* value, int nullable):
+	win_script* script = cast(win_script*, b.context)
+	js_runtime* rt = script.runtime
+	if (value.kind >= 5):
+		js_runtime_fail(rt, 6, c"DOM character data object coercion is unsupported")
+		return -1
+	int length = 0
+	char* text = 0
+	if (value.kind == 4): text = js_text_to_utf8(value.text, &length)
+	else:
+		text = win_js_text(value)
+		length = strlen(text)
+	if (text == 0):
+		js_runtime_fail(rt, 6, c"DOM character data requires scalar UTF-8")
+		return -1
+	if (nullable && value.kind == 1):
+		length = 0
+		text[0] = 0
+	if (length > 65536 || script.dom_bytes > 4194304 - length):
+		free(text)
+		js_runtime_fail(rt, 5, c"DOM character data allocation limit")
+		return -1
+	script.dom_bytes = script.dom_bytes + length
+	free(b.node.text)
+	b.node.text = text
+	b.node.text_length = length
+	script.dirty = 1
+	script.styles_dirty = 1
+	return 1
+
 int win_dom_tree_set(win_dom_binding* b, js_text* key, js_value* value):
 	int id = win_dom_tree_key(b, key)
 	if (id == 0): return 0
+	if ((id == 9 || id == 10) && b.node.kind == HTML_PROCESSING_INSTRUCTION): return win_dom_instruction_set(b, value, id == 9)
 	if ((id == 9 || id == 10) && b.node.kind == HTML_TEXT):
 		win_script* script = cast(win_script*, b.context)
 		char* text = win_dom_tree_text(script.runtime, value)
@@ -214,7 +269,7 @@ js_value* win_dom_tree_mutate(win_dom_binding* b, js_value* receiver, list[js_va
 			win_dom_tree_error(rt, c"NotFoundError", c"Node is not a child of the receiver")
 			return rt.undefined_value
 	else:
-		if ((parent.kind != HTML_START && parent.kind != HTML_FRAGMENT) || (child.kind != HTML_START && child.kind != HTML_TEXT && child.kind != HTML_FRAGMENT)):
+		if ((parent.kind != HTML_START && parent.kind != HTML_FRAGMENT) || (child.kind != HTML_START && child.kind != HTML_TEXT && child.kind != HTML_PROCESSING_INSTRUCTION && child.kind != HTML_FRAGMENT)):
 			win_dom_hierarchy_error(rt)
 			return rt.undefined_value
 		html_node* ancestor = parent
@@ -233,7 +288,7 @@ js_value* win_dom_tree_mutate(win_dom_binding* b, js_value* receiver, list[js_va
 			html_node* item = child.first_child
 			while (item != 0):
 				if (win_dom_tree_charge(rt, 1) == 0): return rt.undefined_value
-				if (item.kind != HTML_START && item.kind != HTML_TEXT):
+				if (item.kind != HTML_START && item.kind != HTML_TEXT && item.kind != HTML_PROCESSING_INSTRUCTION):
 					win_dom_hierarchy_error(rt)
 					return rt.undefined_value
 				win_dom_bounded_height(rt, item, 128 - depth)

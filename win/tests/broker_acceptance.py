@@ -27,6 +27,9 @@ compiler = os.environ.get('WIN_TEST_COMPILER', str(ROOT/'w/bin/wv2'))
 if ctypes.CDLL(None).syscall(444, 0, 0, 1) < 8:
     print('SKIP: Landlock ABI 8 is required for broker acceptance')
     raise SystemExit(0)
+display = ['xvfb-run', '-a'] if shutil.which('xvfb-run') else []
+if not display and not os.environ.get('DISPLAY'):
+    raise SystemExit('Broker graphics acceptance requires X11/OpenGL or xvfb-run')
 for name in ('isolated_mobile', 'isolated_workflow'):
     original = ROOT/f'win/tests/{name}_probe.w'
     generated = OUT/f'{name}_broker.w'
@@ -45,7 +48,7 @@ origin = f'http://127.0.0.1:{server.server_port}'
 report = {'landlock_abi': ctypes.CDLL(None).syscall(444, 0, 0, 1),
           'wasm_sha256': hashlib.sha256(WASM.read_bytes()).hexdigest(), 'checks': []}
 def run(arguments):
-    result = subprocess.run(['xvfb-run', '-a', *map(str, arguments)], capture_output=True,
+    result = subprocess.run([*display, *map(str, arguments)], capture_output=True,
                             text=True, timeout=240)
     if result.returncode:
         print(result.stdout, result.stderr)

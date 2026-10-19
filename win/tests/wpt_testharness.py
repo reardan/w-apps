@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -38,11 +39,15 @@ def strict_json(text):
 
 
 def evidence(driver):
+    try:
+        binary_hash, hash_error = hashlib.sha256(driver.read_bytes()).hexdigest(), None
+    except OSError as error:
+        binary_hash, hash_error = None, str(error)
     revisions = {}
     for name, directory in [('application_revision', ROOT), ('w_revision', ROOT / 'w')]:
         proc = subprocess.run(['git', '-C', str(directory), 'rev-parse', 'HEAD'], text=True, capture_output=True)
         revisions[name] = proc.stdout.strip() if proc.returncode == 0 else None
-    return {**revisions, 'driver_sha256': hashlib.sha256(driver.read_bytes()).hexdigest(),
+    return {**revisions, 'driver_sha256': binary_hash, 'driver_hash_error': hash_error,
             'recorded_at_utc': datetime.now(timezone.utc).isoformat(), 'kind': 'fresh-execution',
             'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             'driver_source_sha256': hashlib.sha256((ROOT / 'win/tests/wpt_driver.w').read_bytes()).hexdigest()}
@@ -85,25 +90,28 @@ def classify(report):
 def execute(driver, sources, timeout=10):
     try:
         proc = subprocess.run([str(driver), str(max(1, int(timeout * 1000))), *map(str, sources)],
-                              text=True, capture_output=True, timeout=timeout + 5)
+                              capture_output=True, timeout=timeout + 5)
     except subprocess.TimeoutExpired:
         return {'status': 'ERROR', 'reason': 'process timeout'}
     except OSError as error:
         return {'status': 'ERROR', 'reason': 'process launch failed: ' + str(error)}
     if proc.returncode:
         return {'status': 'ERROR', 'reason': 'process crash' if proc.returncode < 0 else 'driver error',
-                'exit_code': proc.returncode, 'stderr': proc.stderr[-4000:]}
+                'exit_code': proc.returncode, 'stderr': proc.stderr[-4000:].decode('utf-8', errors='replace')}
     try:
-        actual = strict_json(proc.stdout)
+        actual = strict_json(proc.stdout.decode('utf-8'))
         status, reason = classify(actual)
         return {'status': status, 'reason': reason, 'actual': actual}
     except (ValueError, KeyError, TypeError) as error:
-        return {'status': 'ERROR', 'reason': 'malformed report: ' + str(error), 'stdout': proc.stdout[-4000:]}
+        return {'status': 'ERROR', 'reason': 'malformed report: ' + str(error), 'stdout_hex': proc.stdout[-4000:].hex()}
 
 
 def load_manifest(path):
     manifest = strict_json(path.read_text())
     require(manifest.get('version') == 1 and isinstance(manifest.get('files'), dict), 'invalid manifest')
+    upstream = manifest.get('upstream')
+    require(isinstance(upstream, dict) and upstream.get('repository') == 'https://github.com/web-platform-tests/wpt' and
+            isinstance(upstream.get('revision'), str) and re.fullmatch(r'[0-9a-f]{40}', upstream['revision']), 'invalid upstream provenance')
     require(isinstance(manifest.get('cases'), list) and manifest['cases'], 'empty cases')
     for name, digest in manifest['files'].items():
         file = (path.parent / name).resolve()
@@ -123,6 +131,8 @@ def load_manifest(path):
 
 def run(manifest_path, driver, timeout=10):
     manifest = load_manifest(manifest_path)
+    inventory = strict_json((manifest_path.parent / 'wpt-inventory.json').read_text())
+    require(inventory.get('revision') == manifest['upstream']['revision'], 'suite inventory revision mismatch')
     results = []
     with tempfile.TemporaryDirectory(prefix='win-wpt-') as directory:
         bridge = Path(directory) / 'bridge.js'
@@ -134,7 +144,7 @@ def run(manifest_path, driver, timeout=10):
     counts = Counter(item['status'] for item in results)
     return {'protocol': 1, 'profile': 'native-window-script-testharness-v1', 'upstream': manifest['upstream'],
             'evidence': evidence(driver), 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-            'bridge_sha256': hashlib.sha256(BRIDGE.encode()).hexdigest(), 'wall_timeout_seconds': timeout, 'inventory': strict_json((manifest_path.parent / 'wpt-inventory.json').read_text()),
+            'bridge_sha256': hashlib.sha256(BRIDGE.encode()).hexdigest(), 'wall_timeout_seconds': timeout, 'inventory': inventory,
             'selected_files': len(results), 'executed_files': sum('actual' in r and r['actual']['failed_source'] == -1 for r in results),
             'counts': {key: counts[key] for key in STATUSES}, 'results': results,
             'limitations': 'Window script seam only: not wptrunner/WebDriver, HTML/resource loading, multi-origin/TLS, variants or testdriver. Failures and mandatory unsupported features remain blockers.'}

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import wpt_testharness as runner
 
 DRIVER = runner.ROOT / 'win/bin/wpt_driver'
@@ -99,12 +100,29 @@ class AsyncDriverContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / 'driver'
             for body, reason in [('import os,signal;os.kill(os.getpid(),signal.SIGKILL)', 'process crash'),
-                                 ('print("{}")', 'malformed report')]:
+                                 ('print("{}")', 'malformed report'),
+                                 ("import os;os.write(1,b'\\xff')", 'malformed report')]:
                 binary.write_text('#!/usr/bin/env python3\n' + body + '\n')
                 binary.chmod(0o755)
                 result = runner.execute(binary, [], .1)
                 self.assertEqual(result['status'], 'ERROR')
                 self.assertIn(reason, result['reason'])
+
+    def test_missing_driver_preserves_case_denominator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = runner.run(runner.CORPUS / 'testharness-manifest.json', Path(directory) / 'absent')
+        self.assertEqual(report['selected_files'], 3)
+        self.assertEqual(report['counts']['ERROR'], 3)
+        self.assertEqual(len(report['results']), 3)
+        self.assertIsNone(report['evidence']['driver_sha256'])
+        self.assertTrue(report['evidence']['driver_hash_error'])
+
+    def test_inventory_revision_mismatch_is_rejected(self):
+        manifest = runner.load_manifest(runner.CORPUS / 'testharness-manifest.json')
+        manifest['upstream']['revision'] = '0' * 40
+        with patch.object(runner, 'load_manifest', return_value=manifest):
+            with self.assertRaisesRegex(ValueError, 'inventory revision mismatch'):
+                runner.run(runner.CORPUS / 'testharness-manifest.json', DRIVER)
 
 
 if __name__ == '__main__':

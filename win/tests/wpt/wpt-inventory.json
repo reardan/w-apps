@@ -316,8 +316,8 @@
   "runnable_variants": null,
   "limitations": "Archive and declared metadata inventory are complete for the pinned source. Declared items/variants are not an applicability or runnable denominator. Unexecuted candidates are not passes or exclusions; environment applicability remains unresolved.",
   "metadata_expansion": {
-    "artifact": "wpt-manifest-inventory.json",
-    "sha256": "a0ec8bccce238c5473b5f2d80171d9bf08fd56ca42fe20d2e1fa65a086fc6b6a",
+    "artifact": "wpt-manifest-inventory-coverage.json",
+    "sha256": "5f51f5ae0d96d0f7ae3ec79104dceccd1408e62cb6189ced4295115eb69eba0a",
     "protocol": 1,
     "revision": "6d4552a8b1057e42a180119d70273f563e53a264",
     "generator": "unchanged upstream tools/manifest",
@@ -347,6 +347,32 @@
       "visual": 2714,
       "wdspec": 658
     },
-    "applicability": "Unresolved. Manifest items are candidates, not executed/passed tests; support and manual items remain separate."
+    "applicability": "Unresolved. Manifest items are candidates, not executed/passed tests; support and manual items remain separate.",
+    "archive_links_in_manifest": [
+      "tools/third_party/websockets/docs/_static/favicon.ico",
+      "tools/third_party/websockets/docs/_static/tidelift.png",
+      "tools/third_party/websockets/docs/_static/websockets.svg",
+      "tools/third_party/websockets/example/tutorial/step1/connect4.css",
+      "tools/third_party/websockets/example/tutorial/step1/connect4.js",
+      "tools/third_party/websockets/example/tutorial/step1/connect4.py",
+      "tools/third_party/websockets/example/tutorial/step1/favicon.ico",
+      "tools/third_party/websockets/example/tutorial/step2/connect4.css",
+      "tools/third_party/websockets/example/tutorial/step2/connect4.js",
+      "tools/third_party/websockets/example/tutorial/step2/connect4.py",
+      "tools/third_party/websockets/example/tutorial/step2/favicon.ico",
+      "tools/third_party/websockets/example/tutorial/step3/connect4.css",
+      "tools/third_party/websockets/example/tutorial/step3/connect4.js",
+      "tools/third_party/websockets/example/tutorial/step3/connect4.py",
+      "tools/third_party/websockets/example/tutorial/step3/favicon.ico",
+      "tools/third_party/websockets/experiments/authentication/favicon.ico"
+    ],
+    "regular_archive_files_not_manifested": [
+      "tools/.coveragerc",
+      "tools/third_party/html5lib/.coveragerc",
+      "tools/third_party/packaging/.coveragerc",
+      "tools/third_party/pluggy/.coveragerc",
+      "tools/third_party/pytest/.coveragerc",
+      "tools/wptserve/.coveragerc"
+    ]
   }
 }

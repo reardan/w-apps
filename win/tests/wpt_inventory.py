@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import tarfile
 import sys
+import tempfile
 import urllib.request
 
 ARCHIVE_SHA256 = {
@@ -118,27 +119,36 @@ def expand(suite, directory):
                   'applicability': 'unresolved; declared variant count is not an execution/pass count'}
         target = directory / 'test262-metadata.json'
     else:
-        source_dir = directory / 'wpt-source'
-        source_dir.mkdir(exist_ok=True)
-        # Python 3.12+ for the safe extraction filter. Only verified archive code runs.
-        with tarfile.open(archive) as source:
-            source.extractall(source_dir, filter='data')
-        source_root = source_dir / ('wpt-' + revision)
-        sys.path[:0] = [str(source_root / 'tools')] + [str(p) for p in (source_root / 'tools/third_party').iterdir() if p.is_dir()]
-        from manifest.manifest import load_and_update
-        manifest_path = directory / 'WPT-MANIFEST.json'
-        manifest = load_and_update(str(source_root), str(manifest_path), '/', rebuild=True,
-                                   parallel=False, cache_root=str(directory / 'wpt-manifest-cache'))
-        files, items = Counter(), Counter()
-        for kind, path, tests in manifest:
-            files[kind] += 1
-            items[kind] += len(tests)
-        report = {'protocol': 1, 'revision': revision, 'generator': 'unchanged upstream tools/manifest',
-                  'manifest_version': manifest.to_json()['version'],
-                  'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-                  'source_files_by_type': dict(files), 'declared_items_by_type': dict(items),
-                  'applicability': 'Unresolved. Manifest items are candidates, not executed/passed tests; support and manual items remain separate.'}
-        target = directory / 'wpt-manifest-inventory.json'
+        with tempfile.TemporaryDirectory(prefix='wpt-source-', dir=directory) as extraction:
+            source_dir = Path(extraction)
+            # Python 3.12+ for the safe extraction filter. Only verified archive code runs.
+            with tarfile.open(archive) as source:
+                source.extractall(source_dir, filter='data')
+            source_root = source_dir / ('wpt-' + revision)
+            sys.path[:0] = [str(source_root / 'tools')] + [str(p) for p in (source_root / 'tools/third_party').iterdir() if p.is_dir()]
+            from manifest.manifest import load_and_update
+            manifest_path = directory / 'WPT-MANIFEST.json'
+            manifest = load_and_update(str(source_root), str(manifest_path), '/', rebuild=True,
+                                       parallel=False, cache_root=str(directory / 'wpt-manifest-cache'))
+            files, items, paths = Counter(), Counter(), set()
+            for kind, path, tests in manifest:
+                files[kind] += 1
+                items[kind] += len(tests)
+                paths.add(path.replace('\\', '/'))
+            with tarfile.open(archive) as source:
+                prefix = 'wpt-' + revision + '/'
+                regular = {item.name.removeprefix(prefix) for item in source.getmembers() if item.isfile()}
+                links = {item.name.removeprefix(prefix) for item in source.getmembers() if item.issym() or item.islnk()}
+            if paths - regular - links:
+                raise ValueError('manifest contains sources outside immutable archive')
+            report = {'protocol': 1, 'revision': revision, 'generator': 'unchanged upstream tools/manifest',
+                      'manifest_version': manifest.to_json()['version'],
+                      'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                      'source_files_by_type': dict(files), 'declared_items_by_type': dict(items),
+                      'archive_links_in_manifest': sorted(paths & links),
+                      'regular_archive_files_not_manifested': sorted(regular - paths),
+                      'applicability': 'Unresolved. Manifest items are candidates, not executed/passed tests; support and manual items remain separate.'}
+            target = directory / 'wpt-manifest-inventory-coverage.json'
     target.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report), flush=True)
 

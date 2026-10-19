@@ -111,6 +111,9 @@ source files produce 39,257 declared items; 28,227 reftest sources produce
 28,601 items. Manual, support, crash, visual, print, accessibility, WebDriver
 and vendored Test262 entries remain separate in the pinned summary. Declared
 items are candidates, not executed tests or resolved product applicability.
+Archive-to-manifest validation accounts for 16 archived symbolic-link paths
+and six omitted `.coveragerc` config files; there are no manifest sources
+outside the immutable archive.
 Reproduce the complete archive/index and summary with:
 
 ```sh

@@ -147,6 +147,7 @@ def run(manifest_path, driver, timeout=10):
     manifest = load_manifest(manifest_path)
     inventory = strict_json((manifest_path.parent / 'wpt-inventory.json').read_text())
     require(inventory.get('revision') == manifest['upstream']['revision'], 'suite inventory revision mismatch')
+    execution_evidence = evidence(driver)
     results = []
     with tempfile.TemporaryDirectory(prefix='win-wpt-') as directory:
         bridge = Path(directory) / 'bridge.js'
@@ -157,7 +158,7 @@ def run(manifest_path, driver, timeout=10):
             results.append({'id': case['id'], 'blockers': case['blockers'], **result})
     counts = Counter(item['status'] for item in results)
     return {'protocol': 1, 'profile': 'native-window-script-testharness-v1', 'upstream': manifest['upstream'],
-            'evidence': evidence(driver), 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'evidence': execution_evidence, 'source_pins': manifest['files'], 'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
             'bridge_sha256': hashlib.sha256(BRIDGE.encode()).hexdigest(), 'wall_timeout_seconds': timeout, 'inventory': inventory,
             'selected_files': len(results), 'executed_files': sum('actual' in r and r['actual']['failed_source'] == -1 for r in results),
             'counts': {key: counts[key] for key in STATUSES}, 'results': results,

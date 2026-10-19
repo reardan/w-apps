@@ -1,7 +1,7 @@
 # Bounded HTML Node tree operations. DOM Standard Node/pre-insert/pre-remove:
 # https://dom.spec.whatwg.org/#interface-node
 # https://dom.spec.whatwg.org/#concept-node-pre-insert
-# Same-document HTML elements/text only; no fragments, adoption or XML tree.
+# Same-document HTML elements/text/fragments; no adoption or XML tree.
 import win.script
 
 int win_dom_tree_charge(js_runtime* rt, int cost):
@@ -123,6 +123,7 @@ js_value* win_dom_tree_get(win_dom_binding* b, js_text* key):
 	if (id == 2):
 		if (node.kind == HTML_TEXT): return win_js_string(rt, c"#text")
 		if (node.kind == HTML_DOCUMENT): return win_js_string(rt, c"#document")
+		if (node.kind == HTML_FRAGMENT): return win_js_string(rt, c"#document-fragment")
 		if (node.kind == HTML_COMMENT): return win_js_string(rt, c"#comment")
 		char* name = strclone(node.name)
 		if (node.kind == HTML_START):
@@ -213,7 +214,7 @@ js_value* win_dom_tree_mutate(win_dom_binding* b, js_value* receiver, list[js_va
 			win_dom_tree_error(rt, c"NotFoundError", c"Node is not a child of the receiver")
 			return rt.undefined_value
 	else:
-		if (parent.kind != HTML_START || (child.kind != HTML_START && child.kind != HTML_TEXT)):
+		if ((parent.kind != HTML_START && parent.kind != HTML_FRAGMENT) || (child.kind != HTML_START && child.kind != HTML_TEXT && child.kind != HTML_FRAGMENT)):
 			win_dom_hierarchy_error(rt)
 			return rt.undefined_value
 		html_node* ancestor = parent
@@ -228,24 +229,47 @@ js_value* win_dom_tree_mutate(win_dom_binding* b, js_value* receiver, list[js_va
 		if (reference != 0 && reference.parent != parent):
 			win_dom_tree_error(rt, c"NotFoundError", c"Reference is not a child of the receiver")
 			return rt.undefined_value
-		win_dom_bounded_height(rt, child, 128 - depth)
-		if (rt.completion.status != 0): return rt.undefined_value
+		if (child.kind == HTML_FRAGMENT):
+			html_node* item = child.first_child
+			while (item != 0):
+				if (win_dom_tree_charge(rt, 1) == 0): return rt.undefined_value
+				if (item.kind != HTML_START && item.kind != HTML_TEXT):
+					win_dom_hierarchy_error(rt)
+					return rt.undefined_value
+				win_dom_bounded_height(rt, item, 128 - depth)
+				if (rt.completion.status != 0): return rt.undefined_value
+				item = item.next_sibling
+		else:
+			win_dom_bounded_height(rt, child, 128 - depth)
+			if (rt.completion.status != 0): return rt.undefined_value
 	# Reserve linked-list scans before mutation, so exhaustion leaves both trees intact.
 	if (win_dom_tree_charge(rt, 2 * script.page.html.node_count) == 0): return rt.undefined_value
 	if (reference == child): reference = child.next_sibling
-	win_dom_detach(child)
-	if (operation != 2):
-		child.parent = parent
-		child.next_sibling = reference
-		if (reference == 0):
-			if (parent.last_child != 0): parent.last_child.next_sibling = child
-			else: parent.first_child = child
-			parent.last_child = child
-		else if (parent.first_child == reference): parent.first_child = child
-		else:
-			html_node* previous = parent.first_child
-			while (previous.next_sibling != reference): previous = previous.next_sibling
-			previous.next_sibling = child
+	if (operation == 2): win_dom_detach(child)
+	else:
+		html_node* first = child
+		html_node* last = child
+		if (child.kind == HTML_FRAGMENT):
+			first = child.first_child
+			last = child.last_child
+			child.first_child = 0
+			child.last_child = 0
+		else: win_dom_detach(child)
+		if (first != 0):
+			html_node* item = first
+			while (item != 0):
+				item.parent = parent
+				item = item.next_sibling
+			last.next_sibling = reference
+			if (reference == 0):
+				if (parent.last_child != 0): parent.last_child.next_sibling = first
+				else: parent.first_child = first
+				parent.last_child = last
+			else if (parent.first_child == reference): parent.first_child = first
+			else:
+				html_node* previous = parent.first_child
+				while (previous.next_sibling != reference): previous = previous.next_sibling
+				previous.next_sibling = first
 	script.dirty = 1
 	script.styles_dirty = 1
 	return args[0]
@@ -301,6 +325,17 @@ js_value* win_dom_tree_element_ns(void* runtime, void* context, js_value* receiv
 js_value* win_dom_tree_text_node(void* runtime, void* context, js_value* receiver, list[js_value*] args):
 	return win_dom_tree_create(cast(win_dom_binding*, context), receiver, args, 2)
 
+js_value* win_dom_tree_fragment(void* runtime, void* context, js_value* receiver, list[js_value*] args):
+	win_dom_binding* b = cast(win_dom_binding*, context)
+	win_script* script = cast(win_script*, b.context)
+	js_runtime* rt = script.runtime
+	if (receiver != b.object || b.node != script.page.html.root):
+		js_runtime_fail(rt, 2, c"DocumentFragment creation requires the Document receiver")
+		return rt.undefined_value
+	html_node* node = win_dom_create(script, HTML_FRAGMENT, c"#document-fragment")
+	if (node == 0): return rt.undefined_value
+	return win_script_wrap(script, node)
+
 void win_dom_tree_install(win_dom_binding* b):
 	win_script* script = cast(win_script*, b.context)
 	js_runtime* rt = script.runtime
@@ -309,6 +344,7 @@ void win_dom_tree_install(win_dom_binding* b):
 	js_runtime_set(rt, b.object, c"insertBefore", js_runtime_host_callable(rt, b, win_dom_tree_insert))
 	js_runtime_set(rt, b.object, c"removeChild", js_runtime_host_callable(rt, b, win_dom_tree_remove))
 	if (b.node == script.page.html.root):
+		js_runtime_set(rt, b.object, c"createDocumentFragment", js_runtime_host_callable(rt, b, win_dom_tree_fragment))
 		js_runtime_set(rt, b.object, c"createElement", js_runtime_host_callable(rt, b, win_dom_tree_element))
 		js_runtime_set(rt, b.object, c"createElementNS", js_runtime_host_callable(rt, b, win_dom_tree_element_ns))
 		js_runtime_set(rt, b.object, c"createTextNode", js_runtime_host_callable(rt, b, win_dom_tree_text_node))

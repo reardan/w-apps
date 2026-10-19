@@ -42,6 +42,9 @@ class Handler(BaseHTTPRequestHandler):
             headers = [("Set-Cookie", "sid=one; Path=/scope; Max-Age=60"),
                        ("Set-Cookie", "second=two; Path=/scope"),
                        ("Set-Cookie", "nope=bad; Domain=localhost; Path=/")]
+        elif self.path.startswith("/cookie-large/"):
+            payload = b"x" * 1048576
+            headers = [("Set-Cookie", f"large{i}={'v' * 1800}; Path=/large") for i in range(32)]
         elif self.path == "/date-fields":
             headers = [("Set-Cookie", "test=2; Path=/dates; Expires=Fri 01 Jan 2038 00:00:00 GMT, baz=qux"),
                        ("Set-Cookie", "other=3; Path=/dates; HttpOnly"),
@@ -106,7 +109,40 @@ try:
         assert counts["/no-store"] == 2, counts
         assert counts["/cache-redirect"] == 2, counts
         assert foreign_requests == [("/foreign", None)], foreign_requests
-        print("network integration tests passed (cookies, redirects, fetch status, cache IPC)")
+        # Treat the loader child protocol as untrusted: independently bound
+        # metadata, final envelope, and decoded body even if a child lies.
+        cookie = b"COOKIE\nhttp://example.test/\nprobe=must-not-persist\n"
+        ok = b"OK\nhttp://example.test/\n"
+        cap = 32 * (4096 + 2048 + 9) + 1024
+        cases = {
+            "body-over": cookie + ok + b"x" * 1048577,
+            "body-cookie-prefix": cookie + ok + b"COOKIE\n" + b"x" * 1048576,
+            "cookie-count-over": cookie * 33 + ok,
+            "cookie-field-over": b"COOKIE\nhttp://example.test/\n" + b"x" * 2049 + b"\n" + ok,
+            "cookie-url-over": b"COOKIE\nhttp://example.test/" + b"x" * 4096 + b"\np=1\n" + ok,
+            "metadata-over": (b"STATUS\n200\n" * 100) + ok,
+            "metadata-over-error": cookie * 33 + b"ERROR\nfailed",
+            "status-malformed": cookie + b"STATUS\nwrong\n" + ok,
+            "mime-malformed": cookie + b"WASM-MIME\nwrong\n" + ok,
+            "cache-malformed": cookie + b"CACHE\nwrong\n" + ok,
+            "total-over": b"x" * (1048576 + 4096 + 4 + cap + 1),
+            "cookie-incomplete": cookie + b"COOKIE\nhttp://example.test/\nincomplete",
+            "envelope-incomplete": cookie + b"OK\nhttp://example.test/",
+        }
+        long_url = b"http://example.test/" + b"x" * (4096 - len(b"http://example.test/"))
+        full_field = b"p=" + b"v" * 2046
+        cases["maximum-valid"] = (b"COOKIE\n" + long_url + b"\n" + full_field + b"\n") * 32 + ok + b"x" * 1048576
+        for name, payload in cases.items():
+            worker = Path(temporary) / (name + ".py")
+            data_file = Path(temporary) / (name + ".bin")
+            data_file.write_bytes(payload)
+            worker.write_text("#!/usr/bin/python3\nfrom pathlib import Path\nimport sys\nsys.stdout.buffer.write(Path(" + repr(str(data_file)) + ").read_bytes())\nsys.exit(" + ("1" if name.endswith("-error") else "0") + ")\n")
+            worker.chmod(0o700)
+            expected = "accept" if name == "maximum-valid" else "reject"
+            checked = subprocess.run([str(probe), "--protocol", str(worker), "--expect", expected],
+                                     capture_output=True, text=True, timeout=15)
+            assert checked.returncode == 0, (name, checked.stdout, checked.stderr)
+        print("network integration tests passed (cookies, redirects, cache IPC, metadata/body bounds)")
 finally:
     for instance in (server, foreign):
         instance.shutdown()

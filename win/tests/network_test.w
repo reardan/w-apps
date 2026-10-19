@@ -120,6 +120,18 @@ void network_loopback_tests(char* executable, char* base):
 	asserts(c"fetch exposes error body", strcmp(load.source, c"missing") == 0)
 	win_load_free(load)
 	win_network_state_clear()
+	string_builder* long_path = string_new()
+	string_append(long_path, c"/cookie-large/")
+	for i in range(3500): string_append(long_path, c"x")
+	load = network_load(executable, base, long_path.data, c"document")
+	string_free(long_path)
+	assert_equal(WIN_SOURCE_LIMIT, load.length)
+	int cookie_total = 0
+	for i in range(WIN_COOKIE_COUNT):
+		if (win_cookies[i] != 0): cookie_total = cookie_total + 1
+	assert_equal(WIN_COOKIE_COUNT, cookie_total)
+	win_load_free(load)
+	win_network_state_clear()
 	load = network_load(executable, base, c"/date-fields", c"document")
 	win_load_free(load)
 	load = network_load(executable, base, c"/dates/echo", c"fetch")
@@ -167,8 +179,26 @@ void network_loopback_tests(char* executable, char* base):
 		win_load_free(load)
 	win_network_state_clear()
 
+void network_protocol_test(char* executable, char* expectation):
+	win_network_state_clear()
+	win_load* load = win_load_start(executable, c"http://example.test/")
+	while (win_load_poll(load) == 0): sleep_ms(1)
+	if (strcmp(expectation, c"accept") == 0):
+		if (load.error != 0): println(load.error)
+		asserts(c"bounded protocol accepted", load.error == 0)
+		assert_equal(WIN_SOURCE_LIMIT, load.length)
+	else:
+		asserts(c"malformed or oversized protocol rejected", load.error != 0)
+		for i in range(WIN_COOKIE_COUNT): asserts(c"rejected metadata cannot mutate jar", win_cookies[i] == 0)
+	win_load_free(load)
+	win_network_state_clear()
+
 int main(int argc, int argv):
 	args_init(argc, argv)
+	char* protocol = args_value(c"protocol")
+	if (protocol != 0):
+		network_protocol_test(protocol, args_value(c"expect"))
+		return 0
 	char* resource = args_value(c"resource")
 	if (resource != 0): return win_resource_worker(resource, args_value(c"kind"))
 	char* fetch = args_value(c"fetch")

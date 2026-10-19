@@ -18,6 +18,11 @@ const int WIN_SOURCE_LIMIT = 1048576
 const int WIN_FETCH_LIMIT = 4194304
 const int WIN_ADDRESS_LIMIT = 4096
 const int WIN_FETCH_REQUEST_LIMIT = 65536
+# COOKIE\n + URL + \n + field + \n, up to 32 across all redirects.
+# A separate 1024 bytes covers STATUS/CACHE/WASM-MIME records. Body limits
+# are enforced independently after envelope parsing as well as in the child.
+const int WIN_LOADER_COOKIE_METADATA_LIMIT = WIN_COOKIE_COUNT * (WIN_ADDRESS_LIMIT + WIN_COOKIE_LIMIT + 9)
+const int WIN_LOADER_METADATA_LIMIT = WIN_LOADER_COOKIE_METADATA_LIMIT + 1024
 
 int win_remote(char* address):
 	return starts_with(address, c"http://") || starts_with(address, c"https://")
@@ -185,7 +190,7 @@ http_stream* win_form_http_open(http_req* req):
 			if (cookie_fields >= WIN_COOKIE_COUNT): break
 			cookie_fields = cookie_fields + 1
 			char* set_cookie = http_response_set_cookie(stream.resp, i)
-			if (strlen(set_cookie) > WIN_COOKIE_LIMIT): continue
+			if (strlen(set_cookie) > WIN_COOKIE_LIMIT || strlen(address) > WIN_ADDRESS_LIMIT): continue
 			win_cookie_set(address, set_cookie)
 			if (env_get(c"WIN_COOKIE_SNAPSHOT") != 0):
 				win_write(c"COOKIE\n", 7)
@@ -780,7 +785,7 @@ int win_load_poll(win_load* load):
 		if (count == 0):
 			load.eof = 1
 			break
-		if (load.output.length + count > load.limit + WIN_ADDRESS_LIMIT + 65536):
+		if (load.output.length + count > load.limit + WIN_ADDRESS_LIMIT + 4 + WIN_LOADER_METADATA_LIMIT):
 			win_load_fail(load, c"Document exceeds the loading limit.")
 			return 1
 		string_append_bytes(load.output, &chunk[0], count)
@@ -790,6 +795,9 @@ int win_load_poll(win_load* load):
 	load.finished = 1
 	char* data = load.output.data
 	int metadata_bytes = 0
+	int metadata_error = 0
+	int cookie_bytes = 0
+	int other_metadata_bytes = 0
 	# Array sizes mirror WIN_COOKIE_COUNT; imported constants are not array bounds.
 	char*[32] cookie_urls
 	char*[32] cookie_headers
@@ -816,21 +824,33 @@ int win_load_poll(win_load* load):
 				free(value)
 				break
 			char* header = substring(data, start, end)
-			if (cookie_count < WIN_COOKIE_COUNT):
+			consumed = end + 1
+			cookie_bytes = cookie_bytes + consumed
+			if (cookie_count >= WIN_COOKIE_COUNT || strlen(value) > WIN_ADDRESS_LIMIT || strlen(header) > WIN_COOKIE_LIMIT || cookie_bytes > WIN_LOADER_COOKIE_METADATA_LIMIT):
+				metadata_error = 1
+				free(header)
+			else:
 				cookie_urls[cookie_count] = strclone(value)
 				cookie_headers[cookie_count] = header
 				cookie_count = cookie_count + 1
-			else: free(header)
-			consumed = end + 1
-		else if (status_record): load.status = win_net_decimal(value, 599)
-		else if (mime_record): load.wasm_mime = strcmp(value, c"1") == 0
+		else if (status_record):
+			load.status = win_net_decimal(value, 599)
+			if (load.status < 0): metadata_error = 1
+		else if (mime_record):
+			load.wasm_mime = strcmp(value, c"1") == 0
+			if (load.wasm_mime == 0 && strcmp(value, c"0") != 0): metadata_error = 1
 		else:
 			int lifetime = win_net_decimal(value, 86400)
+			if (lifetime < 0): metadata_error = 1
 			if (lifetime > 0): load.cache_expires = time_now() + lifetime - (time_monotonic_ms() - load.started + 999) / 1000
+		if (cookie_record == 0):
+			other_metadata_bytes = other_metadata_bytes + consumed
+			if (other_metadata_bytes > 1024): metadata_error = 1
 		free(value)
 		data = data + consumed
 		metadata_bytes = metadata_bytes + consumed
-	if (starts_with(data, c"ERROR\n")): load.error = strclone(data + 6)
+	if (metadata_error): load.error = strclone(c"Invalid loader metadata.")
+	else if (starts_with(data, c"ERROR\n")): load.error = strclone(data + 6)
 	else if (status != 0 || starts_with(data, c"OK\n") == 0): load.error = strclone(c"Resource loader exited unsuccessfully.")
 	else:
 		int end = 3
@@ -840,7 +860,11 @@ int win_load_poll(win_load* load):
 			load.address = substring(data, 3, end)
 			load.source = data + end + 1
 			load.length = load.output.length - metadata_bytes - end - 1
-	int valid_protocol = (status == 0 && load.error == 0) || (status == 1 && starts_with(data, c"ERROR\n"))
+			if (load.length > load.limit):
+				load.error = strclone(c"Document exceeds the loading limit.")
+				load.source = 0
+				load.length = 0
+	int valid_protocol = metadata_error == 0 && ((status == 0 && load.error == 0) || (status == 1 && starts_with(data, c"ERROR\n")))
 	for i in range(cookie_count):
 		if (valid_protocol): win_cookie_set(cookie_urls[i], cookie_headers[i])
 		free(cookie_urls[i])

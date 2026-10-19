@@ -14,21 +14,31 @@ int win_history_tree(js_runtime* rt, js_value* value, list[js_value*] seen, int 
 	if (value.kind == 1 || value.kind == 2 || value.kind == 4): return 1
 	if (value.kind == 3): return js_builtin_finite(value.number) && (value.number != 0.0 || 1.0 / value.number > 0.0)
 	if (value.kind != 5 && value.kind != 6): return 0
-	if (value.host_get || value.host_set || value.binary_kind || value.regexp != 0 || value.promise_state || value.intrinsic_error_name[0] != 0): return 0
-	if (value.prototype != 0 && value.prototype != rt.array_prototype): return 0
+	if (value.owner != rt || value.arguments_object || value.boxed_value != 0 || value.host_has || value.host_get || value.host_set || value.binary_kind || value.regexp != 0 || value.promise_state || value.intrinsic_error_name[0] != 0): return 0
+	if (value.prototype != 0 && value.prototype != rt.object_prototype && value.prototype != rt.array_prototype): return 0
 	for i in range(seen.length):
 		if (seen[i] == value): return 0
 	seen.push(value)
 	js_text* transform = js_runtime_key(c"toJSON")
 	int transformed = js_runtime_property(value, transform) != 0
-	if (value.prototype != 0 && js_runtime_property(value.prototype, transform) != 0): transformed = 1
+	js_value* prototype = value.prototype
+	int prototypes = 0
+	while (prototype != 0):
+		# Inspect descriptors directly: preflight must never execute a hook.
+		if (prototypes >= 32 || js_runtime_compat_step(rt) == 0):
+			transformed = 1
+			break
+		if (prototype != rt.object_prototype && prototype != rt.array_prototype): transformed = 1
+		if (prototype.host_get || prototype.host_set || prototype.host_has || js_runtime_property(prototype, transform) != 0): transformed = 1
+		prototype = prototype.prototype
+		prototypes = prototypes + 1
 	js_text_free(transform)
 	if (transformed): return 0
 	int elements = 0
 	for i in range(value.properties.length):
 		js_value* property = value.properties[i]
 		if (property.enumerable == 0): continue
-		if (property.accessor): return 0
+		if (property.accessor || property.mapped_binding != 0): return 0
 		if (value.kind == 6):
 			int index = js_runtime_array_index(property.key)
 			if (index < 0 || index >= value.array_length): return 0

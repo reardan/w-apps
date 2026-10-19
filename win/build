@@ -26,6 +26,7 @@ fi
 if [[ "$action" == test || "$action" == standards || "$action" == wpt-async ]]; then
   python3 "$win_root/tests/standards_ledger.py"
   python3 "$win_root/tests/browser_measurements_test.py"
+  python3 "$win_root/tests/native_browser_measurements_test.py"
   "${compiler[@]}" check --json "${imports[@]}" "$win_root/tests/wpt_driver.w"
   "${compiler[@]}" --strict "${imports[@]}" "$win_root/tests/wpt_driver.w" -o "$win_root/bin/wpt_driver"
   python3 "$win_root/tests/wpt_testharness_test.py"

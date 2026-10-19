@@ -32,7 +32,7 @@ test for the integrated exception-reporting slice. B temporarily owns
 and host-root preservation. The coordinator retains `script.w` callers and owns
 `win/tests/html_tree_integration_test.w` plus optional native probe timing instrumentation. The D transfer includes only cookie parsing,
 state and separate HTTP Set-Cookie field transport, preserving existing security
-denials. `document.w`, rendering, other network policy, graphics and platform modules are reserved
+denials. The coordinator now owns `document.w` solely for explicit scripting-mode parsing and noscript inert rendering, plus `dom_tree.w`, PI/ownership tests, and `native_browser_measurements*.py`. Other rendering, network policy, graphics and platform modules are reserved
 for their plan owners; they cannot be edited without an explicit transfer. A sends
 Test262 family requests to F. B sends script-host hooks to the coordinator. W
 commits land before dependent application changes. A separate agent reviews each
@@ -146,3 +146,7 @@ record these limits. Xvfb/software GL is separate from real-GPU evidence. Curren
 probes measure callback/readback times; those are not actual presentation latency.
 Proposed budgets remain unqualified until the required raw sample counts and
 presentation calibration exist.
+
+Document parsing contract: `html_parse_with_scripting(data,length,scripting)` and `html_parse_with_scripting_limits(data,length,scripting,limits)` normalize explicit 0/1. Legacy generic parser entry points preserve their prior behavior; Win calls explicit 1. Native PI nodes own target/data with explicit byte lengths and remain inert leaves. Table foundation work uses real implied nodes and does not change Win API.
+
+String timers own UTF-8 source until cancellation/dispatch teardown; conversion precedes delay and ID publication. Native global evaluation shares each poll budget. Repeated evaluation retains ASTs under max_scripts. Parser rejection is not relabeled SyntaxError until valid unsupported grammar can be distinguished.

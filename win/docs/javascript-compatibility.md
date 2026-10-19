@@ -62,8 +62,12 @@ callback from the current batch. Up to 256 callbacks share a 1,000,000-step fram
 budget. Ordinary headless dumps do not run frames; isolated interactive ticks can.
 
 `setTimeout`, `setInterval`, `clearTimeout`, and `clearInterval` are available on
-the global scope and Window. Callbacks must be functions; source-string timers
-are rejected. Delays and cancellation IDs use observable numeric conversion and
+the global scope and Window. Callable handlers retain callback arguments; other handlers
+undergo observable string conversion before timeout conversion and execute as native
+global scripts when due. String-handler extra arguments are ignored. Retained sources
+are limited to 64 KiB each and 4 MiB per realm, with existing parser/AST/fuel caps.
+Lone-surrogate source encoding and precise SyntaxError-versus-unsupported grammar
+classification remain unsupported. Delays and cancellation IDs use observable numeric conversion and
 signed 32-bit Web IDL conversion; negative delays become zero. Zero-delay intervals retain registration ordering
 with timeouts and fire at most once per host poll. Timers preserve the supplied extra callback arguments within
 runtime argument limits and invoke ordinary callbacks with Window as `this`. There
@@ -71,7 +75,7 @@ are at most 256 active timers. Timer IDs are unique within a realm, and either
 clear function can cancel either timer kind. Registration samples the current
 monotonic clock; deterministic native tests explicitly inject their clock. Quota
 failures publish no partial timer or consumed ID. Full timer nesting/minimum-delay
-semantics and string handlers remain mandatory gaps.
+semantics, Trusted Types/CSP integration and complete source grammar remain mandatory gaps.
 
 Browser polling runs at most 64 due callbacks with a shared 1,000,000-step budget.
 Equal deadlines preserve registration order. Timers created by a timer callback
@@ -363,3 +367,7 @@ These changes improve keyboard access. Linux AT-SPI/screen-reader integration,
 ARIA semantic trees, shadow/iframe focus scopes, radio-group roving focus and
 complete platform keyboard/IME support remain open. Tests cover native and
 isolated traversal/activation and actual rendered focus pixels.
+
+Fresh bounded runtime additions include generic Array lastIndexOf and push/pop/shift/unshift; String charAt/substring and trim/trimStart/trimEnd with exact trimLeft/trimRight aliases; ordinary Object seal/freeze/isSealed/isFrozen; and Error.isError internal branding. Symbol, Proxy, Date and other exotic dependencies remain visible in full-family failures. These slices do not establish complete Object, Array or String conformance.
+
+Win now parses documents with scripting explicitly enabled: noscript markup is inert raw text and does not render. Native ProcessingInstruction nodes expose nodeType 7, preserved target/name and owned data/nodeValue/textContent, including NUL data, and retain identity when moved. Full DOM CharacterData methods, constructor/prototype Web IDL semantics and mutation observers remain mandatory gaps.

@@ -36,6 +36,46 @@ int win_fragment_index(char* address):
 char* win_without_fragment(char* address):
 	return substring(address, 0, win_fragment_index(address))
 
+# Address-bar text such as "google.com" or "localhost:8080/x" has no scheme.
+# Without this it would resolve as a file under the current directory. Existing
+# local files, explicit paths and anything else not host-shaped are unchanged.
+# The result is always a new allocation.
+char* win_address_input(char* text):
+	int n = strlen(text)
+	if (n == 0 || win_remote(text)): return strclone(text)
+	if (text[0] == '/' || text[0] == '.' || text[0] == '~'): return strclone(text)
+	if (path_exists(text)): return strclone(text)
+	int end = 0
+	while (end < n && text[end] != '/' && text[end] != '?' && text[end] != '#'): end += 1
+	int host_end = end
+	for i in range(end):
+		if (text[i] == ':'):
+			host_end = i
+			break
+	if (host_end < end):
+		if (host_end + 1 == end): return strclone(text)
+		for i in range(host_end + 1, end):
+			if (text[i] < '0' || text[i] > '9'): return strclone(text)
+	if (host_end == 0): return strclone(text)
+	int has_dot = 0
+	int numeric = 1
+	for i in range(host_end):
+		char c = text[i]
+		if (c == '.'): has_dot = 1
+		else if (c < '0' || c > '9'): numeric = 0
+		if (c <= 32 || c == 127 || c == '@'): return strclone(text)
+	char* host = substring(text, 0, host_end)
+	int local = strcmp(host, c"localhost") == 0
+	free(host)
+	if (!local && !has_dot): return strclone(text)
+	string_builder* out = string_new()
+	if (local || numeric): string_append(out, c"http://")
+	else: string_append(out, c"https://")
+	string_append(out, text)
+	char* result = strclone(out.data)
+	string_free(out)
+	return result
+
 # Inputs from the address bar have an empty base. Links use the current page.
 char* win_resolve(char* base, char* reference):
 	int n = strlen(reference)

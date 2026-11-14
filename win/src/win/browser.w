@@ -288,6 +288,12 @@ void win_navigate_request(win_browser* b, char* reference, char* base, int targe
 void win_navigate(win_browser* b, char* reference, char* base, int target):
 	win_navigate_request(b, reference, base, target, c"GET", c"")
 
+# Text typed into the address bar: add a scheme to bare hosts like google.com.
+void win_navigate_input(win_browser* b, char* text):
+	char* address = win_address_input(text)
+	win_navigate(b, address, c"", -1)
+	free(address)
+
 void win_history_go(win_browser* b, int delta):
 	if (win_browser_history_isolated_go(b, delta)): return
 	if (b.traversals.length < 32): b.traversals.push(delta)
@@ -813,10 +819,9 @@ void win_browser_frame(win_browser* b, ui_context* ctx, int width, int height):
 		else if (b.address[0] != 0): win_navigate(b, b.address, c"", -2)
 	ui_region_pop(ctx)
 	# A separate row keeps the address useful even in a narrow window.
-	if (win_address_editor(b, ctx, ui_rect_new(12.0, 88.0, w - 92.0, 38.0))):
-		win_navigate(b, b.input.buf.data, c"", -1)
+	if (win_address_editor(b, ctx, ui_rect_new(12.0, 88.0, w - 92.0, 38.0))): win_navigate_input(b, b.input.buf.data)
 	ui_region_push(ctx, ui_rect_new(w - 70.0, 91.0, 60.0, 32.0))
-	if (ui_button(ctx, c"Go")): win_navigate(b, b.input.buf.data, c"", -1)
+	if (ui_button(ctx, c"Go")): win_navigate_input(b, b.input.buf.data)
 	ui_region_pop(ctx)
 	ui_rect viewport = ui_rect_new(12.0, 138.0, w - 24.0, h - 182.0)
 	if (viewport.w < 160.0): viewport.w = 160.0
